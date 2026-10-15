@@ -1,0 +1,38 @@
+# MediaMTX configuration for Yeli (https://github.com/bluenviron/mediamtx, free and open source, MIT).
+# Run:   mediamtx mediamtx/mediamtx.yml         (or:  docker compose up -d)
+#
+# Streamers publish with WHIP (from the Yeli studio or from OBS 30+), viewers play with WHEP.
+# MediaMTX asks Yeli whether each request is allowed, so only the owner of a channel can publish to it.
+
+logLevel: info
+
+# --- who may publish / read: ask Yeli -----------------------------------------------------------
+authMethod: http
+# En producción, si Yeli está en la misma máquina o contenedor, apunta a tu dominio o IP pública del backend:
+authHTTPAddress: http://127.0.0.1:5000/api/media/auth   # Cámbialo por https://tu-dominio.com/api/media/auth si usas HTTPS en el backend
+authHTTPExclude:
+  - action: api
+  - action: metrics
+  - action: pprof
+
+# --- only WebRTC is needed ------------------------------------------------------------------------
+rtsp: no
+rtmp: no
+hls: no
+srt: no
+api: no
+metrics: no
+pprof: no
+
+webrtc: yes
+webrtcAddress: :8889          # Puerto HTTP para WHIP/WHEP. Coincide con YELI_MEDIA_URL.
+webrtcLocalUDPAddress: :8189  # Puerto UDP de streaming: asegúrate de abrirlo en el firewall/servidor (iptables / UFW)
+webrtcLocalTCPAddress: :8189  # Alternativa TCP si la red bloquea UDP
+
+# ⚠️ IMPORTANTE PARA LA WEB PÚBLICA:
+# Reemplaza la IP vacía con la IP pública o el dominio de tu servidor (ej. "203.0.113.1" o "media.tudominio.com")
+# para que los navegadores de los espectadores sepan a dónde conectarse por fuera de la red local.
+webrtcAdditionalHosts: ["TU_IP_PUBLICA_O_DOMINIO"]
+
+paths:
+  all_others:

@@ -32,7 +32,7 @@ webrtcLocalTCPAddress: :8189  # Alternativa TCP si la red bloquea UDP
 # ⚠️ IMPORTANTE PARA LA WEB PÚBLICA:
 # Reemplaza la IP vacía con la IP pública o el dominio de tu servidor (ej. "203.0.113.1" o "media.tudominio.com")
 # para que los navegadores de los espectadores sepan a dónde conectarse por fuera de la red local.
-webrtcAdditionalHosts: ["TU_IP_PUBLICA_O_DOMINIO"]
+webrtcAdditionalHosts: []
 
 paths:
   all_others:

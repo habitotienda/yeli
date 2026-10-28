@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Yeli | Streaming App</title>
+    <meta name="theme-color" content="#1e1e1e">
+    <meta name="description" content="Watch an endless array of things live."/>
+    <link rel="stylesheet" href="static/css/style.css">
+    <link rel="icon" href="static/svg/logo.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Changa+One:ital@0;1&family=Fredoka:wdth,wght@99.7,300..700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<header class="site-header">
+    <a href="#/" class="header-brand" aria-label="Yeli home">
+        <img src="static/svg/logo.svg" alt="" class="brand-logo">
+        <span class="brand-name">YELI</span>
+    </a>
+
+    <form class="search-form" role="search" id="searchForm" autocomplete="off">
+        <button type="submit" class="search-submit" aria-label="Search">
+            <img src="static/svg/search.svg" alt="" aria-hidden="true">
+        </button>
+        <input type="search" class="search-input" id="searchInput" placeholder="Search channels and streams..." aria-label="Search channels and streams" maxlength="50" aria-controls="searchSuggest" aria-expanded="false">
+        <div class="search-suggest" id="searchSuggest" role="listbox" aria-label="Suggestions" hidden></div>
+    </form>
+
+    <div class="auth-actions" id="authActions"></div>
+</header>
+
+<div class="app-layout">
+
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <button type="button" class="sidebar-btn menu-toggle-btn" aria-label="Menu" aria-expanded="false">
+                <svg class="menu-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+                    <path class="line line-1" d="M4 7L20 7" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path class="line line-2" d="M4 12L20 12" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path class="line line-3" d="M4 17L20 17" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+            <span class="header-title">Menu</span>
+        </div>
+
+        <nav class="sidebar-nav" aria-label="Main">
+            <a href="#/" class="sidebar-item" data-route="/" aria-label="Home" title="Home">
+                <img src="static/svg/home.svg" alt="" aria-hidden="true">
+                <span class="item-text">Home</span>
+            </a>
+            <a href="#/explore" class="sidebar-item" data-route="/explore" aria-label="Explore" title="Explore">
+                <img src="static/svg/explore.svg" alt="" aria-hidden="true">
+                <span class="item-text">Explore</span>
+            </a>
+            <a href="#/following" class="sidebar-item" data-route="/following" aria-label="Following" title="Following">
+                <img src="static/svg/heart.svg" alt="" aria-hidden="true" id="followingNavIcon">
+                <span class="item-text">Following</span>
+            </a>
+        </nav>
+
+        <hr class="sidebar-divider" id="mineDivider" hidden>
+
+        <div class="sidebar-section" id="sidebarMine"></div>
+
+        <hr class="sidebar-divider" id="followingDivider" hidden>
+
+        <div class="sidebar-subscriptions" id="sidebarFollowing" aria-label="Channels you follow"></div>
+    </aside>
+
+    <main class="main-content" id="view" tabindex="-1"></main>
+</div>
+
+<dialog class="dialog" id="authDialog" aria-labelledby="authTitle">
+    <div class="dialog-body">
+        <button type="button" class="dialog-close" data-action="close-auth" aria-label="Close">&times;</button>
+        <img src="static/svg/logo.svg" alt="" class="dialog-logo" width="40" height="40">
+        <h2 id="authTitle"></h2>
+        <form id="authForm" novalidate></form>
+        <p class="dialog-switch" id="authSwitch"></p>
+    </div>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="static/js/avatars.js"></script>
+<script src="static/js/stickers.js"></script>
+<script src="static/js/player.js"></script>
+<script src="static/js/chat.js"></script>
+<script src="static/js/wallet.js"></script>
+<script src="static/js/bot.js"></script>
+<script src="static/js/moderation.js"></script>
+<script src="static/js/watch-sfu.js"></script>
+<script src="static/js/studio-core.js"></script>
+<script src="static/js/studio-alerts.js"></script>
+<script src="static/js/broadcast.js"></script>
+<script src="static/js/studio-ui.js"></script>
+<script src="static/js/profile.js"></script>
+<script src="static/js/script.js"></script>
+</body>
+</html>

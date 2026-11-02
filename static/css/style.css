@@ -4502,3 +4502,57 @@ a, button, summary, label, select { touch-action: manipulation; }
     .coin-chip span { display: inline; font-size: 13px; }
     .coin-chip { padding: 7px 9px; gap: 5px; }
 }
+
+/* ==========================================================================
+   Phone fixes found on a real device
+   A parent with backdrop-filter becomes the containing block of its position:fixed children, so the account sheet
+   (fixed to the screen) was being placed relative to the 56px header and ran off the top. No blur on phones.
+   ========================================================================== */
+@media (max-width: 700px) {
+    .site-header {
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+        background: #1c1c20;
+    }
+
+    .user-dropdown {
+        bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+        max-height: calc(100dvh - 90px);
+        border-radius: 12px;
+    }
+
+    /* dim the page behind the sheet (below the header, which holds the sheet) */
+    body.menu-open::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: 950;
+        background: rgba(0, 0, 0, 0.55);
+        animation: fade-in 0.25s ease both;
+    }
+}
+
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* Phones: search bar without the double outline; on the channel page the chat comes right after the stream info */
+@media (max-width: 700px) {
+    .search-input:focus,
+    .search-input:focus-visible { outline: none; box-shadow: none; }
+    .site-header.search-open .search-form { border: 0; box-shadow: inset 0 -2px 0 var(--primary-color); }
+    .site-header.search-open .search-form:focus-within { box-shadow: inset 0 -2px 0 var(--primary-color); }
+    .site-header.search-open .search-submit { flex: 0 0 44px; }
+    .site-header.search-open .search-input { padding-left: 4px; }
+
+    .channel-layout { display: flex; flex-direction: column; gap: 14px; }
+    .channel { display: contents; }
+    .channel .player { order: 0; }
+    .channel-head { order: 1; margin-top: 4px; }
+    .channel-stats { order: 2; margin-top: 0; }
+    .donate { order: 3; margin-top: 0; }
+    .channel-chat { order: 4; }
+    .channel-about { order: 5; margin-top: 10px; }
+}
+
+@media (max-width: 700px) {
+    .channel-layout { align-items: stretch; }   /* the desktop rule said "start": blocks shrank to their content */
+}

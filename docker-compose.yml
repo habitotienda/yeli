@@ -1,0 +1,14 @@
+# Optional: runs MediaMTX (the media server) in Docker.   docker compose up -d
+# Then start Yeli with:  YELI_MEDIA_URL=http://localhost:8889 python app.py
+services:
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    restart: unless-stopped
+    ports:
+      - "8889:8889"        # WHIP / WHEP (HTTP)
+      - "8189:8189/udp"    # WebRTC media
+      - "8189:8189/tcp"    # WebRTC media (TCP fallback)
+    volumes:
+      - ./mediamtx/mediamtx.yml:/mediamtx.yml:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

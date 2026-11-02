@@ -786,6 +786,7 @@ function closeUserMenu() {
     const btn = $('.user-btn');
     const menu = $('.user-dropdown');
     if (btn && menu) { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); }
+    document.body.classList.remove('menu-open');
 }
 
 /* =========================================================================
@@ -989,6 +990,7 @@ document.addEventListener('click', (e) => {
         const open = menu.hidden;
         menu.hidden = !open;
         userBtn.setAttribute('aria-expanded', String(open));
+        document.body.classList.toggle('menu-open', open);
         if (open) menu.querySelector('[role="menuitem"]').focus();
         return;
     }

@@ -135,7 +135,7 @@ Como Yeli usa WHIP/WHEP estándar, otro servidor compatible puede reemplazar a M
   - **Transiciones de escena** (corte, fundido, deslizar, zoom, cortina) con duración ajustable, en el panel *Scenes*.
 - **Comando de voz** (`#/bot` → *Voice*): un espectador escribe `!say Hola a todos` y todos los que miran lo **escuchan**. Tú eliges
   el comando, quién puede usarlo, si **dice el nombre** ("bob dice: Hola a todos") o no, la plantilla, el idioma, el enfriamiento y el
-  largo máximo. La voz la genera el navegador de cada espectador (pueden silenciarla) y también suena en el estudio; no va
+  largo máximo. La voz la genera el navegador de cada espectador (pueden silenciarla) y también suena en el estudio (con su propio botón de altavoz, y un botón *Test voice* para probar el dispositivo); no va
   dentro del video. Las reglas del chat (palabras prohibidas, enlaces) también se aplican a lo que se lee.
 - **Moderación** (`#/moderation`): **bans** (10 min, 1 h, 1 día, 7 días o permanente, con motivo y opción de borrar sus mensajes) y
   **moderadores** que eligen los streamers. Los moderadores ven botones de borrar, *10m* y *Ban* en el chat, pueden banear y desbanear,
@@ -273,4 +273,5 @@ Tampoco había Waitress instalado en ese entorno (las pruebas corrieron con el s
 - **Tema:** solo Oscuro y Claro (Ajustes → Apariencia). El color de acento es siempre naranja. El tema claro está en `static/css/theme-light.css`.
 - **Idioma:** Automático (sigue al navegador), English o Español (Ajustes → Idioma). Las traducciones están en `static/js/i18n-es.js`; lo que no esté ahí se queda en inglés. Para añadir un texto nuevo: `"English": "Español",`. El motor es `static/js/i18n.js`.
 - **Instalar como app (PWA):** `manifest.webmanifest` + `sw.js` (los sirve `yeli/pwa.py` desde la raíz). Necesita HTTPS (Render ya lo da). Android/Chrome: Ajustes → App → Instalar; iPhone: Compartir → Añadir a pantalla de inicio. El service worker solo guarda la interfaz; nunca toca `/api/` ni el video.
-- **Compartir pantalla:** instalar la app **no** lo habilita en el celular: los navegadores móviles no implementan `getDisplayMedia`. En computadora funciona igual que antes.
+- **Grabadora (`#/record`, botón *Grabar* en el menú):** graba la cámara + micrófono (celular y computadora) o la pantalla (solo computadora), con pausa, vista previa, *Guardar video* y *Compartir*. El video se queda en el dispositivo, no se sube. Código en `static/js/recorder.js`.
+- **Compartir pantalla:** instalar la app **no** lo habilita en el celular: los navegadores móviles no implementan `getDisplayMedia`. En computadora funciona igual que antes. Por la misma razón, la grabadora no puede grabar la pantalla del celular: usa el grabador del sistema (Centro de control en iPhone, Ajustes rápidos en Android).

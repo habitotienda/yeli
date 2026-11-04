@@ -51,7 +51,7 @@ async function pageBot(root, alive) {
         <section class="section"><h2 class="section-title">Voice: read messages aloud</h2>
             <form class="panel" id="ttsForm" novalidate>
                 <label class="check"><input type="checkbox" name="tts_enabled"${st.tts_enabled ? ' checked' : ''}><span><strong>Turn on the voice command</strong>
-                    <small>A viewer types the command and a message, and everyone watching hears it. Each viewer\u2019s browser reads it aloud (they can mute it), and it also plays in the studio.</small></span></label>
+                    <small>A viewer types the command and a message, and everyone watching hears it. Each viewer\u2019s browser reads it aloud (they can mute it), and it also plays in the studio, where the speaker button in the chat can mute it. Use Test voice to check this device.</small></span></label>
                 <div class="field-row">
                     <div class="field"><label for="ttCmd">Command</label><input id="ttCmd" name="tts_command" maxlength="20" value="!${esc(st.tts_command)}" autocomplete="off"><small>Example: <code>!${esc(st.tts_command)} Hola a todos</code></small></div>
                     <div class="field"><label for="ttPerm">Who can use it</label>
@@ -66,7 +66,7 @@ async function pageBot(root, alive) {
                 </div>
                 <div class="field"><label for="ttLang">Voice language (optional)</label><input id="ttLang" name="tts_lang" maxlength="12" value="${esc(st.tts_lang)}" placeholder="es-AR, en-US\u2026"><small>Empty = each viewer\u2019s own language. Chat rules (blocked words, links) also apply to what is read.</small></div>
                 <p class="form-error" id="ttErr" role="alert" hidden></p>
-                <div class="row"><button type="submit" class="btn btn-primary">Save voice settings</button></div>
+                <div class="row"><button type="submit" class="btn btn-primary">Save voice settings</button><button type="button" class="btn btn-secondary" id="ttTest">Test voice</button></div>
             </form>
         </section>
 
@@ -136,6 +136,16 @@ async function pageBot(root, alive) {
                 toast('Voice settings saved.');
                 render();
             } catch (e2) { err.textContent = e2.message; err.hidden = false; }
+        });
+        $('#ttTest').addEventListener('click', () => {
+            const f = $('#ttsForm');
+            const phrase = f.tts_name.checked
+                ? f.tts_template.value.replace('{user}', state.me.username).replace('{text}', 'this is a test')
+                : 'This is a test';
+            const status = Voice.status();
+            if (status === 'none') { Voice.beep(); toast('This browser can\u2019t read aloud. Try Chrome, Edge or Safari.'); return; }
+            if (status === 'novoices') toast('This device has no voice installed. Check its text-to-speech settings.');
+            Voice.speak(phrase, f.tts_lang.value.trim());
         });
         const set = $('#setForm');
         set.addEventListener('submit', async (e) => {

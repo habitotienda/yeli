@@ -150,9 +150,6 @@ html[data-theme="light"] .icon-btn {
 html[data-theme="light"] .meter {
     background: #cacaca;
 }
-html[data-theme="light"] .obs {
-    color: #434c6b;
-}
 html[data-theme="light"] .dock-title {
     color: #2d313e;
 }
@@ -177,11 +174,6 @@ html[data-theme="light"] .eye {
 html[data-theme="light"] .eye:hover {
     background: #b5b8c4;
 }
-html[data-theme="light"] .obs-input {
-    background: #e1e2e9;
-    border: 1px solid #bec0ca;
-    color: #121212;
-}
 html[data-theme="light"] .menu {
     background: #ccced7;
     border: 1px solid #b6b9c4;
@@ -197,32 +189,14 @@ html[data-theme="light"] .menu button:focus-visible {
 html[data-theme="light"] .mix-meter {
     background: #c7c9d2;
 }
-html[data-theme="light"] .obs-btn {
-    background: #c6c8d2;
-    border: 1px solid #b5b8c4;
-    color: #434c6b;
-}
-html[data-theme="light"] .obs-btn:hover {
-    background: #bbbeca;
-    border-color: #a3a7b5;
-}
 html[data-theme="light"] .btn-start {
     color: #121212;
-}
-html[data-theme="light"] .obs-status {
-    color: #3f4351;
 }
 html[data-theme="light"] .st i {
     background: #aaaaaa;
 }
 html[data-theme="light"] .st-live {
     color: #ad0017;
-}
-html[data-theme="light"] .obs-chat .chat-head h2 {
-    color: #2d313e;
-}
-html[data-theme="light"] .obs-help ol {
-    color: #3a3a3a;
 }
 html[data-theme="light"] .notice {
     color: #353535;
@@ -261,14 +235,6 @@ html[data-theme="light"] .sticker-btn {
 }
 html[data-theme="light"] .sticker-cost {
     color: #ad8200;
-}
-html[data-theme="light"] .obs-conn {
-    color: #3a3a3a;
-}
-@media (max-width: 700px) {
-    html[data-theme="light"] .obs-tabs button[aria-selected="true"] {
-        color: var(--primary-text);
-    }
 }
 html[data-theme="light"] .tab:hover {
     background: rgba(10, 10, 10, 0.04);
@@ -362,11 +328,8 @@ html[data-theme="light"] .seg input:checked + span {
 html[data-theme="light"] .theme-chip[data-for="dark"] {
     background: #dedede;
 }
-html[data-theme="light"] .theme-chip[data-for="black"] {
-    background: #fafafa;
-}
-html[data-theme="light"] .swatch input:focus-visible + span {
-    outline: 2px solid #0a0a0a;
+html[data-theme="light"] .theme-chip[data-for="light"] {
+    background: #121419;
 }
 html[data-theme="light"] .switch span::after {
     background: #373737;
@@ -417,3 +380,66 @@ html[data-theme="light"] .tbtn[aria-pressed="true"] { color: #c0213d; }
 html[data-theme="light"] .chat-bot-name { color: #1864ab; }
 html[data-theme="light"] .user-dropdown button.um-danger,
 html[data-theme="light"] .user-dropdown button.um-danger svg { color: #c0213d; }
+
+/* ==========================================================================
+   Light theme polish
+   ========================================================================== */
+
+/* Crisp header (the dark theme paints a gradient here that doesn't invert well) */
+html[data-theme="light"] .site-header {
+    background: rgba(255, 255, 255, 0.92);
+    background-image: none;
+    box-shadow: 0 1px 0 rgba(255, 166, 0, 0.22), 0 6px 18px rgba(24, 30, 48, 0.06);
+}
+html[data-theme="light"] .sidebar { box-shadow: 1px 0 0 rgba(24, 30, 48, 0.04); }
+
+/* Surfaces that are dark by design (video, thumbnails, the studio, toasts, badges over pictures)
+   keep the dark palette, so everything inside them stays readable */
+html[data-theme="light"] .player,
+html[data-theme="light"] .stream-thumb,
+html[data-theme="light"] .obs,
+html[data-theme="light"] .rec-stage,
+html[data-theme="light"] .toast,
+html[data-theme="light"] .badge-viewers,
+html[data-theme="light"] .badge-corner {
+    --text-color: #f1f1f1;
+    --text-muted: #a8acb6;
+    --border-color: #353844;
+    --field-bg: #1b1c21;
+    --second-color: #1e1e1e;
+    --circle-bg: #2b2d37;
+    --primary-text: #ffa600;
+    color: #f1f1f1;
+}
+html[data-theme="light"] .badge-viewers { background: rgba(0, 0, 0, 0.66); color: #fff; }
+html[data-theme="light"] .player-overlay,
+html[data-theme="light"] .player-overlay > div { color: #d5d8df; }
+
+/* Cards, panels and tables: white surfaces with a soft edge instead of dark boxes */
+html[data-theme="light"] .stream-card .stream-thumb { box-shadow: 0 1px 2px rgba(24, 30, 48, 0.12); }
+html[data-theme="light"] .panel,
+html[data-theme="light"] .card,
+html[data-theme="light"] .stat,
+html[data-theme="light"] .pack,
+html[data-theme="light"] .upgrade,
+html[data-theme="light"] .chat,
+html[data-theme="light"] .donate,
+html[data-theme="light"] .tabs {
+    background: #fff;
+    border-color: #dde0e7;
+    box-shadow: 0 1px 2px rgba(24, 30, 48, 0.05);
+}
+html[data-theme="light"] .user-dropdown { background: #fff; border-color: #dde0e7; }
+html[data-theme="light"] .tag, 
+html[data-theme="light"] .chip { background: #eef0f4; color: #3b4150; border-color: #d8dbe2; }
+html[data-theme="light"] .brand-name { color: #d27a00; }
+html[data-theme="light"] .search-form { background: #f1f2f5; border-color: #dde0e7; }
+html[data-theme="light"] .btn-primary,
+html[data-theme="light"] .btn-primary * { color: #1b1200; }
+html[data-theme="light"] .btn-secondary { background: #fff; border-color: #d3d7df; color: #1c2030; }
+html[data-theme="light"] .btn-secondary:hover { background: #f1f2f6; }
+html[data-theme="light"] .dialog { box-shadow: 0 24px 60px rgba(20, 26, 44, 0.28); }
+html[data-theme="light"] .sidebar-item.active { background: rgba(255, 166, 0, 0.14); }
+html[data-theme="light"] ::-webkit-scrollbar-thumb { background: #c4c8d2; border-radius: 6px; }
+html[data-theme="light"] ::-webkit-scrollbar-track { background: transparent; }
+html[data-theme="light"] .splash-word { color: #fff; }

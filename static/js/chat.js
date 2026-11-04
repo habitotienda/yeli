@@ -10,6 +10,88 @@ const SPEAKER_OFF = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden
 const MEDALS = ['', 'Bronze', 'Silver', 'Gold'];
 const SMILE = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M8.500 14.500q3.500 3 7 0"/><circle cx="9" cy="10" r=".8" fill="currentColor"/><circle cx="15" cy="10" r=".8" fill="currentColor"/></svg>';
 
+/* =========================================================================
+   Voice: reads the !say messages aloud with the browser's own speech engine.
+   Shared by every chat (viewers, the studio, the pop-out) and by the "Test voice" button.
+   ========================================================================= */
+const Voice = (() => {
+    const synth = () => ('speechSynthesis' in window ? window.speechSynthesis : null);
+    let unlocked = false;
+    let queued = 0;
+    let lastActivity = Date.now();
+    let audioCtx = null;
+
+    /* Phones only let a page speak after the person has touched it once, and the streamer never taps the chat box.
+       The first touch, click or key press "unlocks" speech with a silent utterance. */
+    function unlock() {
+        const s = synth();
+        if (!s || unlocked) return;
+        unlocked = true;
+        try {
+            const u = new SpeechSynthesisUtterance(' ');
+            u.volume = 0;
+            s.speak(u);
+        } catch { /* speech not available */ }
+    }
+    ['pointerdown', 'touchend', 'keydown', 'click'].forEach((ev) => document.addEventListener(ev, unlock, { passive: true }));
+
+    /* A short tone, used when the device has no voice to read with, so the streamer still knows a message arrived. */
+    function beep() {
+        try {
+            audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = 660;
+            gain.gain.value = 0.06;
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.2);
+        } catch { /* no audio either */ }
+    }
+
+    /** 'ok', 'none' (the browser can't speak) or 'novoices' (it can, but this device has no voice installed). */
+    function status() {
+        const s = synth();
+        if (!s) return 'none';
+        return s.getVoices && s.getVoices().length === 0 ? 'novoices' : 'ok';
+    }
+
+    function speak(text, lang) {
+        const s = synth();
+        if (!s) { beep(); return false; }
+        try {
+            if (s.paused) s.resume();
+            // Chrome sometimes leaves its queue stuck after a long time in the background: clear it
+            if (queued > 0 && Date.now() - lastActivity > 20000) { s.cancel(); queued = 0; }
+            if (queued >= 3) return false; // don't pile up a backlog
+            const u = new SpeechSynthesisUtterance(text);
+            if (lang) u.lang = lang;
+            const done = () => { queued = Math.max(0, queued - 1); lastActivity = Date.now(); };
+            u.onstart = () => { lastActivity = Date.now(); };
+            u.onend = done;
+            u.onerror = done;
+            queued++;
+            lastActivity = Date.now();
+            s.speak(u);
+            if (status() === 'novoices') beep();
+            return true;
+        } catch {
+            beep();
+            return false;
+        }
+    }
+
+    function cancel() {
+        const s = synth();
+        if (s) { s.cancel(); queued = 0; }
+    }
+
+    return { speak, cancel, status, beep };
+})();
+
 function createChat(container, channel, { isOwner = false, canMod = isOwner } = {}) {
     const MAX = 300;
     const path = `/chat/${encodeURIComponent(channel)}`;
@@ -41,20 +123,18 @@ function createChat(container, channel, { isOwner = false, canMod = isOwner } = 
     let armed = false;      // messages that were already in the chat when it opened are never read aloud
     let ttsLang = '';
     const ttsBtn = $('[data-chat-tts]', container);
-    const ttsOn = () => { try { return localStorage.getItem('yeli:tts') !== '0'; } catch { return true; } };
+    // The streamer's studio has its own mute switch, so muting the voice while watching other channels doesn't silence it
+    const TTS_KEY = isOwner ? 'yeli:tts:own' : 'yeli:tts';
+    const ttsOn = () => { try { return localStorage.getItem(TTS_KEY) !== '0'; } catch { return true; } };
     const paintTts = () => { ttsBtn.innerHTML = ttsOn() ? SPEAKER_ON : SPEAKER_OFF; ttsBtn.setAttribute('aria-pressed', String(ttsOn())); };
     ttsBtn.addEventListener('click', () => {
-        try { localStorage.setItem('yeli:tts', ttsOn() ? '0' : '1'); } catch { /* private mode */ }
-        if (!ttsOn() && window.speechSynthesis) window.speechSynthesis.cancel();
+        try { localStorage.setItem(TTS_KEY, ttsOn() ? '0' : '1'); } catch { /* private mode */ }
+        if (!ttsOn()) Voice.cancel();
         paintTts();
     });
     paintTts();
     function speak(text) {
-        if (!ttsOn() || !('speechSynthesis' in window)) return;
-        if (window.speechSynthesis.pending) return; // don't pile up a backlog
-        const u = new SpeechSynthesisUtterance(text);
-        if (ttsLang) u.lang = ttsLang;
-        window.speechSynthesis.speak(u);
+        if (ttsOn()) Voice.speak(text, ttsLang);
     }
 
 
@@ -197,7 +277,7 @@ function createChat(container, channel, { isOwner = false, canMod = isOwner } = 
         lastId = Math.max(lastId, m.id);
         empty.remove();
         log.appendChild(buildRow(m));
-        if (armed && m.kind === 'tts' && Date.now() / 1000 - m.ts < 30) speak(m.text);
+        if (armed && m.kind === 'tts' && Date.now() / 1000 - m.ts < (isOwner ? 180 : 30)) speak(m.text);
     }
 
     function showEmptyIfNeeded() {
@@ -225,7 +305,7 @@ function createChat(container, channel, { isOwner = false, canMod = isOwner } = 
             armed = true;
             showEmptyIfNeeded();
         } catch { /* try again on the next tick */ }
-        timer = setTimeout(tick, document.hidden ? 6000 : 2000);
+        timer = setTimeout(tick, document.hidden && !isOwner ? 6000 : 2000);
     }
 
     // ---- Composer

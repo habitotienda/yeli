@@ -14,7 +14,7 @@
     const DICT = new Map();
     const PATTERNS = window.YELI_ES_PATTERNS || [];
     const ATTRS = ['placeholder', 'aria-label', 'title', 'alt'];
-    const SKIP = '[translate="no"]:not(html), .chat-text, .chat-user, .stream-card .stream-title, .channel-card .stream-title, .stream-channel, #chTitle, .suggest-name, .um-who, .badge-live, .brand-name, .splash-word, script, style, textarea, [data-no-i18n]';
+    const SKIP = '[translate="no"]:not(html), .chat-text, .chat-user, .stream-card .stream-title, .channel-card .stream-title, .stream-channel, #chTitle, .suggest-name, .um-who, .badge-live, .brand-name, .splash-word, [data-no-i18n]';
     const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'TEXTAREA', 'NOSCRIPT']);
 
     const norm = (s) => s.replace(/[\u2018\u2019]/g, "'").replace(/[\u201c\u201d]/g, '"').replace(/\u2026/g, '...').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
@@ -60,7 +60,7 @@
     const skipped = (node) => {
         const el = node.nodeType === 1 ? node : node.parentElement;
         if (!el) return true;
-        if (SKIP_TAGS.has(el.tagName)) return true;
+        if (node.nodeType === 3 && SKIP_TAGS.has(el.tagName)) return true;   // never the text inside script/style/textarea
         return !!(el.closest && el.closest(SKIP));
     };
 

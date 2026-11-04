@@ -1,0 +1,14 @@
+<!--Settings SVG-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+    <path
+    d="M3 6H8M17 6H21M3 12H4M13 12H21M3 18H10M19 18H21"
+    fill="none"
+    stroke="white"
+    stroke-width="3"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    />
+    <circle cx="12.5" cy="6" r="2.5" fill="none" stroke="white" stroke-width="2.5"/>
+    <circle cx="8.5" cy="12" r="2.5" fill="none" stroke="white" stroke-width="2.5"/>
+    <circle cx="14.5" cy="18" r="2.5" fill="none" stroke="white" stroke-width="2.5"/>
+</svg>

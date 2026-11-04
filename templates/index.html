@@ -4,9 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Yeli | Streaming App</title>
+    <script src="static/js/prefs-boot.js"></script>
     <meta name="theme-color" content="#1e1e1e">
     <meta name="description" content="Watch an endless array of things live."/>
     <link rel="stylesheet" href="static/css/style.css">
+    <link rel="stylesheet" href="static/css/enhancements.css">
     <link rel="icon" href="static/svg/logo.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,9 +16,22 @@
 </head>
 <body>
 
+<div id="splash" role="status" aria-live="polite" aria-label="Loading Yeli">
+    <div class="splash-inner">
+        <svg class="splash-logo" xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 28 28" aria-hidden="true">
+            <path class="sl-body" pathLength="1" d="M2 12L2 19A3 3 0 0 0 5 22L19 22A3 3 0 0 0 22 19L22 12A3 3 0 0 0 19 9M2 12A3 3 0 0 1 5 9L7.5 9"/>
+            <path class="sl-bolt" pathLength="1" d="M8.5 17.5L18 2M13.5 9L7.5 2"/>
+        </svg>
+        <div class="splash-word" aria-hidden="true"><span style="--i:0">Y</span><span style="--i:1">E</span><span style="--i:2">L</span><span style="--i:3">I</span></div>
+        <div class="splash-bar" aria-hidden="true"><i></i></div>
+        <p class="splash-status">Warming up the stream&hellip;</p>
+    </div>
+</div>
+<noscript><style>#splash{display:none}</style></noscript>
+
 <header class="site-header">
     <a href="#/" class="header-brand" aria-label="Yeli home">
-        <img src="static/svg/logo.svg" alt="" class="brand-logo">
+        <span class="brand-logo" aria-hidden="true"></span>
         <span class="brand-name">YELI</span>
     </a>
 
@@ -67,6 +82,13 @@
         <hr class="sidebar-divider" id="followingDivider" hidden>
 
         <div class="sidebar-subscriptions" id="sidebarFollowing" aria-label="Channels you follow"></div>
+
+        <div class="sidebar-foot">
+            <button type="button" class="sidebar-item" data-prefs-open aria-haspopup="dialog" aria-label="Settings" title="Settings">
+                <img src="static/svg/settings.svg" alt="" aria-hidden="true">
+                <span class="item-text">Settings</span>
+            </button>
+        </div>
     </aside>
 
     <main class="main-content" id="view" tabindex="-1"></main>
@@ -82,8 +104,84 @@
     </div>
 </dialog>
 
+<dialog class="dialog prefs-dialog" id="prefsDialog" aria-labelledby="prefsTitle">
+    <div class="prefs-head">
+        <h2 id="prefsTitle">Settings</h2>
+        <button type="button" class="dialog-close" data-prefs-close aria-label="Close">&times;</button>
+    </div>
+
+    <form class="prefs-body" id="prefsForm" novalidate>
+        <section class="prefs-group" aria-labelledby="pgLook">
+            <h3 id="pgLook">Appearance</h3>
+
+            <div class="prefs-stack">
+                <div class="prefs-label"><strong>Theme</strong></div>
+                <div class="themes" role="radiogroup" aria-label="Theme">
+                    <label class="theme-opt"><input type="radio" name="theme" value="dark"><span class="theme-chip" data-for="dark"></span><span class="theme-name">Dark</span></label>
+                    <label class="theme-opt"><input type="radio" name="theme" value="black"><span class="theme-chip" data-for="black"></span><span class="theme-name">Black</span></label>
+                    <label class="theme-opt"><input type="radio" name="theme" value="midnight"><span class="theme-chip" data-for="midnight"></span><span class="theme-name">Midnight</span></label>
+                </div>
+            </div>
+
+            <div class="prefs-stack">
+                <div class="prefs-label"><strong>Accent colour</strong></div>
+                <div class="swatches" role="radiogroup" aria-label="Accent colour">
+                    <label class="swatch" title="Orange"><input type="radio" name="accent" value="orange" aria-label="Orange"><span style="--sw:#ffa600"></span></label>
+                    <label class="swatch" title="Pink"><input type="radio" name="accent" value="pink" aria-label="Pink"><span style="--sw:#ff5c9a"></span></label>
+                    <label class="swatch" title="Blue"><input type="radio" name="accent" value="blue" aria-label="Blue"><span style="--sw:#4da3ff"></span></label>
+                    <label class="swatch" title="Teal"><input type="radio" name="accent" value="teal" aria-label="Teal"><span style="--sw:#1fd1c0"></span></label>
+                    <label class="swatch" title="Green"><input type="radio" name="accent" value="green" aria-label="Green"><span style="--sw:#4ade80"></span></label>
+                    <label class="swatch" title="Purple"><input type="radio" name="accent" value="purple" aria-label="Purple"><span style="--sw:#b184ff"></span></label>
+                </div>
+            </div>
+        </section>
+
+        <section class="prefs-group" aria-labelledby="pgLayout">
+            <h3 id="pgLayout">Layout</h3>
+
+            <div class="prefs-row">
+                <div class="prefs-label"><strong>Density</strong><span>Compact fits more on screen.</span></div>
+                <div class="seg" role="radiogroup" aria-label="Density">
+                    <label><input type="radio" name="density" value="comfortable"><span>Comfortable</span></label>
+                    <label><input type="radio" name="density" value="compact"><span>Compact</span></label>
+                </div>
+            </div>
+
+            <div class="prefs-row">
+                <div class="prefs-label"><strong>Keep the sidebar open</strong><span>On computers and tablets. Phones always use the bottom bar.</span></div>
+                <label class="switch"><input type="checkbox" role="switch" name="sidebar" aria-label="Keep the sidebar open"><span></span></label>
+            </div>
+        </section>
+
+        <section class="prefs-group" aria-labelledby="pgMotion">
+            <h3 id="pgMotion">Motion</h3>
+
+            <div class="prefs-row">
+                <div class="prefs-label"><strong>Loading animation</strong><span>The logo animation shown while Yeli starts.</span></div>
+                <label class="switch"><input type="checkbox" role="switch" name="splash" aria-label="Loading animation"><span></span></label>
+            </div>
+
+            <div class="prefs-stack">
+                <div class="prefs-label"><strong>Animations</strong><span>System follows your device&rsquo;s reduced-motion setting.</span></div>
+                <div class="seg seg-wide" role="radiogroup" aria-label="Animations">
+                    <label><input type="radio" name="motion" value="system"><span>System</span></label>
+                    <label><input type="radio" name="motion" value="reduced"><span>Reduced</span></label>
+                    <label><input type="radio" name="motion" value="full"><span>Full</span></label>
+                </div>
+            </div>
+        </section>
+    </form>
+
+    <div class="prefs-foot">
+        <span class="prefs-note">Saved on this device.</span>
+        <button type="button" class="btn btn-secondary" id="prefsReset">Reset</button>
+        <button type="button" class="btn btn-primary" data-prefs-close>Done</button>
+    </div>
+</dialog>
+
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
+<script src="static/js/preferences.js"></script>
 <script src="static/js/avatars.js"></script>
 <script src="static/js/stickers.js"></script>
 <script src="static/js/player.js"></script>

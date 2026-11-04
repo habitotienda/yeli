@@ -733,6 +733,7 @@ const MI = {
     wallet: mi('<path d="M4 7a2 2 0 0 1 2-2h12v4"/><path d="M4 7v10a2 2 0 0 0 2 2h14V9H6a2 2 0 0 1-2-2z"/><path d="M16 14h.01"/>'),
     up: mi('<path d="M12 19V6M6 11l6-6 6 6"/>'),
     lock: mi('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'),
+    sliders: mi('<path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h9M19 18h1"/><circle cx="15" cy="6" r="2.5"/><circle cx="9" cy="12" r="2.5"/><circle cx="16" cy="18" r="2.5"/>'),
     logout: mi('<path d="M9 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4M15 8l4 4-4 4M19 12H9"/>'),
 };
 
@@ -763,6 +764,7 @@ function renderAuth() {
                 <div class="um-group" role="group" aria-label="Your account">
                     <a role="menuitem" href="${channelHref(state.me.username)}">${MI.channel}<span>My channel</span></a>
                     <a role="menuitem" href="#/settings">${MI.edit}<span>Edit profile</span></a>
+                    <button type="button" role="menuitem" data-prefs-open>${MI.sliders}<span>Settings</span></button>
                 </div>
                 <div class="um-sep" role="separator"></div>
                 <div class="um-group" role="group" aria-label="Creator tools">
@@ -1037,7 +1039,11 @@ window.addEventListener('pagehide', () => {
         document.body.prepend(bar);
     }
     renderAuth();
-    await refreshSidebar();
-    route();
+    try {
+        await refreshSidebar();
+        await route();
+    } finally {
+        window.dispatchEvent(new Event('yeli:ready')); // lets the loading screen leave
+    }
     setInterval(() => { if (!document.hidden && state.me) refreshSidebar(); }, 30000);
 })();

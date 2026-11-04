@@ -1070,12 +1070,12 @@ class YeliTests(unittest.TestCase):
             self.assertEqual(post(self.bob, "/api/chest/open").get_json()["reward"]["kind"], "points")
             self.assertEqual(self.bob.get("/api/upgrades").get_json()["points"], before + 1)
 
-            # a brand-new account can't farm chests
+            # a brand-new account can earn the chest right away (no account-age rule)
             config.FREE_POINT_MIN_ACCOUNT_AGE = 10**6
             eve = app.test_client(); self.signup(eve, "eve"); eve.environ_base["REMOTE_ADDR"] = "10.0.0.9"
             post(eve, "/api/watch/alice/join", {"peer": "4" * 32})
             c = eve.get(f"/api/watch/alice/poll?peer={'4' * 32}&after=0").get_json()["chest"]
-            self.assertEqual((c["seconds"], c["blocked"]), (0, "new"))
+            self.assertNotIn("blocked", c)
             con.close()
         finally:
             config.FREE_POINT_MIN_ACCOUNT_AGE = saved[0]

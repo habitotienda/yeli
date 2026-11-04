@@ -185,7 +185,7 @@ Cada día (00:00 UTC) un espectador **con cuenta** puede desbloquear un cofre mi
 
 - Página: `#/chest` (menú de tu foto → *Daily chest*). Bajo el directo aparece una barra con el avance y, al desbloquearse, un aviso.
 - El tiempo **se acumula durante el día** entre todos los directos (no hace falta una hora seguida) y solo cuenta mientras el latido de la página llega; una pausa de más de 1 minuto no suma. Ver dos directos a la vez no duplica el tiempo.
-- Solo cuenta con cuenta (no invitados), en directos **de otros** (no el tuyo), con cuenta que no sea nueva (`YELI_FREE_POINT_MIN_ACCOUNT_AGE`) y fuera de la red del streamer.
+- Solo cuenta con cuenta (no invitados), en directos **de otros** (no el tuyo) y fuera de la red del streamer. Las cuentas nuevas también cuentan desde el primer segundo.
 - Un cofre por cuenta y día; el servidor decide la recompensa (`secrets`) y lo hace de forma atómica. Lo que ya tienes no vuelve a salir; si completas todos los stickers y colores, el cofre da puntos.
 - **Los puntos valen dinero** (100 Yelis cada uno), por eso su probabilidad es baja. Ajusta con `YELI_CHEST_WEIGHTS` o ponla en 0 si prefieres que el cofre no dé puntos.
 

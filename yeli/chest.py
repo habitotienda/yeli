@@ -9,7 +9,7 @@ Rules, because a reward is worth something:
   * only logged-in accounts earn time, and only while watching somebody else's live stream
   * time counts while the viewer's page keeps sending heartbeats (gaps longer than SESSION_GAP count for nothing)
     and is shared between streams, so watching two streams at once doesn't double it
-  * the account can't be brand new (same age rule as the free upgrade point) or on the streamer's network
+  * the account can't be on the streamer's network (new accounts can earn the chest from the very first second)
   * one chest per account per UTC day; the day resets at 00:00 UTC
 """
 import secrets
@@ -60,12 +60,9 @@ def tick(db, streamer_id, user_id, ip, t):
     day = day_of(t)
     row = db.execute("SELECT seconds, last_tick FROM chest_progress WHERE user_id = ? AND day = ?", (user_id, day)).fetchone()
     seconds = row["seconds"] if row else 0
-    viewer = db.execute("SELECT created_at FROM users WHERE id = ?", (user_id,)).fetchone()
     stream = db.execute("SELECT ip FROM streams WHERE user_id = ?", (streamer_id,)).fetchone()
     reason = None
-    if viewer is None or t - viewer["created_at"] < config.FREE_POINT_MIN_ACCOUNT_AGE:
-        reason = "new"
-    elif stream and stream["ip"] and stream["ip"] == ip:
+    if stream and stream["ip"] and stream["ip"] == ip:
         reason = "network"
     if reason is None and seconds < economy.CHEST_SECONDS:
         if row is None:

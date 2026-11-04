@@ -190,7 +190,7 @@ html[data-theme="light"] .mix-meter {
     background: #c7c9d2;
 }
 html[data-theme="light"] .btn-start {
-    color: #121212;
+    color: #fff;
 }
 html[data-theme="light"] .st i {
     background: #aaaaaa;
@@ -339,9 +339,11 @@ html[data-theme="light"] .switch input:checked + span::after {
 }
 
 /* ---------- 3. Hand-tuned ---------- */
-/* Icons are white SVG files drawn with <img>: flip them to dark */
+/* Icons are white SVG files drawn with <img>: tint them orange (#f59a00) instead of black.
+   On an orange button (.btn-primary) they stay white so they don't disappear. */
 html[data-theme="light"] .sidebar-item img,
-html[data-theme="light"] .search-submit img { filter: invert(1); }
+html[data-theme="light"] .search-submit img,
+html[data-theme="light"] .btn-secondary img { filter: brightness(0) invert(41%) sepia(81%) saturate(2461%) hue-rotate(28deg) brightness(119%) contrast(131%); }
 html[data-theme="light"] .menu-icon .line { stroke: var(--text-color); }
 html[data-theme="light"] .brand-logo { background: var(--primary-color); }
 html[data-theme="light"] body {
@@ -351,7 +353,7 @@ html[data-theme="light"] body {
         var(--bg-gradient);
     background-attachment: fixed;
 }
-html[data-theme="light"] .btn-primary { color: #1b1200; }
+html[data-theme="light"] .btn-primary { color: #fff; }
 html[data-theme="light"] .dialog { background: #fff; color: var(--text-color); }
 html[data-theme="light"] .dialog::backdrop { background: rgba(10, 12, 18, 0.45); }
 html[data-theme="light"] input,
@@ -434,7 +436,7 @@ html[data-theme="light"] .chip { background: #eef0f4; color: #3b4150; border-col
 html[data-theme="light"] .brand-name { color: #d27a00; }
 html[data-theme="light"] .search-form { background: #f1f2f5; border-color: #dde0e7; }
 html[data-theme="light"] .btn-primary,
-html[data-theme="light"] .btn-primary * { color: #1b1200; }
+html[data-theme="light"] .btn-primary * { color: #fff; }
 html[data-theme="light"] .btn-secondary { background: #fff; border-color: #d3d7df; color: #1c2030; }
 html[data-theme="light"] .btn-secondary:hover { background: #f1f2f6; }
 html[data-theme="light"] .dialog { box-shadow: 0 24px 60px rgba(20, 26, 44, 0.28); }
@@ -442,3 +444,11 @@ html[data-theme="light"] .sidebar-item.active { background: rgba(255, 166, 0, 0.
 html[data-theme="light"] ::-webkit-scrollbar-thumb { background: #c4c8d2; border-radius: 6px; }
 html[data-theme="light"] ::-webkit-scrollbar-track { background: transparent; }
 html[data-theme="light"] .splash-word { color: #fff; }
+
+/* Light theme: white text on every solid orange surface (it was near-black, which looked muddy) */
+html[data-theme="light"] .chip[aria-current="true"],
+html[data-theme="light"] .chat-badge,
+html[data-theme="light"] .chat-jump,
+html[data-theme="light"] .sticker-tabs button[aria-selected="true"],
+html[data-theme="light"] .um-balance em { color: #fff; }
+html[data-theme="light"] .switch input:checked + span::after { background: #fff; }

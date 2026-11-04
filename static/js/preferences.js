@@ -7,15 +7,14 @@
 (() => {
     const KEY = 'yeli.prefs.v1';
     const DEFAULTS = {
-        theme: 'dark',        // dark | black | midnight
-        accent: 'orange',     // orange | pink | blue | teal | green | purple
+        theme: 'dark',        // dark | light
         density: 'comfortable', // comfortable | compact
         motion: 'system',     // system | reduced | full
         splash: true,         // loading animation
         sidebar: false,       // sidebar expanded by default (desktop)
-        translate: 'allow',   // allow | block (browser page translation)
+        lang: 'auto',         // auto | en | es (the language of the interface)
     };
-    const THEME_COLOR = { dark: '#1e1e1e', black: '#000000', midnight: '#0f1624' };
+    const THEME_COLOR = { dark: '#1e1e1e', light: '#f4f5f7' };
 
     const root = document.documentElement;
     const reduceQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
@@ -23,7 +22,10 @@
     function load() {
         try {
             const saved = JSON.parse(localStorage.getItem(KEY));
-            return { ...DEFAULTS, ...(saved && typeof saved === 'object' ? saved : {}) };
+            const merged = { ...DEFAULTS, ...(saved && typeof saved === 'object' ? saved : {}) };
+            if (merged.theme !== 'light') merged.theme = 'dark';          // older versions had black / midnight
+            if (!['auto', 'en', 'es'].includes(merged.lang)) merged.lang = 'auto';
+            return { theme: merged.theme, density: merged.density, motion: merged.motion, splash: merged.splash, sidebar: merged.sidebar, lang: merged.lang };
         } catch {
             return { ...DEFAULTS };
         }
@@ -39,19 +41,19 @@
 
     function apply() {
         root.dataset.theme = prefs.theme;
-        root.dataset.accent = prefs.accent;
         root.dataset.density = prefs.density;
         root.dataset.splash = prefs.splash ? 'on' : 'off';
         root.classList.toggle('reduce-motion', motionReduced());
-        if (prefs.translate === 'block') root.setAttribute('translate', 'no'); else root.removeAttribute('translate');
+        const lang = prefs.lang === 'auto' ? ((navigator.languages && navigator.languages[0]) || navigator.language || 'en').toLowerCase().startsWith('es') ? 'es' : 'en' : prefs.lang;
+        if (window.YeliI18n) window.YeliI18n.set(lang);
+        else { window.YELI_LANG = lang; root.lang = lang; }
         let tmeta = document.querySelector('meta[name="google"][content="notranslate"]');
-        if (prefs.translate === 'block' && !tmeta) {
-            tmeta = document.createElement('meta');
-            tmeta.name = 'google';
-            tmeta.content = 'notranslate';
-            document.head.appendChild(tmeta);
-        } else if (prefs.translate !== 'block' && tmeta) {
-            tmeta.remove();
+        if (lang === 'es') {
+            root.setAttribute('translate', 'no');
+            if (!tmeta) { tmeta = document.createElement('meta'); tmeta.name = 'google'; tmeta.content = 'notranslate'; document.head.appendChild(tmeta); }
+        } else {
+            root.removeAttribute('translate');
+            if (tmeta) tmeta.remove();
         }
         const meta = document.querySelector('meta[name="theme-color"]');
         if (meta) meta.setAttribute('content', THEME_COLOR[prefs.theme] || THEME_COLOR.dark);

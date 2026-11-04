@@ -1,0 +1,419 @@
+/* ==========================================================================
+   Yeli: light theme. Applied when <html data-theme="light">.
+   Part 1 swaps the shared variables; part 2 was generated from style.css by
+   inverting its hard-coded neutral colours (video, thumbnails, the splash
+   screen and the toast stay dark on purpose); part 3 is hand-tuned.
+   The accent colour is the same orange in both themes.
+   ========================================================================== */
+
+/* ---------- 1. Variables ---------- */
+html[data-theme="light"] {
+    color-scheme: light;
+    --bg-main: #f4f5f7;
+    --bg-gradient: linear-gradient(135deg, #ffffff 0%, #eceef2 100%);
+    --header-bg: rgba(255, 255, 255, 0.88);
+    --text-color: #16181d;
+    --text-muted: #5b6270;
+    --border-color: #d8dbe2;
+    --second-color: #ffffff;
+    --circle-bg: #e2e5eb;
+    --field-bg: #f1f2f5;
+    --primary-color: #f59a00;
+    --primary-hover: #e07400;
+    --primary-text: #b45a00;
+    --live: #e0143a;
+}
+
+/* ---------- 2. Generated from style.css ---------- */
+html[data-theme="light"] .brand-name {
+    color: var(--primary-text);
+}
+html[data-theme="light"] .search-form {
+    background: #e7e7e7;
+}
+html[data-theme="light"] .btn-secondary:hover {
+    background: rgba(10, 10, 10, 0.05);
+}
+html[data-theme="light"] .sidebar-btn:hover {
+    background: rgba(10, 10, 10, 0.08);
+}
+html[data-theme="light"] .sidebar-item:hover {
+    background: rgba(10, 10, 10, 0.08);
+}
+html[data-theme="light"] .sidebar-circle-wrapper:hover {
+    background: rgba(10, 10, 10, 0.08);
+}
+html[data-theme="light"] .link-btn {
+    color: var(--primary-text);
+}
+html[data-theme="light"] .user-dropdown {
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.175);
+}
+html[data-theme="light"] .user-dropdown a:hover,
+html[data-theme="light"] .user-dropdown button:hover {
+    background: rgba(10, 10, 10, 0.08);
+}
+html[data-theme="light"] .sidebar-item.active .item-text {
+    color: var(--primary-text);
+}
+html[data-theme="light"] .search-suggest {
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.175);
+}
+html[data-theme="light"] .suggest-row:hover,
+html[data-theme="light"] .suggest-row:focus-visible {
+    background: rgba(10, 10, 10, 0.08);
+}
+html[data-theme="light"] .suggest-all {
+    color: var(--primary-text);
+}
+html[data-theme="light"] .chip:hover {
+    background: rgba(10, 10, 10, 0.06);
+}
+html[data-theme="light"] .stream-card:hover .stream-channel {
+    color: var(--primary-text);
+}
+html[data-theme="light"] .spinner {
+    border: 3px solid rgba(10, 10, 10, 0.15);
+}
+html[data-theme="light"] .unmute-btn {
+    background: rgba(0, 0, 0, 0.21);
+    color: #121212;
+}
+html[data-theme="light"] .form-error {
+    color: #ad0017;
+}
+html[data-theme="light"] .dialog {
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.21);
+}
+html[data-theme="light"] .dialog-close:hover {
+    background: rgba(10, 10, 10, 0.08);
+}
+html[data-theme="light"] .site-header {
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03), 0 8px 24px rgba(0, 0, 0, 0.087);
+}
+html[data-theme="light"] .banner p {
+    color: #3b3b3b;
+}
+html[data-theme="light"] .stream-card:hover .stream-title {
+    color: var(--primary-text);
+}
+html[data-theme="light"] .channel-card:hover {
+    background: #d1d1d1;
+}
+html[data-theme="light"] .skeleton {
+    background: linear-gradient(100deg, #d1d1d1 30%, #c8c8c8 50%, #d1d1d1 70%);
+}
+@media (max-width: 720px) {
+    html[data-theme="light"] .sidebar {
+        background: rgba(215, 215, 215, 0.96);
+    }
+    html[data-theme="light"] .sidebar-item.active .item-text {
+        color: var(--primary-text);
+    }
+}
+html[data-theme="light"] ::-webkit-scrollbar-track {
+    background: #e5e5e5;
+}
+html[data-theme="light"] ::-webkit-scrollbar-thumb {
+    background: #bababa;
+    border: 3px solid #e5e5e5;
+}
+html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+    background: #969696;
+}
+html[data-theme="light"] ::-webkit-scrollbar-corner {
+    background: #e5e5e5;
+}
+@supports not selector(::-webkit-scrollbar) {
+    html[data-theme="light"],
+    html[data-theme="light"] .chat-log,
+    html[data-theme="light"] .sidebar,
+    html[data-theme="light"] textarea {
+        scrollbar-color: #b4b4b4 #e5e5e5;
+    }
+}
+html[data-theme="light"] .chat-text {
+    color: #272727;
+}
+html[data-theme="light"] .chat-jump {
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.175);
+}
+html[data-theme="light"] .chat-error {
+    color: #ad0017;
+}
+html[data-theme="light"] .ok-note {
+    color: #1c9130 !important;
+}
+html[data-theme="light"] .icon-btn {
+    color: #121212;
+}
+html[data-theme="light"] .meter {
+    background: #cacaca;
+}
+html[data-theme="light"] .obs {
+    color: #434c6b;
+}
+html[data-theme="light"] .dock-title {
+    color: #2d313e;
+}
+html[data-theme="light"] .sel-box i {
+    background: #0a0a0a;
+}
+html[data-theme="light"] .tbtn {
+    color: #333643;
+}
+html[data-theme="light"] .tbtn:hover {
+    background: #bbbeca;
+}
+html[data-theme="light"] .tbtn[aria-pressed="true"] {
+    color: #ad0017;
+}
+html[data-theme="light"] .type-ico {
+    color: #626777;
+}
+html[data-theme="light"] .eye {
+    color: #454c5e;
+}
+html[data-theme="light"] .eye:hover {
+    background: #b5b8c4;
+}
+html[data-theme="light"] .obs-input {
+    background: #e1e2e9;
+    border: 1px solid #bec0ca;
+    color: #121212;
+}
+html[data-theme="light"] .menu {
+    background: #ccced7;
+    border: 1px solid #b6b9c4;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.21);
+}
+html[data-theme="light"] .menu button {
+    color: #434c6b;
+}
+html[data-theme="light"] .menu button:hover,
+html[data-theme="light"] .menu button:focus-visible {
+    background: #bbbeca;
+}
+html[data-theme="light"] .mix-meter {
+    background: #c7c9d2;
+}
+html[data-theme="light"] .obs-btn {
+    background: #c6c8d2;
+    border: 1px solid #b5b8c4;
+    color: #434c6b;
+}
+html[data-theme="light"] .obs-btn:hover {
+    background: #bbbeca;
+    border-color: #a3a7b5;
+}
+html[data-theme="light"] .btn-start {
+    color: #121212;
+}
+html[data-theme="light"] .obs-status {
+    color: #3f4351;
+}
+html[data-theme="light"] .st i {
+    background: #aaaaaa;
+}
+html[data-theme="light"] .st-live {
+    color: #ad0017;
+}
+html[data-theme="light"] .obs-chat .chat-head h2 {
+    color: #2d313e;
+}
+html[data-theme="light"] .obs-help ol {
+    color: #3a3a3a;
+}
+html[data-theme="light"] .notice {
+    color: #353535;
+}
+html[data-theme="light"] .pos {
+    color: #1c9130;
+}
+html[data-theme="light"] .neg {
+    color: #ad0017;
+}
+html[data-theme="light"] .badge {
+    background: #c3c3c3;
+}
+html[data-theme="light"] .badge-approved {
+    color: #0061ad;
+}
+html[data-theme="light"] .badge-paid {
+    color: #1c9130;
+}
+html[data-theme="light"] .chat-form .chat-sticker-btn[aria-expanded="true"] {
+    color: var(--primary-text);
+}
+html[data-theme="light"] .chat-sticker-big {
+    filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.14));
+}
+html[data-theme="light"] .chat-donation-head {
+    color: #ad7f00;
+}
+html[data-theme="light"] .sticker-pop {
+    border: 1px solid #c3c3c3;
+    background: rgba(0, 0, 0, 0.274);
+    box-shadow: 0 -10px 32px rgba(0, 0, 0, 0.193);
+}
+html[data-theme="light"] .sticker-btn {
+    background: rgba(10, 10, 10, 0.04);
+}
+html[data-theme="light"] .sticker-cost {
+    color: #ad8200;
+}
+html[data-theme="light"] .obs-conn {
+    color: #3a3a3a;
+}
+@media (max-width: 700px) {
+    html[data-theme="light"] .obs-tabs button[aria-selected="true"] {
+        color: var(--primary-text);
+    }
+}
+html[data-theme="light"] .tab:hover {
+    background: rgba(10, 10, 10, 0.04);
+}
+html[data-theme="light"] .steps i {
+    background: #c3c3c3;
+}
+html[data-theme="light"] .upgrade-vals strong {
+    color: #ad8200;
+}
+html[data-theme="light"] code {
+    background: rgba(10, 10, 10, 0.08);
+}
+html[data-theme="light"] .chat-popout:hover {
+    background: rgba(10, 10, 10, 0.08);
+}
+html[data-theme="light"] .chat-bot-name {
+    color: #0061ad;
+}
+html[data-theme="light"] .medal-2 {
+    color: #38404b;
+}
+html[data-theme="light"] .medal-3 {
+    color: #ad8200;
+}
+html[data-theme="light"] .popout-overlay .chat-msg {
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 0 2px rgba(0, 0, 0, 0.35);
+}
+html[data-theme="light"] .user-dropdown {
+    background: #d6d7dd;
+    border-color: #bec0c9;
+}
+html[data-theme="light"] .user-dropdown .um-group a,
+html[data-theme="light"] .user-dropdown .um-group button,
+html[data-theme="light"] .user-dropdown button.um-danger {
+    color: #222229;
+}
+html[data-theme="light"] .user-dropdown a:hover svg,
+html[data-theme="light"] .user-dropdown a:focus-visible svg {
+    color: var(--primary-text);
+}
+html[data-theme="light"] .user-dropdown button.um-danger {
+    color: #ad0019;
+}
+html[data-theme="light"] .user-dropdown button.um-danger svg {
+    color: #ad0019;
+}
+@media (max-width: 700px) {
+    html[data-theme="light"] .user-dropdown {
+        box-shadow: 0 -12px 48px rgba(0, 0, 0, 0.245);
+    }
+}
+html[data-theme="light"] .chat-tts-icon {
+    color: #ad8200;
+}
+html[data-theme="light"] .chat-modtools button {
+    border: 1px solid #adadb5;
+    background: #cbccd3;
+    color: #222229;
+}
+html[data-theme="light"] .swatch.on {
+    border-color: #0a0a0a;
+}
+html[data-theme="light"] .st-free {
+    color: #ad8200;
+}
+html[data-theme="light"] .site-header {
+    background: linear-gradient(180deg, rgba(214, 214, 218, 0.92), rgba(0, 0, 0, 0.246));
+    border-bottom-color: rgba(10, 10, 10, 0.06);
+    box-shadow: 0 1px 0 rgba(255, 166, 0, 0.18), 0 10px 30px rgba(0, 0, 0, 0.098);
+}
+@media (max-width: 700px) {
+    html[data-theme="light"] .site-header.search-open .search-form {
+        background: #dcdce1;
+    }
+}
+@media (max-width: 700px) {
+    html[data-theme="light"] .site-header {
+        background: #dbdbe0;
+    }
+    html[data-theme="light"] body.menu-open::before {
+        background: rgba(0, 0, 0, 0.154);
+    }
+}
+html[data-theme="light"] .prefs-row + .prefs-row {
+    border-top: 1px solid rgba(10, 10, 10, 0.04);
+}
+html[data-theme="light"] .seg input:checked + span {
+    color: var(--primary-text);
+}
+html[data-theme="light"] .theme-chip[data-for="dark"] {
+    background: #dedede;
+}
+html[data-theme="light"] .theme-chip[data-for="black"] {
+    background: #fafafa;
+}
+html[data-theme="light"] .swatch input:focus-visible + span {
+    outline: 2px solid #0a0a0a;
+}
+html[data-theme="light"] .switch span::after {
+    background: #373737;
+}
+html[data-theme="light"] .switch input:checked + span::after {
+    background: #e9e9e9;
+}
+
+/* ---------- 3. Hand-tuned ---------- */
+/* Icons are white SVG files drawn with <img>: flip them to dark */
+html[data-theme="light"] .sidebar-item img,
+html[data-theme="light"] .search-submit img { filter: invert(1); }
+html[data-theme="light"] .menu-icon .line { stroke: var(--text-color); }
+html[data-theme="light"] .brand-logo { background: var(--primary-color); }
+html[data-theme="light"] body {
+    background:
+        radial-gradient(900px 500px at 85% -10%, rgba(255, 166, 0, 0.10), transparent 60%),
+        radial-gradient(700px 500px at -10% 110%, rgba(255, 46, 77, 0.05), transparent 60%),
+        var(--bg-gradient);
+    background-attachment: fixed;
+}
+html[data-theme="light"] .btn-primary { color: #1b1200; }
+html[data-theme="light"] .dialog { background: #fff; color: var(--text-color); }
+html[data-theme="light"] .dialog::backdrop { background: rgba(10, 12, 18, 0.45); }
+html[data-theme="light"] input,
+html[data-theme="light"] select,
+html[data-theme="light"] textarea { color: var(--text-color); }
+html[data-theme="light"] ::placeholder { color: #8a909c; }
+
+/* Gold text that was tuned for a dark background */
+html[data-theme="light"] .coin-chip,
+html[data-theme="light"] .notice-test,
+html[data-theme="light"] .chat-donate,
+html[data-theme="light"] .chat-donation-head,
+html[data-theme="light"] .sticker-cost,
+html[data-theme="light"] .upgrade-vals strong,
+html[data-theme="light"] .demo-banner,
+html[data-theme="light"] .user-dropdown a.um-balance,
+html[data-theme="light"] .chat-tts-icon,
+html[data-theme="light"] .st-free,
+html[data-theme="light"] .medal-3 { color: #7a4d00; }
+html[data-theme="light"] .badge-approved { color: #1864ab; }
+html[data-theme="light"] .badge-paid,
+html[data-theme="light"] .pos { color: #1c7a2f; }
+html[data-theme="light"] .neg,
+html[data-theme="light"] .st-live,
+html[data-theme="light"] .tbtn[aria-pressed="true"] { color: #c0213d; }
+html[data-theme="light"] .chat-bot-name { color: #1864ab; }
+html[data-theme="light"] .user-dropdown button.um-danger,
+html[data-theme="light"] .user-dropdown button.um-danger svg { color: #c0213d; }

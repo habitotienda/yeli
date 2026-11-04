@@ -6,10 +6,20 @@
     <title>Yeli | Streaming App</title>
     <script src="static/js/translate-guard.js"></script>
     <script src="static/js/prefs-boot.js"></script>
+    <script src="static/js/i18n-es.js"></script>
+    <script src="static/js/i18n.js"></script>
     <meta name="theme-color" content="#1e1e1e">
     <meta name="description" content="Watch an endless array of things live."/>
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="apple-touch-icon" href="static/icons/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="static/icons/icon-192.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Yeli">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <link rel="stylesheet" href="static/css/style.css">
     <link rel="stylesheet" href="static/css/enhancements.css">
+    <link rel="stylesheet" href="static/css/theme-light.css">
     <link rel="icon" href="static/svg/logo.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -120,20 +130,7 @@
                 <div class="prefs-label"><strong>Theme</strong></div>
                 <div class="themes" role="radiogroup" aria-label="Theme">
                     <label class="theme-opt"><input type="radio" name="theme" value="dark"><span class="theme-chip" data-for="dark"></span><span class="theme-name">Dark</span></label>
-                    <label class="theme-opt"><input type="radio" name="theme" value="black"><span class="theme-chip" data-for="black"></span><span class="theme-name">Black</span></label>
-                    <label class="theme-opt"><input type="radio" name="theme" value="midnight"><span class="theme-chip" data-for="midnight"></span><span class="theme-name">Midnight</span></label>
-                </div>
-            </div>
-
-            <div class="prefs-stack">
-                <div class="prefs-label"><strong>Accent colour</strong></div>
-                <div class="swatches" role="radiogroup" aria-label="Accent colour">
-                    <label class="swatch" title="Orange"><input type="radio" name="accent" value="orange" aria-label="Orange"><span style="--sw:#ffa600"></span></label>
-                    <label class="swatch" title="Pink"><input type="radio" name="accent" value="pink" aria-label="Pink"><span style="--sw:#ff5c9a"></span></label>
-                    <label class="swatch" title="Blue"><input type="radio" name="accent" value="blue" aria-label="Blue"><span style="--sw:#4da3ff"></span></label>
-                    <label class="swatch" title="Teal"><input type="radio" name="accent" value="teal" aria-label="Teal"><span style="--sw:#1fd1c0"></span></label>
-                    <label class="swatch" title="Green"><input type="radio" name="accent" value="green" aria-label="Green"><span style="--sw:#4ade80"></span></label>
-                    <label class="swatch" title="Purple"><input type="radio" name="accent" value="purple" aria-label="Purple"><span style="--sw:#b184ff"></span></label>
+                    <label class="theme-opt"><input type="radio" name="theme" value="light"><span class="theme-chip" data-for="light"></span><span class="theme-name">Light</span></label>
                 </div>
             </div>
         </section>
@@ -176,11 +173,20 @@
         <section class="prefs-group" aria-labelledby="pgLang">
             <h3 id="pgLang">Language</h3>
             <div class="prefs-stack">
-                <div class="prefs-label"><strong>Browser translation</strong><span>Yeli is written in English. If your browser&rsquo;s translator garbles the page, block it.</span></div>
-                <div class="seg seg-wide seg-two" role="radiogroup" aria-label="Browser translation">
-                    <label><input type="radio" name="translate" value="allow"><span>Allow</span></label>
-                    <label><input type="radio" name="translate" value="block"><span>Block</span></label>
+                <div class="prefs-label"><strong>Interface language</strong><span>Auto follows your browser&rsquo;s language.</span></div>
+                <div class="seg seg-wide" role="radiogroup" aria-label="Interface language">
+                    <label><input type="radio" name="lang" value="auto"><span>Auto</span></label>
+                    <label><input type="radio" name="lang" value="en"><span>English</span></label>
+                    <label><input type="radio" name="lang" value="es"><span translate="no">Espa&ntilde;ol</span></label>
                 </div>
+            </div>
+        </section>
+
+        <section class="prefs-group" id="pgInstall" aria-labelledby="pgInstallT" hidden>
+            <h3 id="pgInstallT">App</h3>
+            <div class="prefs-row">
+                <div class="prefs-label"><strong>Install Yeli</strong><span id="installHint">Add Yeli to your home screen and open it like an app.</span></div>
+                <button type="button" class="btn btn-primary" id="installBtn">Install</button>
             </div>
         </section>
     </form>
@@ -194,6 +200,7 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
+<script src="static/js/pwa.js"></script>
 <script src="static/js/preferences.js"></script>
 <script src="static/js/avatars.js"></script>
 <script src="static/js/stickers.js"></script>

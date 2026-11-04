@@ -23,7 +23,7 @@ async function pageModeration(root, alive) {
     }
 
     function render() {
-        const when = (b) => (b.until ? `until ${new Date(b.until * 1000).toLocaleString()}` : 'permanent');
+        const when = (b) => (b.until ? `until ${new Date(b.until * 1000).toLocaleString(window.YELI_LANG)}` : 'permanent');
         root.innerHTML = `
         <div class="page-head"><h1 class="page-title">Moderation</h1>
             <p class="page-sub">Banned viewers can\u2019t write in the chat. Moderators can delete messages and ban or unban viewers.</p></div>

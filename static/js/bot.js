@@ -59,7 +59,7 @@ async function pageBot(root, alive) {
                 </div>
                 <label class="check"><input type="checkbox" name="tts_name"${st.tts_name ? ' checked' : ''}><span><strong>Say the viewer\u2019s name</strong>
                     <small>On: \u201cbob says: Hola a todos\u201d. Off: \u201cHola a todos\u201d.</small></span></label>
-                <div class="field"><label for="ttTpl">What is read when the name is on</label><input id="ttTpl" name="tts_template" maxlength="120" value="${esc(st.tts_template)}"><small>Use <code>{user}</code> and <code>{text}</code>. In Spanish: <code>{user} dice: {text}</code></small></div>
+                <div class="field"><label for="ttTpl">What is read when the name is on</label><input id="ttTpl" name="tts_template" maxlength="120" value="${esc(st.tts_template)}"><small>Write <code>{user}</code> and <code>{text}</code>. In Spanish: <code>{user} dice: {text}</code></small></div>
                 <div class="field-row">
                     <div class="field"><label for="ttCool">Cooldown per viewer (seconds)</label><input id="ttCool" name="tts_cooldown" type="number" min="0" max="600" value="${st.tts_cooldown}"></div>
                     <div class="field"><label for="ttMax">Longest message (characters)</label><input id="ttMax" name="tts_max" type="number" min="20" max="300" value="${st.tts_max}"></div>

@@ -29,7 +29,7 @@ function createChat(container, channel, { isOwner = false, canMod = isOwner } = 
                 </span>
             </header>
             <div class="chat-body">
-                <div class="chat-log" translate="no" role="log" aria-live="polite" tabindex="0"></div>
+                <div class="chat-log" role="log" aria-live="polite" tabindex="0"></div>
                 <button type="button" class="chat-jump" hidden>New messages</button>
             </div>
             <div class="chat-foot"></div>
@@ -103,7 +103,7 @@ function createChat(container, channel, { isOwner = false, canMod = isOwner } = 
             const head = document.createElement('div');
             head.className = 'chat-donation-head';
             head.insertAdjacentHTML('beforeend', coinImg(18));
-            head.append(nameLink(m), ` sent ${Number(m.amount).toLocaleString()} Yelis`);
+            head.append(nameLink(m), ` sent ${Number(m.amount).toLocaleString(window.YELI_LANG)} Yelis`);
             row.append(head);
             if (m.sticker) row.append(stickerImg(m.sticker, 'chat-sticker chat-sticker-big'));
             if (m.text) {

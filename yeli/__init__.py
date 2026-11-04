@@ -35,10 +35,10 @@ def create_app():
     def healthz():
         return "ok", 200, {"Cache-Control": "no-store"}
 
-    from . import accounts, alerts, bot, channels, chat, media, moderation, streaming, upgrades, wallet
+    from . import accounts, alerts, bot, channels, chat, media, moderation, pwa, streaming, upgrades, wallet
     from .security import install as install_security
 
-    for module in (channels, accounts, chat, wallet, upgrades, bot, moderation, alerts, streaming, media):
+    for module in (channels, accounts, chat, wallet, upgrades, bot, moderation, alerts, streaming, media, pwa):
         app.register_blueprint(module.bp)
     install_security(app)
     return app

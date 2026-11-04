@@ -10,35 +10,10 @@
     --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-/* Accent colours */
-html[data-accent="orange"] { --primary-color: #ffa600; --primary-hover: #ff6600; --accent-rgb: 255, 166, 0; }
-html[data-accent="pink"]   { --primary-color: #ff5c9a; --primary-hover: #e0245e; --accent-rgb: 255, 92, 154; }
-html[data-accent="blue"]   { --primary-color: #4da3ff; --primary-hover: #2478e6; --accent-rgb: 77, 163, 255; }
-html[data-accent="teal"]   { --primary-color: #1fd1c0; --primary-hover: #0e9f9a; --accent-rgb: 31, 209, 192; }
-html[data-accent="green"]  { --primary-color: #4ade80; --primary-hover: #22a65a; --accent-rgb: 74, 222, 128; }
-html[data-accent="purple"] { --primary-color: #b184ff; --primary-hover: #7c4ae8; --accent-rgb: 177, 132, 255; }
+/* The accent is fixed (orange): it can no longer be changed */
+:root { --primary-color: #ffa600; --primary-hover: #ff6600; --accent-rgb: 255, 166, 0; --primary-text: #ffa600; }
 
-/* Themes (all dark: the app's hard-coded surfaces are dark, so these swap the shared variables) */
-html[data-theme="black"] {
-    --bg-main: #000;
-    --bg-gradient: linear-gradient(135deg, #0b0b0b 0%, #000 100%);
-    --header-bg: rgba(0, 0, 0, 0.85);
-    --second-color: #0c0c0c;
-    --border-color: #262626;
-    --field-bg: #000;
-    --circle-bg: #1d1d1d;
-}
-
-html[data-theme="midnight"] {
-    --bg-main: #0f1624;
-    --bg-gradient: linear-gradient(135deg, #1a2440 0%, #0a0f1c 100%);
-    --header-bg: rgba(15, 22, 36, 0.86);
-    --second-color: #131c2e;
-    --border-color: #26324a;
-    --field-bg: #0a0f1c;
-    --circle-bg: #25314a;
-    --text-muted: #9aa8c2;
-}
+/* Themes: dark (default, in style.css) and light (theme-light.css) */
 
 html[data-density="compact"] {
     --main-content-padding: 14px;
@@ -265,9 +240,8 @@ body::before {
     background: var(--primary-color);
 }
 
-.theme-chip[data-for="dark"]     { --tc-side: #252525; background: #1e1e1e; }
-.theme-chip[data-for="black"]    { --tc-side: #0c0c0c; background: #000; }
-.theme-chip[data-for="midnight"] { --tc-side: #131c2e; background: #0f1624; }
+.theme-chip[data-for="dark"]  { --tc-side: #252525; background: #1e1e1e; }
+.theme-chip[data-for="light"] { --tc-side: #ffffff; background: #f1f2f5; }
 
 .theme-opt input:checked ~ .theme-chip {
     border-color: var(--primary-color);
@@ -280,29 +254,7 @@ body::before {
 .theme-opt .theme-name { font-size: 13px; color: var(--text-muted); }
 .theme-opt input:checked ~ .theme-name { color: var(--text-color); }
 
-.themes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-
-/* Accent swatches */
-.swatches { display: flex; gap: 10px; flex-wrap: wrap; }
-
-.swatch { position: relative; width: 34px; height: 34px; cursor: pointer; }
-.swatch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; z-index: 1; }
-
-.swatch span {
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-    background: var(--sw);
-    transition: transform 0.2s var(--ease-out), box-shadow 0.2s ease;
-}
-
-.swatch:hover span { transform: scale(1.08); }
-
-.swatch input:checked + span {
-    box-shadow: 0 0 0 3px var(--second-color), 0 0 0 5px var(--sw);
-}
-
-.swatch input:focus-visible + span { outline: 2px solid #fff; outline-offset: 3px; }
+.themes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 
 /* Switch */
 .switch { position: relative; width: 44px; height: 26px; flex-shrink: 0; }

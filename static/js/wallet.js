@@ -4,8 +4,8 @@
    Wallet: buy Yelis, donate them, cash out what you earn, and the admin panel
    ========================================================================= */
 const eco = () => state.config.economy;
-const money = (cents) => (cents / 100).toLocaleString(undefined, { style: 'currency', currency: eco().currency });
-const num = (n) => Number(n).toLocaleString();
+const money = (cents) => (cents / 100).toLocaleString(window.YELI_LANG, { style: 'currency', currency: eco().currency });
+const num = (n) => Number(n).toLocaleString(window.YELI_LANG);
 const coinImg = (size = 16) => `<img class="coin" src="static/svg/coin.svg" alt="" width="${size}" height="${size}">`;
 
 function setBalance(n) {
@@ -124,12 +124,12 @@ const LEDGER_TEXT = {
     payout_request: (r) => `Cash-out requested (${r.ref})`,
     payout_rejected: (r) => `Cash-out returned (${r.ref})`,
 };
-const dateOf = (ts) => new Date(ts * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+const dateOf = (ts) => new Date(ts * 1000).toLocaleDateString(window.YELI_LANG, { year: 'numeric', month: 'short', day: 'numeric' });
 
 const BADGES = ['None', 'Bronze', 'Silver', 'Gold'];
 const UPGRADE_ORDER = ['earnings', 'boost', 'badge', 'color'];
 const NAME_SWATCHES = ['#ff6b6b', '#ffa94d', '#ffd43b', '#a9e34b', '#38d9a9', '#4dabf7', '#9775fa', '#f783ac']; // the API's JSON keys come back sorted
-const upgradeValue = (track, v) => track === 'earnings' ? `${v}%` : track === 'boost' ? `${v}x` : track === 'badge' ? BADGES[v] : track === 'color' ? (v === 0 ? 'None' : v === 99 ? 'Any color' : `${v} colors`) : num(v);
+const upgradeValue = (track, v) => track === 'earnings' ? `${v}%` : track === 'boost' ? `${v}x` : track === 'badge' ? BADGES[v] : track === 'color' ? (v === 0 ? 'No color' : v === 99 ? 'Any color' : `${v} colors`) : num(v);
 
 function tabNav(tab) {
     return `<nav class="tabs" role="tablist" aria-label="Wallet sections">${[['buy', 'Buy Yelis'], ['upgrades', 'Upgrades'], ['cashout', 'Cash out'], ['history', 'History']]
@@ -318,7 +318,7 @@ async function pageAdmin(root, alive) {
     const [s, list] = await Promise.all([api('/admin/summary'), api('/admin/payouts?status=requested')]);
     const approved = await api('/admin/payouts?status=approved');
     if (!alive()) return;
-    const cur = (c) => (c / 100).toLocaleString(undefined, { style: 'currency', currency: s.currency });
+    const cur = (c) => (c / 100).toLocaleString(window.YELI_LANG, { style: 'currency', currency: s.currency });
     const open = [...list.payouts, ...approved.payouts];
 
     root.innerHTML = `

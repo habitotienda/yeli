@@ -18,11 +18,11 @@
     };
 })();
 
-/* Things a translator must leave alone: names, the brand, the currency, chat, the studio. */
+/* Things a translator must leave alone: names, the brand, the currency and chat. */
 (function () {
     var SELECTOR = [
         '.brand-name', '.coin-chip', '.stream-channel', '.stream-card .stream-title', '.suggest-name',
-        '.um-who', '.chat-log', '.obs', '.badge-live', '.sidebar-circle-wrapper .item-text', '.splash-word'
+        '.um-who', '.badge-live', '.sidebar-circle-wrapper .item-text', '.splash-word'
     ].join(',');
     var queued = false;
 

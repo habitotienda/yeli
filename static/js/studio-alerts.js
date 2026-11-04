@@ -64,7 +64,7 @@ function alertImage(a, ref) {
     return img.complete && img.naturalWidth ? img : null;
 }
 
-const alertText = (tpl, e, fallback) => (tpl || fallback).replace(/\{user\}/g, e.username).replace(/\{amount\}/g, Number(e.amount).toLocaleString()).replace(/\{message\}/g, e.message || '');
+const alertText = (tpl, e, fallback) => (tpl || fallback).replace(/\{user\}/g, e.username).replace(/\{amount\}/g, Number(e.amount).toLocaleString(window.YELI_LANG)).replace(/\{message\}/g, e.message || '');
 
 /** Called on every frame: starts the next queued alert and draws the current one. */
 function tickAlerts(s) {

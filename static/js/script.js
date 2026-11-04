@@ -19,7 +19,7 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const esc = (value) =>
     String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-const plural = (n, one, many) => `${Number(n).toLocaleString()} ${n === 1 ? one : many}`;
+const plural = (n, one, many) => `${Number(n).toLocaleString(window.YELI_LANG)} ${n === 1 ? one : many}`;
 
 function fmtDuration(ms) {
     const total = Math.max(0, Math.floor(ms / 1000));
@@ -660,7 +660,7 @@ async function pageChannel(root, name, alive) {
             ? `<span class="badge-live">LIVE</span><span class="stream-channel">${esc(ch.username)}</span><span class="chip-static">${esc(ch.category)}</span>`
             : '<span class="muted">Offline</span>';
         $('#chBio').textContent = ch.bio || (ch.is_me ? 'You haven\u2019t written a bio yet.' : 'This channel has no bio yet.');
-        $('#chJoined').textContent = `Joined ${new Date(ch.joined * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'long' })}`;
+        $('#chJoined').textContent = `Joined ${new Date(ch.joined * 1000).toLocaleDateString(window.YELI_LANG, { year: 'numeric', month: 'long' })}`;
         paintStats();
         $('#chDonate').hidden = ch.is_me;
         $('#chDonateLabel').textContent = `Support ${ch.username} with Yelis, or send a sticker in chat.`;
@@ -749,7 +749,7 @@ function renderAuth() {
         ? '<a class="live-pill" href="#/studio"><span class="live-dot" aria-hidden="true"></span>You\u2019re live</a>'
         : '<a class="btn btn-primary btn-icon" href="#/studio"><img src="static/svg/broadcast.svg" alt="" width="18" height="18">Go live</a>';
     box.innerHTML = `
-        <a class="coin-chip" href="#/wallet" aria-label="Your wallet: ${Number(state.me.balance || 0).toLocaleString()} Yelis" title="Your wallet">${coinImg(18)}<span>${Number(state.me.balance || 0).toLocaleString()}</span></a>
+        <a class="coin-chip" href="#/wallet" aria-label="Your wallet: ${Number(state.me.balance || 0).toLocaleString(window.YELI_LANG)} Yelis" title="Your wallet">${coinImg(18)}<span>${Number(state.me.balance || 0).toLocaleString(window.YELI_LANG)}</span></a>
         ${liveBtn}
         <div class="user-menu">
             <button type="button" class="user-btn" aria-haspopup="menu" aria-expanded="false" aria-label="Account menu for ${esc(state.me.username)}">
@@ -760,7 +760,7 @@ function renderAuth() {
                     ${avatar(state.me, 'avatar-lg')}
                     <div class="um-who"><strong>${esc(state.me.username)}</strong><span>${esc(state.me.email)}</span></div>
                 </div>
-                <a class="um-balance" role="menuitem" href="#/wallet?tab=buy">${coinImg(18)}<span><strong>${Number(state.me.balance || 0).toLocaleString()}</strong> Yelis</span><em>Add</em></a>
+                <a class="um-balance" role="menuitem" href="#/wallet?tab=buy">${coinImg(18)}<span><strong>${Number(state.me.balance || 0).toLocaleString(window.YELI_LANG)}</strong> Yelis</span><em>Add</em></a>
                 <div class="um-group" role="group" aria-label="Your account">
                     <a role="menuitem" href="${channelHref(state.me.username)}">${MI.channel}<span>My channel</span></a>
                     <a role="menuitem" href="#/settings">${MI.edit}<span>Edit profile</span></a>

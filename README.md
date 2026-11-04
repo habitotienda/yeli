@@ -267,3 +267,10 @@ Tampoco había Waitress instalado en ese entorno (las pruebas corrieron con el s
 - Las claves de stream son secretas; el webhook `/api/media/auth` solo acepta publicar con la clave correcta y limita los intentos fallidos.
 - Los cash-outs guardan el destino de pago en la base de datos: protege el archivo y usa HTTPS.
 - El contador de intentos de login y los límites por red son por proceso; detrás de un proxy configura `ProxyFix` para ver la IP real.
+
+## Tema, idioma y app instalable
+
+- **Tema:** solo Oscuro y Claro (Ajustes → Apariencia). El color de acento es siempre naranja. El tema claro está en `static/css/theme-light.css`.
+- **Idioma:** Automático (sigue al navegador), English o Español (Ajustes → Idioma). Las traducciones están en `static/js/i18n-es.js`; lo que no esté ahí se queda en inglés. Para añadir un texto nuevo: `"English": "Español",`. El motor es `static/js/i18n.js`.
+- **Instalar como app (PWA):** `manifest.webmanifest` + `sw.js` (los sirve `yeli/pwa.py` desde la raíz). Necesita HTTPS (Render ya lo da). Android/Chrome: Ajustes → App → Instalar; iPhone: Compartir → Añadir a pantalla de inicio. El service worker solo guarda la interfaz; nunca toca `/api/` ni el video.
+- **Compartir pantalla:** instalar la app **no** lo habilita en el celular: los navegadores móviles no implementan `getDisplayMedia`. En computadora funciona igual que antes.

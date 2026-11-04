@@ -34,6 +34,7 @@ CHAT_MAX_LEN = 300
 CHAT_KEEP = 500  # messages kept per channel
 MAX_AVATAR_BYTES = 60 * 1024
 MAX_THUMB_BYTES = 45 * 1024
+MAX_COVER_BYTES = 80 * 1024  # a video cover; as base64 inside the JSON it stays under the 128 KB request limit
 
 ADMINS = {n.strip().lower() for n in os.environ.get("YELI_ADMINS", "").split(",") if n.strip()}
 
@@ -68,3 +69,15 @@ def load_ice_servers():
         except ValueError:
             pass
     return [{"urls": "stun:stun.l.google.com:19302"}]
+
+
+# Saved streams (videos on the profile). The streamer's browser records the program output and uploads it in
+# small pieces while live; when the stream ends the recording becomes a video on the channel.
+# Files live next to the database, so a persistent disk (YELI_DB=/var/data/yeli.db) keeps them too.
+VOD_DIR = os.environ.get("YELI_VOD_DIR", str(Path(DB_PATH).resolve().parent / "vods"))
+VOD_MAX_BYTES = int(float(os.environ.get("YELI_VOD_MAX_MB", "1024")) * 1024 * 1024)  # per video
+VOD_MAX_PER_USER = int(os.environ.get("YELI_VOD_MAX_PER_USER", "30"))  # saved videos per channel
+VOD_CHUNK_MAX = 8 * 1024 * 1024  # one upload piece (the browser sends ~5 s at a time)
+VOD_STALE_SECONDS = 120  # a recording that stops sending data this long is closed with what it has
+VOD_TITLE_MAX = 80
+VOD_DESC_MAX = 500

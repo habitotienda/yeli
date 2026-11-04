@@ -34,10 +34,110 @@ async function startStreaming({ external = false } = {}) {
         }
     }
     startPolling(b);
-    if (!external) startThumbnails(b);
+    if (!external) { startThumbnails(b); startRecording(b); }
     startStats(b);
     renderAuth();
     notifyStudio();
+}
+
+/* =========================================================================
+   Saved stream: the program output is recorded here and uploaded in ~5 s pieces while live.
+   When the stream ends it becomes a video on the streamer's profile (see yeli/vods.py).
+   Streams that come from OBS over WHIP never pass through this browser, so they are not recorded.
+   ========================================================================= */
+const VOD_MIMES = ['video/webm;codecs=vp8,opus', 'video/webm;codecs=vp9,opus', 'video/webm', 'video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4'];
+const VOD_PIECE_MS = 5000;
+const VOD_MAX_PENDING = 64 * 1024 * 1024; // if the connection can't keep up, stop recording instead of filling memory
+let vodSaving = 0;
+window.addEventListener('beforeunload', (e) => { if (vodSaving > 0) { e.preventDefault(); e.returnValue = ''; } });
+
+async function startRecording(b) {
+    if (typeof MediaRecorder === 'undefined' || !b.stream) return;
+    const mime = VOD_MIMES.find((m) => MediaRecorder.isTypeSupported(m));
+    if (!mime) return;
+    let info;
+    try {
+        info = await api('/vod/start', { method: 'POST', body: { mime } });
+    } catch (e) {
+        if (e.status === 409 && e.message) toast(e.message); // for example: you reached the saved videos limit
+        return;
+    }
+    if (b.stopped) { api(`/vod/${info.id}/finish`, { method: 'POST' }).catch(() => {}); return; }
+    const rec = { id: info.id, seq: 0, queue: Promise.resolve(), pending: 0, failed: false, recorder: null };
+    try {
+        rec.recorder = new MediaRecorder(b.stream, {
+            mimeType: mime,
+            videoBitsPerSecond: Math.min(Math.max(b.maxBitrate || 0, 500000), 4000000),
+            audioBitsPerSecond: 96000,
+        });
+    } catch {
+        api(`/vod/${info.id}/finish`, { method: 'POST' }).catch(() => {});
+        return;
+    }
+    const fail = (message) => {
+        if (rec.failed) return;
+        rec.failed = true;
+        if (message) toast(message);
+        try { if (rec.recorder.state !== 'inactive') rec.recorder.stop(); } catch { /* already stopped */ }
+    };
+    rec.fail = fail;
+    rec.recorder.ondataavailable = (e) => {
+        if (!e.data || !e.data.size || rec.failed) return;
+        const seq = rec.seq++;
+        rec.pending += e.data.size;
+        if (rec.pending > VOD_MAX_PENDING) { fail('Your connection can\u2019t upload the video fast enough, so it stopped saving. The stream keeps going.'); return; }
+        rec.queue = rec.queue.then(() => uploadVodPiece(rec, seq, e.data)).catch(() => {});
+    };
+    rec.recorder.onerror = () => fail('');
+    rec.recorder.start(VOD_PIECE_MS);
+    b.rec = rec;
+}
+
+async function uploadVodPiece(rec, seq, blob) {
+    if (rec.failed) return;
+    for (let attempt = 0; attempt < 5; attempt++) {
+        try {
+            const res = await fetch(`/api/vod/${rec.id}/chunk?seq=${seq}`, {
+                method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, credentials: 'same-origin', body: blob,
+            });
+            if (res.ok) { rec.pending -= blob.size; return; }
+            if (res.status >= 400 && res.status < 500) { // the server closed it, or this piece can't be accepted
+                let msg = '';
+                try { msg = (await res.json()).error || ''; } catch { /* no body */ }
+                rec.fail(res.status === 413 ? msg : 'Your stream stopped being saved as a video.');
+                return;
+            }
+        } catch { /* network hiccup: try again */ }
+        await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
+    }
+    rec.fail('Your stream stopped being saved as a video: the connection kept failing.');
+}
+
+/** Stops the recorder right away (before the sources close); returns a promise that saves the video. */
+function stopRecording(b) {
+    const rec = b.rec;
+    if (!rec) return null;
+    b.rec = null;
+    vodSaving++;
+    const stopped = new Promise((resolve) => {
+        const r = rec.recorder;
+        if (r.state === 'inactive') { resolve(); return; }
+        r.addEventListener('stop', () => resolve(), { once: true });
+        try { r.stop(); } catch { resolve(); }
+    });
+    toast('Saving your stream as a video\u2026 keep this tab open a few seconds.');
+    return (async () => {
+        try {
+            await stopped; // the last piece is queued just before 'stop'
+            await Promise.race([rec.queue, new Promise((r) => setTimeout(r, 30000))]);
+            const r = await api(`/vod/${rec.id}/finish`, { method: 'POST' });
+            if (r.saved) {
+                toast('Your stream was saved as a video on your profile.');
+                window.dispatchEvent(new CustomEvent('yeli:vod-saved', { detail: r.video }));
+            }
+        } catch { /* the server closes the recording by itself shortly after */ }
+        finally { vodSaving--; }
+    })();
 }
 
 /** Publish the program output to the media server (WHIP). Returns when the server has answered. */
@@ -233,6 +333,7 @@ async function stopBroadcast(serverAlreadyStopped = false) {
     const b = broadcast;
     if (!b) return;
     b.stopped = true;
+    const saving = stopRecording(b); // before the sources close, so the last seconds are kept
     if (b.poller) b.poller.stop();
     if (b.stopThumbnails) b.stopThumbnails();
     if (b.stopStats) b.stopStats();
@@ -247,4 +348,5 @@ async function stopBroadcast(serverAlreadyStopped = false) {
     // Sources stay open while the studio page is showing (like OBS after "Stop Streaming").
     if (S && !studioRoot) closeSession(); else notifyStudio();
     if (!serverAlreadyStopped) await api('/stream/stop', { method: 'POST' }).catch(() => {});
+    if (saving) saving.catch(() => {}); // keeps running in the background
 }

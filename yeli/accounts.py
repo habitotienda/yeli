@@ -10,6 +10,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from . import config, economy
 from .config import *
 from .core import *
+from .chest import owned_colors as chest_colors
 from .db import get_db
 from .queries import *
 
@@ -188,10 +189,11 @@ def set_name_color():
     db = get_db()
     level = user_level(db, uid, "color")
     allowed = economy.palette_for(level)
+    won = chest_colors(db, uid)  # colors found in daily chests work without the upgrade
     if color:
-        if level <= 0:
+        if level <= 0 and color not in won:
             return err("Unlock Chat name color in Upgrades first.", 402)
-        if not re.fullmatch(r"#[0-9a-f]{6}", color) or (allowed is not None and color not in allowed):
+        if not re.fullmatch(r"#[0-9a-f]{6}", color) or (allowed is not None and color not in allowed and color not in won):
             return err("Your level doesn't include that color.")
     db.execute("UPDATE users SET name_color = ? WHERE id = ?", (color, uid))
     db.commit()

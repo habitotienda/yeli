@@ -30,7 +30,7 @@ class YeliTests(unittest.TestCase):
         _bot._cooldowns.clear()
         core._failed_logins.clear()
         con = sqlite3.connect(config.DB_PATH)
-        for t in ("free_points", "watch_sessions", "chat_bans", "chat_mods", "events", "alert_rules", "assets", "chat_settings", "commands", "spendings", "upgrades", "upgrade_points", "ledger", "payouts", "donations", "purchases", "wallets", "chat_messages", "avatars", "thumbnails", "signals", "viewers", "follows", "streams", "users"):
+        for t in ("vods", "free_points", "watch_sessions", "chat_bans", "chat_mods", "events", "alert_rules", "assets", "chat_settings", "commands", "spendings", "upgrades", "upgrade_points", "ledger", "payouts", "donations", "purchases", "wallets", "chat_messages", "avatars", "thumbnails", "signals", "viewers", "follows", "streams", "users"):
             con.execute(f"DELETE FROM {t}")
         con.commit()
         con.close()
@@ -993,6 +993,94 @@ class YeliTests(unittest.TestCase):
         finally:
             config.FREE_POINT_MIN_ACCOUNT_AGE, config.FREE_POINTS_PER_DAY = saved
 
+
+    # ------------------------------------------------------------------ daily chest
+    def test_daily_chest(self):
+        saved = config.FREE_POINT_MIN_ACCOUNT_AGE, dict(economy.CHEST_WEIGHTS)
+        config.FREE_POINT_MIN_ACCOUNT_AGE = 0
+        try:
+            self.signup(self.alice, "alice")
+            self.signup(self.bob, "bob")
+            self.bob.environ_base["REMOTE_ADDR"] = "10.0.0.5"
+            post(self.alice, "/api/stream/start", {"title": "t", "category": "Talk"})
+            peer = "1" * 32
+            post(self.bob, "/api/watch/alice/join", {"peer": peer})
+            poll = lambda: self.bob.get(f"/api/watch/alice/poll?peer={peer}&after=0").get_json()  # noqa: E731
+            con = sqlite3.connect(config.DB_PATH)
+            uid = con.execute("SELECT id FROM users WHERE username = 'bob'").fetchone()[0]
+            lag = lambda secs, at: (con.execute("UPDATE chest_progress SET seconds = ?, last_tick = last_tick - ? WHERE user_id = ?", (secs, at, uid)), con.commit())  # noqa: E731
+
+            c = poll()["chest"]                                              # first heartbeat starts the clock
+            self.assertEqual((c["seconds"], c["needed"], c["ready"]), (0, 3600, False))
+            self.assertEqual(self.bob.get("/api/chest").get_json()["ready"], False)
+            self.assertEqual(post(self.bob, "/api/chest/open").status_code, 403)   # still locked
+            lag(0, 30); self.assertEqual(poll()["chest"]["seconds"], 30)            # time between heartbeats counts
+            lag(100, 500); self.assertEqual(poll()["chest"]["seconds"], 100)        # a long gap (left the page) counts for nothing
+            # guests and the streamer's own account earn nothing
+            guest = app.test_client(); guest.environ_base["REMOTE_ADDR"] = "10.0.0.8"
+            post(guest, "/api/watch/alice/join", {"peer": "2" * 32})
+            self.assertIsNone(guest.get(f"/api/watch/alice/poll?peer={'2' * 32}&after=0").get_json()["chest"])
+            post(self.alice, "/api/watch/alice/join", {"peer": "3" * 32})
+            self.assertIsNone(self.alice.get(f"/api/watch/alice/poll?peer={'3' * 32}&after=0").get_json()["chest"])
+            self.assertEqual(self.anon.get("/api/chest").status_code, 401)
+
+            # an hour of watching unlocks it, and a sticker is what comes out
+            economy.CHEST_WEIGHTS.update(sticker=1, color=0, points=0)
+            lag(3599, 5)
+            c = poll()["chest"]
+            self.assertTrue(c["ready"] and c["seconds"] == 3600, c)
+            r = post(self.bob, "/api/chest/open")
+            self.assertEqual(r.status_code, 201, r.get_json())
+            reward = r.get_json()["reward"]
+            self.assertEqual(reward["kind"], "sticker")
+            self.assertIn(reward["value"], economy.CHEST_STICKERS)
+            self.assertEqual(r.get_json()["collection"]["stickers"], [reward["value"]])
+            self.assertEqual(post(self.bob, "/api/chest/open").status_code, 409)    # one per day
+            c = poll()["chest"]
+            self.assertTrue(c["opened"] and not c["ready"])
+            self.assertEqual(self.bob.get("/api/chest").get_json()["today"], reward)
+
+            # the sticker is usable in chat; the ones you didn't find are not
+            self.assertEqual(post(self.bob, "/api/chat/alice", {"sticker": reward["value"]}).status_code, 201)
+            other = next(x for x in economy.CHEST_STICKERS if x != reward["value"])
+            self.assertEqual(post(self.bob, "/api/chat/alice", {"sticker": other}).status_code, 403)
+            self.assertEqual(post(self.alice, "/api/chat/alice", {"sticker": reward["value"]}).status_code, 403)
+
+            # next day: a color, which works as a name color without buying the upgrade
+            con.execute("UPDATE chest_opens SET day = day - 1 WHERE user_id = ?", (uid,))
+            con.execute("DELETE FROM chest_progress WHERE user_id = ?", (uid,)); con.commit()
+            economy.CHEST_WEIGHTS.update(sticker=0, color=1, points=0)
+            poll(); lag(3599, 5); self.assertTrue(poll()["chest"]["ready"])
+            r = post(self.bob, "/api/chest/open")
+            color = r.get_json()["reward"]
+            self.assertEqual(color["kind"], "color")
+            self.assertIn(color["value"], economy.CHEST_COLORS)
+            self.assertEqual(post(self.bob, "/api/me/color", {"color": color["value"]}).status_code, 200)
+            self.assertEqual(self.bob.get("/api/upgrades").get_json()["chest_colors"], [color["value"]])
+            not_won = next(x for x in economy.CHEST_COLORS if x != color["value"])
+            self.assertEqual(post(self.bob, "/api/me/color", {"color": not_won}).status_code, 402)
+            self.assertEqual(post(self.bob, "/api/chat/alice", {"text": "hi"}).get_json()["message"]["color"], color["value"])
+
+            # day three: an upgrade point
+            con.execute("UPDATE chest_opens SET day = day - 1 WHERE user_id = ?", (uid,))
+            con.execute("DELETE FROM chest_progress WHERE user_id = ?", (uid,)); con.commit()
+            economy.CHEST_WEIGHTS.update(sticker=0, color=0, points=1)
+            poll(); lag(3599, 5); poll()
+            before = self.bob.get("/api/upgrades").get_json()["points"]
+            self.assertEqual(post(self.bob, "/api/chest/open").get_json()["reward"]["kind"], "points")
+            self.assertEqual(self.bob.get("/api/upgrades").get_json()["points"], before + 1)
+
+            # a brand-new account can't farm chests
+            config.FREE_POINT_MIN_ACCOUNT_AGE = 10**6
+            eve = app.test_client(); self.signup(eve, "eve"); eve.environ_base["REMOTE_ADDR"] = "10.0.0.9"
+            post(eve, "/api/watch/alice/join", {"peer": "4" * 32})
+            c = eve.get(f"/api/watch/alice/poll?peer={'4' * 32}&after=0").get_json()["chest"]
+            self.assertEqual((c["seconds"], c["blocked"]), (0, "new"))
+            con.close()
+        finally:
+            config.FREE_POINT_MIN_ACCOUNT_AGE = saved[0]
+            economy.CHEST_WEIGHTS.clear(); economy.CHEST_WEIGHTS.update(saved[1])
+
     # ------------------------------------------------------------------ chat name color
     def test_name_color(self):
         self.signup(self.bob, "bob")
@@ -1016,6 +1104,119 @@ class YeliTests(unittest.TestCase):
         self.assertEqual(self.anon.get("/api/chat/alice?after=0").get_json()["messages"][-1]["color"], "#123456")
         self.assertEqual(setc("").status_code, 200)                          # back to the default
         self.assertEqual(self.bob.get("/api/me").get_json()["user"]["name_color"], "")
+
+    def test_saved_streams(self):
+        import base64
+        jpeg = "data:image/jpeg;base64," + base64.b64encode(b"\xff\xd8\xff" + b"x" * 500).decode()
+        jpeg2 = "data:image/jpeg;base64," + base64.b64encode(b"\xff\xd8\xff" + b"y" * 300).decode()
+        octet = {"content_type": "application/octet-stream"}
+        self.signup(self.alice, "alice")
+        self.signup(self.bob, "bob")
+
+        # needs a live stream and a known format
+        self.assertEqual(post(self.alice, "/api/vod/start", {"mime": "video/webm"}).status_code, 409)
+        post(self.alice, "/api/stream/start", {"title": "My first live", "category": "Music"})
+        self.assertEqual(post(self.alice, "/api/vod/start", {"mime": "video/x-flv"}).status_code, 400)
+        self.assertEqual(post(self.anon, "/api/vod/start", {"mime": "video/webm"}).status_code, 401)
+        vid = post(self.alice, "/api/vod/start", {"mime": "video/webm;codecs=vp8,opus"}).get_json()["id"]
+
+        # upload pieces: in order, repeated ones are ignored, gaps are refused, only the owner and only binary
+        url = f"/api/vod/{vid}/chunk"
+        self.assertEqual(self.alice.post(url + "?seq=0", data=b"AAAA", **octet).status_code, 200)
+        self.assertTrue(self.alice.post(url + "?seq=0", data=b"AAAA", **octet).get_json()["dup"])
+        self.assertEqual(self.alice.post(url + "?seq=2", data=b"CC", **octet).status_code, 409)
+        self.assertEqual(self.alice.post(url + "?seq=1", data=b"BBBB", **octet).status_code, 200)
+        self.assertEqual(self.alice.post(url + "?seq=2", json={"a": 1}).status_code, 415)
+        self.assertEqual(self.bob.post(url + "?seq=2", data=b"X", **octet).status_code, 404)
+        self.assertEqual(self.anon.post(url + "?seq=2", data=b"X", **octet).status_code, 401)
+        # a big piece is fine here (8 MB), while normal JSON routes keep the 128 KB limit
+        self.assertEqual(self.alice.post(url + "?seq=2", data=b"Z" * (2 * 1024 * 1024), **octet).status_code, 200)
+        self.assertEqual(post(self.alice, "/api/me/profile", {"bio": "x" * 200000}).status_code, 413)
+
+        # while recording: not public, can't be edited, the cover follows the live snapshots
+        self.assertEqual(self.anon.get(f"/api/vod/{vid}").status_code, 404)
+        self.assertEqual(self.anon.get(f"/api/channel/alice/videos").get_json()["videos"], [])
+        self.assertEqual(post(self.alice, f"/api/vod/{vid}/edit", {"title": "x"}).status_code, 409)
+        post(self.alice, "/api/stream/thumbnail", {"image": jpeg})
+
+        # end of the stream: the recording becomes a public video
+        r = post(self.alice, f"/api/vod/{vid}/finish").get_json()
+        self.assertTrue(r["saved"])
+        v = r["video"]
+        self.assertEqual((v["title"], v["category"], v["status"]), ("My first live", "Music", "ready"))
+        self.assertTrue(v["can_edit"])
+        self.assertIsNotNone(v["cover"])
+        listed = self.anon.get("/api/channel/alice/videos").get_json()["videos"]
+        self.assertEqual([x["id"] for x in listed], [vid])
+        self.assertFalse(listed[0]["can_edit"])  # guests can't edit
+        self.assertEqual(self.anon.get(f"/api/vod/{vid}/cover").status_code, 200)
+        self.assertEqual(post(self.alice, f"/api/vod/{vid}/finish").get_json()["video"]["id"], vid)  # idempotent
+        self.assertEqual(self.alice.post(url + "?seq=3", data=b"late", **octet).status_code, 409)
+
+        # the video file can be played and seeked (Range)
+        full = self.anon.get(f"/api/vod/{vid}/video")
+        self.assertEqual((full.status_code, full.mimetype), (200, "video/webm"))
+        self.assertTrue(full.data.startswith(b"AAAABBBB"))
+        part = self.anon.get(f"/api/vod/{vid}/video", headers={"Range": "bytes=4-7"})
+        self.assertEqual((part.status_code, part.data), (206, b"BBBB"))
+
+        # one change only: title + description + cover together, then it is locked
+        self.assertEqual(post(self.bob, f"/api/vod/{vid}/edit", {"title": "hacked"}).status_code, 404)
+        self.assertEqual(post(self.anon, f"/api/vod/{vid}/edit", {"title": "hacked"}).status_code, 401)
+        self.assertEqual(post(self.alice, f"/api/vod/{vid}/edit", {"title": "  "}).status_code, 400)
+        self.assertEqual(post(self.alice, f"/api/vod/{vid}/edit", {"cover": "data:image/png;base64,AAAA"}).status_code, 400)
+        self.assertEqual(post(self.alice, f"/api/vod/{vid}/edit", {"title": "My first live"}).status_code, 400)  # nothing changed: not used up
+        self.assertTrue(self.alice.get(f"/api/channel/alice/videos").get_json()["videos"][0]["can_edit"])
+        old = self.anon.get(f"/api/vod/{vid}/cover").data
+        r = post(self.alice, f"/api/vod/{vid}/edit", {"title": "Renamed", "description": "All about it", "cover": jpeg2})
+        self.assertEqual(r.status_code, 200, r.get_json())
+        v = r.get_json()["video"]
+        self.assertEqual((v["title"], v["description"], v["can_edit"], v["edited"]), ("Renamed", "All about it", False, True))
+        self.assertNotEqual(self.anon.get(f"/api/vod/{vid}/cover").data, old)
+        for body in ({"title": "Again"}, {"description": "Again"}, {"cover": jpeg}):
+            r = post(self.alice, f"/api/vod/{vid}/edit", body)
+            self.assertEqual(r.status_code, 403)
+        self.assertEqual(self.anon.get(f"/api/vod/{vid}").get_json()["video"]["title"], "Renamed")
+
+        # a recording with nothing in it disappears; a closed browser keeps what arrived
+        post(self.alice, "/api/stream/start", {"title": "Second", "category": "Talk"})
+        empty = post(self.alice, "/api/vod/start", {"mime": "video/mp4"}).get_json()["id"]
+        self.assertFalse(post(self.alice, f"/api/vod/{empty}/finish").get_json()["saved"])
+        self.assertEqual(self.anon.get(f"/api/vod/{empty}").status_code, 404)
+        gone = post(self.alice, "/api/vod/start", {"mime": "video/mp4"}).get_json()["id"]
+        self.alice.post(f"/api/vod/{gone}/chunk?seq=0", data=b"1234", **octet)
+        con = sqlite3.connect(config.DB_PATH)
+        con.execute("UPDATE vods SET updated_at = updated_at - 1000, started_at = started_at - 1060 WHERE id = ?", (gone,))
+        con.commit()
+        con.close()
+        ids = [x["id"] for x in self.anon.get("/api/channel/alice/videos").get_json()["videos"]]
+        self.assertIn(gone, ids)
+        self.assertGreater(self.anon.get(f"/api/vod/{gone}").get_json()["video"]["duration"], 0)
+
+        # size limit: the video is kept as it is and the browser is told to stop
+        old_max = config.VOD_MAX_BYTES
+        config.VOD_MAX_BYTES = 10
+        try:
+            big = post(self.alice, "/api/vod/start", {"mime": "video/webm"}).get_json()["id"]
+            self.assertEqual(self.alice.post(f"/api/vod/{big}/chunk?seq=0", data=b"123456", **octet).status_code, 200)
+            r = self.alice.post(f"/api/vod/{big}/chunk?seq=1", data=b"123456", **octet)
+            self.assertEqual((r.status_code, r.get_json()["closed"]), (413, True))
+            self.assertEqual(self.anon.get(f"/api/vod/{big}").get_json()["video"]["status"], "ready")
+        finally:
+            config.VOD_MAX_BYTES = old_max
+
+        # per-channel limit and deleting
+        old_cap = config.VOD_MAX_PER_USER
+        config.VOD_MAX_PER_USER = 1
+        try:
+            r = post(self.alice, "/api/vod/start", {"mime": "video/webm"})
+            self.assertEqual((r.status_code, r.get_json()["limit"]), (409, True))
+        finally:
+            config.VOD_MAX_PER_USER = old_cap
+        self.assertEqual(post(self.bob, f"/api/vod/{vid}/delete").status_code, 404)
+        self.assertEqual(post(self.alice, f"/api/vod/{vid}/delete").status_code, 200)
+        self.assertEqual(self.anon.get(f"/api/vod/{vid}/video").status_code, 404)
+        self.assertNotIn(vid, [x["id"] for x in self.anon.get("/api/channel/alice/videos").get_json()["videos"]])
 
     def test_index_and_headers(self):
         r = self.anon.get("/")

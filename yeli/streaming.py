@@ -6,7 +6,7 @@ from . import config, economy
 from .config import *
 from .core import *
 from .db import get_db
-from . import rewards
+from . import chest, rewards
 from .bot import run_timers
 from .queries import *
 
@@ -103,6 +103,10 @@ def stream_thumbnail():
         return err("You are not live.", 409)
     db.execute(
         "INSERT OR REPLACE INTO thumbnails (user_id, data, updated_at) VALUES (?,?,?)", (uid, raw, now())
+    )
+    # The saved video of this stream (if it is being recorded) uses the newest snapshot as its cover.
+    db.execute(
+        "UPDATE vods SET cover = ?, cover_ver = ? WHERE user_id = ? AND status = 'recording'", (raw, now(), uid)
     )
     db.commit()
     return jsonify(ok=True)
@@ -249,11 +253,12 @@ def watch_poll(username):
     db.execute("UPDATE viewers SET last_seen = ? WHERE peer_id = ?", (t, peer))
     vkey, vuser, _ = viewer_identity()
     rewards.touch_session(db, row["id"], vkey, vuser, request.remote_addr or "", t)  # may earn the streamer a free point
+    chest_info = chest.tick(db, row["id"], vuser, request.remote_addr or "", t)  # watch time toward the viewer's daily chest
 
     signals = read_signals(f"p:{peer}", int_arg("after"))
     viewers = count_viewers(db, row["id"], t - VIEWER_TIMEOUT)
     db.commit()
-    return jsonify(live=True, joined=True, signals=signals, viewers=viewers)
+    return jsonify(live=True, joined=True, signals=signals, viewers=viewers, chest=chest_info)
 
 
 @bp.post("/api/watch/<username>/leave")

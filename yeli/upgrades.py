@@ -2,6 +2,7 @@
 from flask import Blueprint, jsonify, request
 
 from . import economy
+from .chest import owned_colors
 from .core import *
 from .db import get_db
 from .queries import *
@@ -30,7 +31,8 @@ def upgrades_state():
     w = wallet_summary(db, uid)
     levels = all_levels(db, uid)
     return jsonify(points=points_of(db, uid), levels=levels, wallet={"bought": w["bought"], "cashable": w["cashable"]},
-                   palette=economy.palette_for(levels["color"]), color=current_user()["name_color"])
+                   palette=economy.palette_for(levels["color"]), color=current_user()["name_color"],
+                   chest_colors=owned_colors(db, uid))
 
 
 @bp.post("/api/upgrades/points")

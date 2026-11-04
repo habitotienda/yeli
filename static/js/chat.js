@@ -348,21 +348,28 @@ function createChat(container, channel, { isOwner = false, canMod = isOwner } = 
         const closePop = () => { pop.hidden = true; toggle.setAttribute('aria-expanded', 'false'); pending = null; };
 
         function paintPop() {
-            const list = STICKER_DEFS.filter((s) => (tab === 'free') === (stickerCost(s.id) === 0));
+            const found = (state.chestStickers || []);
+            const list = tab === 'chest' ? CHEST_STICKER_DEFS.filter((s) => found.includes(s.id))
+                : STICKER_DEFS.filter((s) => (tab === 'free') === (stickerCost(s.id) === 0));
             pop.innerHTML = `
                 <div class="sticker-tabs" role="tablist">
                     <button type="button" role="tab" aria-selected="${tab === 'free'}" data-tab="free">Free</button>
                     <button type="button" role="tab" aria-selected="${tab === 'premium'}" data-tab="premium">Premium</button>
+                    <button type="button" role="tab" aria-selected="${tab === 'chest'}" data-tab="chest">Chest</button>
                 </div>
                 ${pending ? `<div class="sticker-confirm"><img src="${stickerSrc(pending)}" alt="" width="56" height="56">
                     <p>Send <strong>${esc(stickerName(pending))}</strong> for ${coinImg(14)} <strong>${num(stickerCost(pending))}</strong> Yelis?<br><small>You have ${num(state.me.balance)}.</small></p>
                     <div class="row"><button type="button" class="btn btn-primary" data-send>Send</button><button type="button" class="btn btn-secondary" data-cancel>Cancel</button></div></div>`
+                : tab === 'chest' && !list.length ? '<p class="sticker-empty">Watch live streams for an hour to open your daily chest and find exclusive stickers. <a href="#/chest">Daily chest</a></p>'
                 : `<div class="sticker-grid">${list.map((s) => `<button type="button" class="sticker-btn" data-sticker="${s.id}" aria-label="${esc(s.name)}${stickerCost(s.id) ? `, ${stickerCost(s.id)} Yelis` : ''}">
                         <img src="${stickerSrc(s.id)}" alt="" width="48" height="48">${stickerCost(s.id) ? `<span class="sticker-cost">${coinImg(11)}${stickerCost(s.id)}</span>` : ''}</button>`).join('')}</div>`}`;
         }
 
         toggle.addEventListener('click', () => {
-            if (pop.hidden) { paintPop(); pop.hidden = false; toggle.setAttribute('aria-expanded', 'true'); } else closePop();
+            if (pop.hidden) {
+                paintPop(); pop.hidden = false; toggle.setAttribute('aria-expanded', 'true');
+                if (state.me) api('/chest').then((c) => { state.chestStickers = c.collection.stickers; if (!pop.hidden && tab === 'chest' && !pending) paintPop(); }).catch(() => {});
+            } else closePop();
         });
         pop.addEventListener('click', async (e) => {
             const t = e.target.closest('[data-tab]');

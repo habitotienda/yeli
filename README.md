@@ -154,6 +154,41 @@ Como Yeli usa WHIP/WHEP estándar, otro servidor compatible puede reemplazar a M
 > Lo que **no** se pudo comprobar: que la voz suene de verdad (se verificó que el navegador recibe el texto a leer, no el audio),
 > el punto gratis por una hora real (el backend se probó adelantando el reloj) y el despliegue en Render.
 
+## Directos guardados como video
+
+Cuando terminas un directo, se guarda solo como **video en tu perfil** (sección *Videos* de tu canal, `#/c/tunombre`).
+
+- **Cómo:** el navegador del streamer graba lo que sale al aire (`MediaRecorder`) y lo sube por trozos de ~5 s mientras transmite
+  (`POST /api/vod/<id>/chunk`). Al parar, el video aparece en el canal en unos segundos. Si se cierra la pestaña de golpe, a los 2 minutos
+  el servidor cierra la grabación con lo que ya llegó.
+- **Una sola edición:** el streamer puede cambiar la **portada, el título y la descripción una vez** (botón *Edit (one time)* en la página
+  del video, `#/video/<id>`). Los tres se cambian en el mismo guardado; después quedan bloqueados (el servidor lo impone, no solo la interfaz).
+  Si el guardado no cambia nada, no se gasta la edición. Por defecto el título es el del directo y la portada es la última miniatura.
+- **Eliminar:** el dueño puede borrar un video (`Delete`). Los videos son públicos como el canal.
+- **Límites** (variables de entorno): `YELI_VOD_MAX_MB` (1024 por video), `YELI_VOD_MAX_PER_USER` (30 videos por canal) y `YELI_VOD_DIR`
+  (carpeta de los archivos; por defecto `vods/` junto a la base de datos). Al llegar al tamaño máximo el video se guarda tal cual está.
+- **No se graba** un directo que viene de **OBS por WHIP**, porque ese video no pasa por el navegador (con la cámara virtual de OBS sí).
+  También hace falta que el navegador soporte `MediaRecorder` (todos los actuales).
+- **Render gratis:** el disco es efímero; los videos se pierden igual que la base de datos. Con disco persistente
+  (`YELI_DB=/var/data/yeli.db`) los videos quedan en `/var/data/vods` y se conservan.
+- Requiere **Flask 3.1 o superior** (el trozo de video usa un límite de tamaño propio solo en esa ruta; el resto de la API sigue en 128 KB).
+
+## Cofre diario
+
+Cada día (00:00 UTC) un espectador **con cuenta** puede desbloquear un cofre mirando directos **una hora** y abrirlo para recibir **una recompensa aleatoria**:
+
+| Recompensa | Probabilidad | Qué es |
+|---|---|---|
+| Sticker exclusivo | 55 % | Uno de 8 stickers que solo salen de cofres (Ghost, Pizza, Moon, Alien, Kitty, Rainbow, Robot, Cupcake). Se envían gratis en cualquier chat desde la pestaña **Chest** del selector de stickers. |
+| Color de nombre | 40 % | Uno de 12 colores. Se puede usar como color de nombre **sin** la mejora *Color de nombre* (en `#/chest` o en *Upgrades*). |
+| Punto de mejora | 5 % | 1 punto, el mismo que se compra con Yelis. |
+
+- Página: `#/chest` (menú de tu foto → *Daily chest*). Bajo el directo aparece una barra con el avance y, al desbloquearse, un aviso.
+- El tiempo **se acumula durante el día** entre todos los directos (no hace falta una hora seguida) y solo cuenta mientras el latido de la página llega; una pausa de más de 1 minuto no suma. Ver dos directos a la vez no duplica el tiempo.
+- Solo cuenta con cuenta (no invitados), en directos **de otros** (no el tuyo), con cuenta que no sea nueva (`YELI_FREE_POINT_MIN_ACCOUNT_AGE`) y fuera de la red del streamer.
+- Un cofre por cuenta y día; el servidor decide la recompensa (`secrets`) y lo hace de forma atómica. Lo que ya tienes no vuelve a salir; si completas todos los stickers y colores, el cofre da puntos.
+- **Los puntos valen dinero** (100 Yelis cada uno), por eso su probabilidad es baja. Ajusta con `YELI_CHEST_WEIGHTS` o ponla en 0 si prefieres que el cofre no dé puntos.
+
 ## Yelis: donaciones con monedas
 
 1. Los espectadores **compran Yelis** (paquetes en la página *Wallet*).
@@ -216,6 +251,7 @@ Todas son opcionales; hay una lista comentada en `.env.example`.
 | Variable | Para qué |
 |---|---|
 | `YELI_MEDIA_URL` | Dirección de MediaMTX (WHIP/WHEP). Vacío = P2P |
+| `YELI_CHEST_SECONDS`, `YELI_CHEST_WEIGHTS` | Cofre diario: segundos de directo para desbloquearlo (3600) y pesos de las recompensas, p. ej. `{"sticker":55,"color":40,"points":5}` |
 | `YELI_ADMINS` | Usuarios que pueden abrir *Admin* (separados por comas) |
 | `YELI_PAYMENTS`, `YELI_CURRENCY`, `YELI_TAX_RATE`, `YELI_PROCESSOR_*`, `YELI_PAYOUT_*`, `YELI_EARN_RATES`, `YELI_POINT_COST`, `YELI_PACKS` | Economía |
 | `YELI_PROXY`, `YELI_DEMO`, `YELI_ALLOWED_HOSTS`, `HOST` | Hosting (Render) |
@@ -224,6 +260,7 @@ Todas son opcionales; hay una lista comentada en `.env.example`.
 | `YELI_MAX_VIEWERS`, `YELI_MAX_VIEWERS_SFU` | Límites de espectadores por directo |
 | `YELI_ICE_SERVERS` | STUN/TURN (JSON). Detrás de NAT estrictos añade un TURN |
 | `YELI_LIST_CACHE` | Segundos de caché de las listas públicas (2) |
+| `YELI_VOD_DIR`, `YELI_VOD_MAX_MB`, `YELI_VOD_MAX_PER_USER` | Videos guardados: carpeta, tamaño máximo y cantidad por canal |
 
 ## Estructura
 
@@ -240,7 +277,9 @@ yeli/
   chat.py           chat y stickers
   wallet.py         Yelis, donaciones, cash-outs, estado de cuenta, admin
   streaming.py      ciclo del directo, miniaturas, señalización P2P
+  vods.py           directos guardados como video: subida por trozos, lista, edición única
   media.py          servidor de medios: claves de stream y autenticación para MediaMTX
+  chest.py          cofre diario: tiempo de visionado, recompensas y colección
   economy.py        precios, impuestos, comisiones, stickers
   cache.py          caché corta de listas
   security.py       CSP y protección CSRF

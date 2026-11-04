@@ -88,6 +88,31 @@ STICKERS = {
 }
 
 
+# ---- Daily chest ----------------------------------------------------------------------------------------
+# A logged-in viewer who watches live streams for CHEST_SECONDS in a (UTC) day unlocks that day's chest.
+# Opening it gives one random reward. The artwork for the stickers lives in static/js/stickers.js (ids must match).
+CHEST_SECONDS = _int("YELI_CHEST_SECONDS", 3600)
+CHEST_STICKERS = ["ghost", "pizza", "moon", "alien", "kitty", "rainbow", "robot", "cupcake"]
+CHEST_COLORS = ["#fa5252", "#e64980", "#be4bdb", "#7950f2", "#4c6ef5", "#15aabf",
+                "#12b886", "#82c91e", "#fab005", "#fd7e14", "#e8590c", "#0b7285"]
+
+
+def _load_chest_weights():
+    raw = os.environ.get("YELI_CHEST_WEIGHTS")  # JSON, e.g. {"sticker": 55, "color": 40, "points": 5}
+    default = {"sticker": 55, "color": 40, "points": 5}
+    if raw:
+        try:
+            w = json.loads(raw)
+            if isinstance(w, dict) and set(w) == set(default) and all(isinstance(x, int) and x >= 0 for x in w.values()) and sum(w.values()) > 0:
+                return w
+        except ValueError:
+            pass
+    return default
+
+
+CHEST_WEIGHTS = _load_chest_weights()
+
+
 # ---- Upgrades --------------------------------------------------------------------------------------------
 # Upgrade points cost POINT_COST Yelis each. Level L -> L+1 costs costs[L] points and changes the value to values[L+1].
 POINT_COST = _int("YELI_POINT_COST", 100)
@@ -198,4 +223,5 @@ def public_config():
         "stickers": STICKERS,
         "pointCost": POINT_COST,
         "upgrades": UPGRADES,
+        "chest": {"seconds": CHEST_SECONDS, "stickers": CHEST_STICKERS, "colors": CHEST_COLORS, "weights": CHEST_WEIGHTS},
     }

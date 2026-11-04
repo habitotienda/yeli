@@ -114,7 +114,10 @@ function createSfuWatcher(username, video, cb) {
             if (!r.live) { stopped = true; closePc(); cb.ended(); return; }
             if (r.superseded) { stopped = true; closePc(); cb.superseded(); return; }
             if (!r.joined) { if (!(await join())) return; }
-            else if (cb.viewers) cb.viewers(r.viewers);
+            else {
+                if (cb.viewers) cb.viewers(r.viewers);
+                if (cb.chest) cb.chest(r.chest);
+            }
         } catch (e) {
             if (e.status === 404) { stopped = true; closePc(); cb.ended(); return; }
         }

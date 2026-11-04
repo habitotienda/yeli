@@ -1,4 +1,5 @@
 """Request hooks: CSRF guard for the JSON API and security headers (CSP)."""
+import re
 from urllib.parse import urlparse
 
 from flask import request
@@ -27,12 +28,20 @@ def csp():
     )
 
 
+VOD_CHUNK_PATH = re.compile(r"^/api/vod/[a-f0-9]{16}/chunk$")
+
+
 def install(app):
     @app.before_request
     def require_json_for_writes():
-        # A cross-site <form> cannot send application/json, which blocks CSRF.
+        # A cross-site <form> cannot send application/json (nor application/octet-stream), which blocks CSRF.
         if request.path.startswith("/api/") and request.path != "/api/media/auth" and request.method not in ("GET", "HEAD", "OPTIONS"):
-            if request.mimetype != "application/json":
+            if VOD_CHUNK_PATH.match(request.path):
+                # The only route that takes a big body: a piece of a recorded stream.
+                if request.mimetype != "application/octet-stream":
+                    return err("Expected a binary upload.", 415)
+                request.max_content_length = config.VOD_CHUNK_MAX
+            elif request.mimetype != "application/json":
                 return err("Expected a JSON request.", 415)
 
     @app.after_request

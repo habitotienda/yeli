@@ -229,6 +229,31 @@ CREATE TABLE IF NOT EXISTS free_points (
     notified   INTEGER NOT NULL DEFAULT 0
 );
 
+-- Daily chest: watch time per account per UTC day, what was opened, and the stickers/colors each account owns
+CREATE TABLE IF NOT EXISTS chest_progress (
+    user_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    day       INTEGER NOT NULL,
+    seconds   INTEGER NOT NULL DEFAULT 0,
+    last_tick INTEGER NOT NULL,
+    PRIMARY KEY (user_id, day)
+);
+CREATE TABLE IF NOT EXISTS chest_opens (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    day       INTEGER NOT NULL,
+    kind      TEXT NOT NULL,
+    value     TEXT NOT NULL,
+    opened_at INTEGER NOT NULL,
+    UNIQUE (user_id, day)
+);
+CREATE TABLE IF NOT EXISTS chest_items (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    kind    TEXT NOT NULL,
+    value   TEXT NOT NULL,
+    got_at  INTEGER NOT NULL,
+    PRIMARY KEY (user_id, kind, value)
+);
+
 -- Stream alerts: events happen, rules (image + sound) say how to show them
 CREATE TABLE IF NOT EXISTS events (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -253,6 +278,26 @@ CREATE TABLE IF NOT EXISTS alert_rules (
     seconds    INTEGER NOT NULL DEFAULT 5,
     enabled    INTEGER NOT NULL DEFAULT 1
 );
+-- Saved streams. The video itself is a file in config.VOD_DIR named <id>.webm / <id>.mp4.
+CREATE TABLE IF NOT EXISTS vods (
+    id          TEXT PRIMARY KEY,
+    user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title       TEXT NOT NULL DEFAULT '',
+    description TEXT NOT NULL DEFAULT '',
+    category    TEXT NOT NULL DEFAULT 'Other',
+    mime        TEXT NOT NULL,
+    status      TEXT NOT NULL DEFAULT 'recording',
+    size        INTEGER NOT NULL DEFAULT 0,
+    chunks      INTEGER NOT NULL DEFAULT 0,
+    duration    INTEGER NOT NULL DEFAULT 0,
+    started_at  INTEGER NOT NULL,
+    ended_at    INTEGER,
+    updated_at  INTEGER NOT NULL,
+    cover       BLOB,
+    cover_ver   INTEGER NOT NULL DEFAULT 0,
+    edited      INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_vods_user ON vods(user_id, started_at);
 CREATE TABLE IF NOT EXISTS assets (
     id         TEXT PRIMARY KEY,
     user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

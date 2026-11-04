@@ -122,7 +122,7 @@ function setActiveNav(path) {
 }
 
 /* The order of the main sections decides which way a page bounces in: forward comes from the right, back from the left. */
-const SECTION_RANK = [['/', 0], ['/explore', 1], ['/following', 2], ['/record', 2.5], ['/search', 3], ['/c/', 4], ['/studio', 5], ['/wallet', 6], ['/bot', 7], ['/moderation', 7], ['/settings', 8], ['/admin', 9]];
+const SECTION_RANK = [['/', 0], ['/explore', 1], ['/following', 2], ['/record', 2.5], ['/search', 3], ['/c/', 4], ['/video/', 4], ['/studio', 5], ['/wallet', 6], ['/chest', 6], ['/bot', 7], ['/moderation', 7], ['/settings', 8], ['/admin', 9]];
 const rankOf = (path) => (SECTION_RANK.find(([p]) => (p.endsWith('/') && p.length > 1 ? path.startsWith(p) : path === p)) || [0, 3.5])[1];
 let lastRank = 0;
 let enterTimer = null;
@@ -166,10 +166,12 @@ async function route(focus = false) {
         else if (path === '/studio') pageStudio(root);
         else if (path === '/settings') await pageSettings(root, alive);
         else if (path === '/wallet') await pageWallet(root, alive, params);
+        else if (path === '/chest') await pageChest(root, alive);
         else if (path === '/bot') await pageBot(root, alive);
         else if (path === '/moderation') await pageModeration(root, alive);
         else if (path.startsWith('/popout/')) await pagePopout(root, decodeURIComponent(path.slice(8)), params);
         else if (path === '/admin') await pageAdmin(root, alive);
+        else if (path.startsWith('/video/')) await pageVideo(root, decodeURIComponent(path.slice(7)), alive);
         else if (path.startsWith('/c/')) await pageChannel(root, decodeURIComponent(path.slice(3)), alive);
         else root.innerHTML = emptyState('Page not found', 'That page doesn\u2019t exist.', '<a class="btn btn-primary" href="#/">Back to Home</a>');
     } catch (e) {
@@ -493,6 +495,7 @@ function createWatcher(username, video, cb) {
                     await handle(s).catch((e) => console.warn('signal error', e));
                 }
                 if (cb.viewers) cb.viewers(r.viewers);
+                if (cb.chest) cb.chest(r.chest);
             }
         } catch (e) {
             if (e.status === 404) { stopped = true; cb.ended(); return; }
@@ -536,6 +539,7 @@ function channelMarkup(ch) {
                 <div class="channel-actions" id="chActions"></div>
             </div>
             <p class="channel-stats" id="chStats"></p>
+            <div class="chest-chip" id="chestChip" hidden></div>
             <section class="donate" id="chDonate" aria-label="Support this channel">
                 <p class="donate-label" id="chDonateLabel"></p>
                 <button type="button" class="btn btn-yelis" id="chDonateBtn">${coinImg(18)}<span>Send Yelis</span></button>
@@ -544,6 +548,10 @@ function channelMarkup(ch) {
                 <h2 class="section-title">About</h2>
                 <p id="chBio"></p>
                 <p class="muted" id="chJoined"></p>
+            </section>
+            <section class="channel-videos" id="chVideos" aria-label="Videos" hidden>
+                <h2 class="section-title">Videos</h2>
+                <div class="vods-body"></div>
             </section>
         </div>
         <aside class="channel-chat" id="chatPanel"></aside>
@@ -563,6 +571,10 @@ async function pageChannel(root, name, alive) {
     if (!alive()) return;
     document.title = `${ch.username} | Yeli`;
     root.innerHTML = channelMarkup(ch);
+    const vids = mountChannelVideos($('#chVideos'), ch.username, ch.is_me, alive);
+    const onVodSaved = () => vids.reload(500);
+    window.addEventListener('yeli:vod-saved', onVodSaved);
+    onLeave(() => window.removeEventListener('yeli:vod-saved', onVodSaved));
 
     const player = $('#player');
     const video = $('#video');
@@ -575,6 +587,7 @@ async function pageChannel(root, name, alive) {
         live: true,
         quality: ch.mode === 'sfu' ? null : { onChange: (h) => { if (watcher) watcher.setQuality(h); } },
     });
+    const chestChip = createChestChip($('#chestChip'), { isOwner: ch.is_me });
     const chat = createChat($('#chatPanel'), ch.username, { isOwner: ch.is_me, canMod: ch.is_me || ch.is_mod });
     onLeave(() => { controls.destroy(); chat.destroy(); });
 
@@ -628,6 +641,7 @@ async function pageChannel(root, name, alive) {
                 ch.live = false;
                 paintInfo();
                 setOverlay('offline');
+                vids.reload(4000);
             },
             superseded() {
                 stopWatch();
@@ -637,6 +651,7 @@ async function pageChannel(root, name, alive) {
                 ch.viewers = n;
                 paintStats();
             },
+            chest(info) { chestChip.update(info); },
         });
     }
 
@@ -675,7 +690,9 @@ async function pageChannel(root, name, alive) {
 
     function applyInfo(next) {
         const modeChanged = next.live && ch.live && next.mode !== ch.mode;
+        const wasLive = ch.live;
         ch = { ...ch, ...next };
+        if (wasLive && !ch.live) vids.reload(4000); // the finished stream shows up as a video
         if (modeChanged) { route(); return; } // the streamer switched between media server and peer-to-peer
         paintInfo();
         if (ch.live && !watcher && !overlay.querySelector('[data-retry]') && !(ch.is_me && broadcast && broadcast.stream && video.srcObject)) startWatch();
@@ -731,6 +748,7 @@ const MI = {
     studio: mi('<circle cx="12" cy="12" r="2"/><path d="M7.800 7.800a5.900 5.900 0 0 0 0 8.400M16.200 7.800a5.900 5.900 0 0 1 0 8.400M4.600 4.600a10.400 10.400 0 0 0 0 14.800M19.400 4.600a10.400 10.400 0 0 1 0 14.800"/>'),
     bot: mi('<rect x="4" y="8" width="16" height="11" rx="2"/><path d="M12 4v4M9 13h.01M15 13h.01M9 16.500h6"/>'),
     shield: mi('<path d="M12 3l8 3v6c0 5-3.500 8-8 9-4.500-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>'),
+    chest: mi('<path d="M4 11a8 5 0 0 1 16 0v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M4 11h16M12 11v4"/>'),
     wallet: mi('<path d="M4 7a2 2 0 0 1 2-2h12v4"/><path d="M4 7v10a2 2 0 0 0 2 2h14V9H6a2 2 0 0 1-2-2z"/><path d="M16 14h.01"/>'),
     up: mi('<path d="M12 19V6M6 11l6-6 6 6"/>'),
     lock: mi('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'),
@@ -777,6 +795,7 @@ function renderAuth() {
                 <div class="um-group" role="group" aria-label="Money">
                     <a role="menuitem" href="#/wallet">${MI.wallet}<span>Wallet</span></a>
                     <a role="menuitem" href="#/wallet?tab=upgrades">${MI.up}<span>Upgrades</span></a>
+                    <a role="menuitem" href="#/chest">${MI.chest}<span>Daily chest</span></a>
                     ${state.me.is_admin ? `<a role="menuitem" href="#/admin">${MI.lock}<span>Admin</span></a>` : ''}
                 </div>
                 <div class="um-sep" role="separator"></div>

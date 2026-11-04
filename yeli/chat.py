@@ -7,6 +7,7 @@ from . import config, economy
 from .config import *
 from .core import *
 from .db import get_db
+from .chest import owns_sticker
 from .bot import BOT_NAME, chat_settings, moderate, post_bot, post_tts, run_command
 from .moderation import is_mod
 from .queries import *
@@ -82,9 +83,12 @@ def chat_send(username):
     data = request.get_json(silent=True) or {}
     sticker = data.get("sticker")
     if sticker is not None:
-        if not isinstance(sticker, str) or sticker not in economy.STICKERS:
+        if not isinstance(sticker, str) or (sticker not in economy.STICKERS and sticker not in economy.CHEST_STICKERS):
             return err("Unknown sticker.")
-        if economy.STICKERS[sticker] > 0:
+        if sticker in economy.CHEST_STICKERS:  # exclusive: only accounts that found it in a daily chest
+            if not owns_sticker(get_db(), me_row["id"], sticker):
+                return err("You haven't unlocked that sticker. Open your daily chest to find more.", 403)
+        elif economy.STICKERS[sticker] > 0:
             return err("That sticker costs Yelis.", 402)
         kind, text = "sticker", ""
     else:

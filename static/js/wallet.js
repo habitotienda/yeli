@@ -189,9 +189,9 @@ async function pageWallet(root, alive, params) {
                 <button type="button" class="btn ${can ? 'btn-primary' : 'btn-secondary'}" data-level="${key}" ${can ? '' : 'disabled'}>${level < max ? `Upgrade \u00b7 ${cost} point${cost > 1 ? 's' : ''}` : 'Maxed out'}</button>
             </div>`;
         }).join('')}</div>
-        ${up.levels.color > 0 ? `<div class="panel color-panel"><strong>Your chat name color</strong>
+        ${up.levels.color > 0 || (up.chest_colors || []).length ? `<div class="panel color-panel"><strong>Your chat name color</strong>
             <div class="swatches" role="group" aria-label="Name color">
-                ${(up.palette || NAME_SWATCHES).map((c) => `<button type="button" class="swatch${up.color === c ? ' on' : ''}" data-color="${c}" style="background:${c}" aria-label="Color ${c}"></button>`).join('')}
+                ${[...new Set([...(up.palette || NAME_SWATCHES), ...(up.chest_colors || [])])].map((c) => `<button type="button" class="swatch${up.color === c ? ' on' : ''}" data-color="${c}" style="background:${c}" aria-label="Color ${c}"></button>`).join('')}
                 <button type="button" class="obs-btn" data-color="">Default</button>
             </div>
             ${up.palette === null ? `<div class="field"><label for="clrAny">Any color</label><input id="clrAny" type="color" value="${esc(up.color || '#ffffff')}"></div>` : ''}</div>` : ''}

@@ -13,6 +13,7 @@
         motion: 'system',     // system | reduced | full
         splash: true,         // loading animation
         sidebar: false,       // sidebar expanded by default (desktop)
+        translate: 'allow',   // allow | block (browser page translation)
     };
     const THEME_COLOR = { dark: '#1e1e1e', black: '#000000', midnight: '#0f1624' };
 
@@ -42,6 +43,16 @@
         root.dataset.density = prefs.density;
         root.dataset.splash = prefs.splash ? 'on' : 'off';
         root.classList.toggle('reduce-motion', motionReduced());
+        if (prefs.translate === 'block') root.setAttribute('translate', 'no'); else root.removeAttribute('translate');
+        let tmeta = document.querySelector('meta[name="google"][content="notranslate"]');
+        if (prefs.translate === 'block' && !tmeta) {
+            tmeta = document.createElement('meta');
+            tmeta.name = 'google';
+            tmeta.content = 'notranslate';
+            document.head.appendChild(tmeta);
+        } else if (prefs.translate !== 'block' && tmeta) {
+            tmeta.remove();
+        }
         const meta = document.querySelector('meta[name="theme-color"]');
         if (meta) meta.setAttribute('content', THEME_COLOR[prefs.theme] || THEME_COLOR.dark);
     }
@@ -126,35 +137,25 @@
     window.YeliPrefs = { get: () => ({ ...prefs }), open: openPrefs };
 
     /* ---------------------------------------------------------------------
-       Loading screen: stays until the app says it is ready (and for at least
-       a moment, so the logo can finish drawing), with a hard stop at 10 s.
+       Loading screen: stays until the app says it is ready (and long enough for
+       the logo to finish drawing), then the shutter opens. Hard stop at 10 s.
        --------------------------------------------------------------------- */
     const splash = document.getElementById('splash');
     if (!splash) return;
 
-    const MESSAGES = ['Warming up the stream\u2026', 'Tuning the chat\u2026', 'Almost live\u2026'];
-    const statusEl = splash.querySelector('.splash-status');
     const started = performance.now();
-    const minTime = !prefs.splash ? 0 : motionReduced() ? 500 : 2000;
+    const minTime = !prefs.splash ? 0 : motionReduced() ? 400 : 1900;
     let finished = false;
-    let step = 0;
-
-    const ticker = setInterval(() => {
-        step = Math.min(step + 1, MESSAGES.length - 1);
-        if (statusEl) statusEl.textContent = MESSAGES[step];
-    }, 900);
 
     function finish() {
         if (finished) return;
         finished = true;
-        clearInterval(ticker);
-        splash.classList.add('is-done');
         const wait = Math.max(0, minTime - (performance.now() - started));
         setTimeout(() => {
             splash.classList.add('is-leaving');
             root.classList.remove('splash-active');
-            setTimeout(() => splash.remove(), 700);
-        }, wait + 250);
+            setTimeout(() => splash.remove(), 800);
+        }, wait);
     }
 
     window.addEventListener('yeli:ready', finish);

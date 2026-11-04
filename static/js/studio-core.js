@@ -285,6 +285,10 @@ async function gum(constraints) {
     }
 }
 
+/* Phone browsers (iOS Safari, Android Chrome/Firefox) don't implement getDisplayMedia, so screen sharing can't work there. */
+const CAN_SCREEN = !!(navigator.mediaDevices && typeof navigator.mediaDevices.getDisplayMedia === 'function');
+const IS_TOUCH = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+
 function requireMedia() {
     if (!navigator.mediaDevices) throw new Error('Streaming needs a secure connection. Open the site over HTTPS or on localhost.');
 }
@@ -293,6 +297,7 @@ function videoConstraints(deviceId) {
     const [w, h] = RES[S.cfg.res] || RES[720];
     const v = { width: { ideal: w }, height: { ideal: h }, frameRate: { ideal: Number(S.cfg.fps) || 30 } };
     if (deviceId) v.deviceId = { exact: deviceId };
+    else if (S.cfg.facing) v.facingMode = { ideal: S.cfg.facing };
     return v;
 }
 
@@ -331,9 +336,20 @@ async function replaceCamera(src, deviceId) {
     saveCfg();
 }
 
+/** Switch between the front and back camera (phones). Returns how many camera sources were switched. */
+async function flipCamera() {
+    requireMedia();
+    S.cfg.facing = S.cfg.facing === 'environment' ? 'user' : 'environment';
+    S.cfg.videoDeviceId = '';
+    saveCfg();
+    const cams = [...S.sources.values()].filter((x) => x.type === 'camera');
+    for (const src of cams) await replaceCamera(src, '');
+    return cams.length;
+}
+
 async function addScreenSource() {
     requireMedia();
-    if (!navigator.mediaDevices.getDisplayMedia) throw new Error('Screen sharing isn\u2019t supported on this device or browser.');
+    if (!CAN_SCREEN) throw new Error('This browser can\u2019t share the screen. Phone browsers don\u2019t allow it: use the camera, or a native app that streams by WHIP.');
     const [w, h] = RES[S.cfg.res] || RES[720];
     const stream = await navigator.mediaDevices.getDisplayMedia({
         video: { width: { ideal: w }, height: { ideal: h }, frameRate: { ideal: Number(S.cfg.fps) || 30 } },

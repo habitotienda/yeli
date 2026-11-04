@@ -24,6 +24,7 @@ const OI = {
     mic: svg('<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5.500 11.500a6.500 6.500 0 0 0 13 0M12 18v3"/>'),
     micOff: svg('<rect x="9" y="3" width="6" height="12" rx="3" opacity=".5"/><path d="M5.500 11.500a6.500 6.500 0 0 0 13 0M12 18v3" opacity=".5"/><path d="M4 4l16 16"/>'),
     camera: svg('<rect x="3" y="6.500" width="13" height="11" rx="2.500"/><path d="M16 11l5-3v8l-5-3z"/>'),
+    flip: svg('<path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><path d="M9.5 13.5a2.5 2.5 0 0 1 4.3-1.7M14.5 14.5a2.5 2.5 0 0 1-4.3 1.7"/>'),
     screen: svg('<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>'),
     image: svg('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.500"/><path d="M21 16l-5-5-9 9"/>'),
     text: svg('<path d="M5 6V4h14v2M12 4v16M9 20h6"/>'),
@@ -93,7 +94,7 @@ function buildWorkspace(root) {
                             <p>Add a source to start building your stream.</p>
                             <div class="row">
                                 <button type="button" class="btn btn-primary" data-add="camera">Add camera</button>
-                                <button type="button" class="btn btn-secondary" data-add="screen">Share screen</button>
+                                ${CAN_SCREEN ? '<button type="button" class="btn btn-secondary" data-add="screen">Share screen</button>' : ''}
                             </div>
                         </div>
                     </div>
@@ -114,7 +115,7 @@ function buildWorkspace(root) {
                     <input id="transMs" class="obs-input" type="number" min="100" max="3000" step="100" value="${esc(cfg.transitionMs)}" title="Duration (ms)"></div>`,
                 tbtn('add-scene', OI.plus, 'Add scene') + tbtn('rm-scene', OI.minus, 'Remove scene'))}
             ${dock('dockSources', 'Sources', '<ul class="list" id="sourceList" role="listbox" aria-label="Sources in this scene"></ul><div class="menu" id="addMenu" role="menu" hidden></div>',
-                tbtn('add-source', OI.plus, 'Add source') + tbtn('rm-source', OI.minus, 'Remove source') + tbtn('src-up', OI.up, 'Move up') + tbtn('src-down', OI.down, 'Move down') + tbtn('props', OI.gear, 'Source properties'))}
+                tbtn('add-source', OI.plus, 'Add source') + tbtn('rm-source', OI.minus, 'Remove source') + tbtn('src-up', OI.up, 'Move up') + tbtn('src-down', OI.down, 'Move down') + tbtn('props', OI.gear, 'Source properties') + (IS_TOUCH ? tbtn('flip', OI.flip, 'Flip camera') : ''))}
             ${dock('dockMixer', 'Audio Mixer', '<div id="mixer"></div>')}
             ${dock('dockControls', 'Controls', `
                 <div class="controls">
@@ -201,7 +202,7 @@ function renderSources() {
             <span class="type-ico" title="${TYPE_LABEL[src.type]}">${TYPE_ICON[src.type]}</span>
             <span class="row-name${it.visible ? '' : ' dim'}">${esc(src.name)}</span>
         </li>`;
-    }).join('') : '<li class="list-empty">No sources. Use + to add one.</li>';
+    }).join('') : `<li class="list-empty">No sources. Use + to add one.${CAN_SCREEN ? '' : ' <span class="screen-note">Phone browsers can\u2019t share the screen: use the camera, or a native app that streams by WHIP.</span>'}</li>`;
 }
 
 function mixRow(ch) {
@@ -284,7 +285,7 @@ function openAddMenu() {
     const menu = $('#addMenu');
     const here = new Set(activeScene().items.map((it) => it.src));
     const existing = [...S.sources.values()].filter((s) => !here.has(s.id));
-    menu.innerHTML = ['camera', 'screen', 'image', 'text', 'chat', 'alerts'].map((k) =>
+    menu.innerHTML = ['camera', 'screen', 'image', 'text', 'chat', 'alerts'].filter((k) => k !== 'screen' || CAN_SCREEN).map((k) =>
         `<button type="button" role="menuitem" data-add="${k}">${TYPE_ICON[k]}<span>${TYPE_LABEL[k]}</span></button>`).join('')
         + (existing.length ? '<div class="menu-sep" role="separator"></div>' + existing.map((s) =>
             `<button type="button" role="menuitem" data-add="existing:${s.id}">${TYPE_ICON[s.type]}<span>${esc(s.name)}</span></button>`).join('') : '');
@@ -377,6 +378,7 @@ function wireDocks() {
             case 'src-down': if (S.selected) moveItem(S.selected, -1); break;
             case 'props': if (S.selected) openProps(S.selected); else toast('Select a source first.'); break;
             case 'enable-mic': guarded(enableMic); break;
+            case 'flip': guarded(async () => { if (!(await flipCamera())) toast('Add a camera first.'); }); break;
             case 'settings': openSettings(); break;
             case 'toggle-stream': guarded(() => toggleStreaming(false)); break;
             case 'go-obs': guarded(() => toggleStreaming(true)); break;

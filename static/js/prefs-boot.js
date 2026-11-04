@@ -7,6 +7,12 @@
     d.dataset.accent = p.accent || 'orange';
     d.dataset.density = p.density || 'comfortable';
     d.dataset.splash = p.splash === false ? 'off' : 'on';
+    if (p.translate === 'block') {
+        d.setAttribute('translate', 'no');
+        var meta = document.createElement('meta');
+        meta.name = 'google'; meta.content = 'notranslate';
+        document.head.appendChild(meta);
+    }
     var m = p.motion || 'system';
     var reduced = m === 'reduced' || (m === 'system' && window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
     if (reduced) d.classList.add('reduce-motion');

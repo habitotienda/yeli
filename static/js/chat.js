@@ -29,7 +29,7 @@ function createChat(container, channel, { isOwner = false, canMod = isOwner } = 
                 </span>
             </header>
             <div class="chat-body">
-                <div class="chat-log" role="log" aria-live="polite" tabindex="0"></div>
+                <div class="chat-log" translate="no" role="log" aria-live="polite" tabindex="0"></div>
                 <button type="button" class="chat-jump" hidden>New messages</button>
             </div>
             <div class="chat-foot"></div>

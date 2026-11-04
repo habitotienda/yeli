@@ -352,6 +352,9 @@ body::before {
 
 /* ==========================================================================
    Loading screen
+   A shutter: the logo is drawn like a marker sketch, the clapper marks snap in
+   frame by frame, a red live light blinks while the app loads, then the two
+   halves of the screen slide apart.
    ========================================================================== */
 html.splash-active { overflow: hidden; }
 html[data-splash="off"] #splash { display: none; }
@@ -362,26 +365,43 @@ html[data-splash="off"] #splash { display: none; }
     z-index: 9999;
     display: grid;
     place-items: center;
-    background:
-        radial-gradient(60% 50% at 50% 42%, rgba(var(--accent-rgb), 0.16), transparent 72%),
-        var(--bg-main);
-    transition: opacity 0.5s ease, visibility 0.5s ease, transform 0.5s var(--ease-out);
     /* If the script never runs, get out of the way after 12 s */
     animation: splash-failsafe 0s linear 12s forwards;
 }
 
-#splash.is-leaving { opacity: 0; visibility: hidden; transform: scale(1.04); pointer-events: none; }
-
 @keyframes splash-failsafe { to { opacity: 0; visibility: hidden; pointer-events: none; } }
 
-.splash-inner { display: grid; justify-items: center; gap: 20px; padding: 24px; }
+.splash-panel {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: calc(50% + 1px);
+    background: var(--bg-main);
+    transition: transform 0.65s cubic-bezier(0.76, 0, 0.24, 1);
+}
+
+.splash-top { top: 0; }
+.splash-bottom { bottom: 0; }
+
+#splash.is-leaving { pointer-events: none; }
+#splash.is-leaving .splash-top { transform: translateY(-101%); }
+#splash.is-leaving .splash-bottom { transform: translateY(101%); }
+
+.splash-inner {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: clamp(12px, 3vw, 18px);
+    padding: 24px;
+    transition: opacity 0.18s ease;
+}
+
+#splash.is-leaving .splash-inner { opacity: 0; }
 
 .splash-logo {
-    width: clamp(112px, 26vw, 148px);
+    width: clamp(64px, 16vw, 84px);
     height: auto;
     overflow: visible;
-    filter: drop-shadow(0 0 16px rgba(var(--accent-rgb), 0.4));
-    animation: sl-breathe 2.6s ease-in-out 2s infinite;
 }
 
 .splash-logo path {
@@ -394,85 +414,46 @@ html[data-splash="off"] #splash { display: none; }
     opacity: 0;
 }
 
-/* 1. the box draws itself, 2. the clapper marks follow, 3. the marks flash once drawn */
 .splash-logo .sl-body {
     stroke-width: 4;
-    animation: sl-draw 1s cubic-bezier(0.65, 0, 0.35, 1) 0.1s forwards;
+    animation: sl-draw 0.8s cubic-bezier(0.55, 0, 0.3, 1) 0.1s forwards;
 }
 
+/* The clapper marks are drawn in 7 jumps, like hand-drawn animation frames */
 .splash-logo .sl-bolt {
     stroke-width: 3;
-    animation:
-        sl-draw 0.75s cubic-bezier(0.65, 0, 0.35, 1) 0.85s forwards,
-        sl-flash 1.8s ease-in-out 2.1s infinite;
+    animation: sl-draw 0.55s steps(7, end) 0.85s forwards;
 }
 
 @keyframes sl-draw {
     0%   { stroke-dashoffset: 1; opacity: 0; }
-    6%   { opacity: 1; }
+    4%   { opacity: 1; }
     100% { stroke-dashoffset: 0; opacity: 1; }
 }
 
-@keyframes sl-flash {
-    0%, 70%, 100% { stroke: var(--primary-color); }
-    82%           { stroke: #fff; }
+/* The red light: hard on/off, the way a recording lamp does */
+.splash-logo .sl-live {
+    fill: var(--live);
+    opacity: 0;
+    animation: sl-blink 1.1s steps(1, end) 1.5s infinite;
 }
 
-@keyframes sl-breathe {
-    0%, 100% { transform: scale(1); filter: drop-shadow(0 0 14px rgba(var(--accent-rgb), 0.35)); }
-    50%      { transform: scale(1.05); filter: drop-shadow(0 0 26px rgba(var(--accent-rgb), 0.6)); }
+@keyframes sl-blink {
+    0%   { opacity: 1; }
+    55%  { opacity: 0.12; }
 }
 
 .splash-word {
     font-family: "Changa One", "Fredoka", sans-serif;
-    font-size: clamp(34px, 8vw, 46px);
-    letter-spacing: 0.18em;
-    margin-right: -0.18em; /* cancels the trailing letter-spacing so the word stays centred */
-    color: var(--primary-color);
+    font-size: clamp(44px, 12vw, 60px);
     line-height: 1;
+    letter-spacing: 0.04em;
+    color: var(--text-color);
+    clip-path: inset(0 100% 0 0);
+    animation: sl-wipe 0.5s steps(8, end) 1.15s forwards;
 }
 
-.splash-word span {
-    display: inline-block;
-    opacity: 0;
-    transform: translateY(14px);
-    animation: sl-rise 0.5s var(--ease-out) forwards;
-    animation-delay: calc(1.05s + var(--i) * 0.08s);
-}
-
-@keyframes sl-rise { to { opacity: 1; transform: none; } }
-
-.splash-bar {
-    width: min(180px, 52vw);
-    height: 4px;
-    border-radius: 99px;
-    background: rgba(255, 255, 255, 0.1);
-    overflow: hidden;
-    opacity: 0;
-    animation: sl-rise 0.4s ease 1.2s forwards;
-}
-
-.splash-bar i {
-    display: block;
-    height: 100%;
-    width: 0;
-    border-radius: inherit;
-    background: linear-gradient(90deg, var(--primary-color), var(--primary-hover));
-    animation: sl-load 2.4s cubic-bezier(0.3, 0.7, 0.2, 1) 1.2s forwards;
-}
-
-@keyframes sl-load   { to { width: 88%; } }
-@keyframes sl-finish { from { width: 88%; } to { width: 100%; } }
-
-#splash.is-done .splash-bar i { animation: sl-finish 0.3s ease forwards; }
-
-.splash-status {
-    min-height: 1.3em;
-    font-size: 13px;
-    color: var(--text-muted);
-    opacity: 0;
-    animation: sl-rise 0.4s ease 1.3s forwards;
-}
+@keyframes sl-wipe { to { clip-path: inset(0 0 0 0); } }
 
 /* ==========================================================================
    Reduced motion (the setting, or the system preference when set to "System")
@@ -487,9 +468,13 @@ html.reduce-motion *::after {
     scroll-behavior: auto !important;
 }
 
-/* The loading screen keeps its own failsafe timing even with motion reduced */
+/* The loading screen keeps its own failsafe timing and a short fade even with motion reduced */
 html.reduce-motion #splash { animation-duration: 0s !important; animation-delay: 12s !important; }
-html.reduce-motion #splash.is-leaving { transition-duration: 0.2s !important; }
+html.reduce-motion .splash-panel { transition: opacity 0.2s linear !important; transition-duration: 0.2s !important; }
+html.reduce-motion #splash.is-leaving .splash-top,
+html.reduce-motion #splash.is-leaving .splash-bottom { transform: none; opacity: 0; }
+html.reduce-motion .splash-logo .sl-live { animation: none !important; opacity: 1; }
+html.reduce-motion .splash-word { clip-path: none; }
 
 /* Header logo follows the accent colour (same shape as logo.svg, painted with a mask) */
 .brand-logo {
@@ -503,4 +488,69 @@ html.reduce-motion #splash.is-leaving { transition-duration: 0.2s !important; }
 @media (max-width: 720px) {
     .sidebar-foot { display: contents; }
     .sidebar-foot .sidebar-item { padding: 6px 2px; }
+}
+
+/* ==========================================================================
+   Mobile studio
+   ========================================================================== */
+.screen-note {
+    display: block;
+    max-width: 36ch;
+    margin: 8px 0 0;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--text-muted);
+}
+
+.flip-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    padding: 6px 10px;
+}
+
+.flip-btn[hidden] { display: none !important; }
+
+/* ==========================================================================
+   More interface polish
+   ========================================================================== */
+.coin-chip, .badge-viewers, .dock-meta, td, .stat { font-variant-numeric: tabular-nums; }
+
+h1, h2, h3, .banner-title, .page-title { text-wrap: balance; }
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.18);
+    outline: none;
+}
+
+.dialog { border-radius: 14px; }
+
+/* Desktop: the search bar sits in the middle of the header and takes the free space */
+@media (min-width: 721px) {
+    .search-form { flex: 1 1 auto; width: auto; max-width: 520px; margin: 0 24px; }
+}
+
+/* Phones: the search button is a round tap target instead of a dark square */
+@media (max-width: 700px) {
+    .site-header:not(.search-open) .search-form {
+        background: transparent;
+        border: 0;
+        padding: 0;
+        width: auto;
+        box-shadow: none;
+    }
+
+    .site-header:not(.search-open) .search-submit {
+        width: 40px;
+        height: 40px;
+        padding: 0;
+        border-radius: 50%;
+        background: var(--circle-bg);
+    }
+
+    .site-header:not(.search-open) .search-submit img { opacity: 0.9; }
 }

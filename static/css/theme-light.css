@@ -398,7 +398,6 @@ html[data-theme="light"] .sidebar { box-shadow: 1px 0 0 rgba(24, 30, 48, 0.04); 
 html[data-theme="light"] .player,
 html[data-theme="light"] .stream-thumb,
 html[data-theme="light"] .obs,
-html[data-theme="light"] .rec-stage,
 html[data-theme="light"] .toast,
 html[data-theme="light"] .badge-viewers,
 html[data-theme="light"] .badge-corner {

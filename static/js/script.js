@@ -731,7 +731,7 @@ async function pageChannel(root, name, alive) {
 
     $('#chActions').addEventListener('click', async (e) => {
         const shareBtn = e.target.closest('#shareBtn');
-        if (shareBtn) { await copyPageLink(shareBtn); return; }
+        if (shareBtn) { openShareDialog({ title: ch.username, text: ch.live ? `${ch.username} is live on Yeli` : `${ch.username} on Yeli` }); return; }
         const btn = e.target.closest('#followBtn');
         if (!btn) return;
         if (!state.me) { openAuth('login', `Log in to follow ${ch.username}.`); return; }

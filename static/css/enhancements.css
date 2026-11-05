@@ -843,3 +843,64 @@ html.reduce-motion .btn-ico svg { animation: none !important; transition: none; 
     .preview-empty { gap: 8px; }
     .preview-empty .btn { padding: 9px 14px; font-size: 14px; }
 }
+
+/* ==========================================================================
+   Share dialog (share.js): link, apps, QR code
+   ========================================================================== */
+.dialog:has(.share-dialog) { width: min(440px, calc(100vw - 24px)); }
+.share-dialog { display: grid; gap: 18px; }
+.share-title {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-muted);
+    margin-top: -8px;
+}
+.share-dialog .copy-row input { font-size: 13px; text-overflow: ellipsis; }
+
+.share-apps { display: grid; grid-template-columns: repeat(auto-fit, minmax(62px, 1fr)); gap: 10px 6px; }
+.share-app {
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    padding: 6px 2px;
+    border: 0;
+    border-radius: 10px;
+    background: none;
+    color: var(--text-color);
+    font: inherit;
+    font-size: 12px;
+    text-decoration: none;
+    cursor: pointer;
+    transition: transform 0.2s var(--ease-out, ease), background 0.2s;
+}
+.share-app:hover, .share-app:focus-visible { background: rgba(var(--accent-rgb, 255, 166, 0), 0.1); transform: translateY(-2px); }
+.share-app:active { transform: scale(0.94); }
+.share-app-ico {
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    color: #fff;
+    background: var(--brand, #6b7280);
+}
+.share-whatsapp { --brand: #25d366; }
+.share-telegram { --brand: #229ed9; }
+.share-x { --brand: #111; }
+.share-facebook { --brand: #1877f2; }
+.share-mail { --brand: #7a808c; }
+.share-more { --brand: var(--circle-bg, #2b2d37); }
+.share-more .share-app-ico { color: var(--text-color); border: 1px solid var(--border-color); background: var(--field-bg, transparent); }
+.share-x .share-app-ico { border: 1px solid rgba(255, 255, 255, 0.18); }
+
+.share-qr { display: flex; align-items: center; gap: 16px; padding: 14px; border: 1px solid var(--border-color); border-radius: 12px; }
+.share-qr-img { flex: 0 0 auto; width: 132px; height: 132px; border-radius: 8px; overflow: hidden; background: #fff; }
+.share-qr-img svg { display: block; width: 100%; height: 100%; }
+.share-qr-info { display: grid; gap: 8px; justify-items: start; min-width: 0; }
+.share-qr-info p { font-size: 13px; }
+@media (max-width: 400px) {
+    .share-qr { flex-direction: column; text-align: center; }
+    .share-qr-info { justify-items: center; }
+}

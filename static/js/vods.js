@@ -14,20 +14,7 @@ const COMMENT_PATH = '<path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.5 8.5 0 0 1-3.7-.9
 const SHARE_PATH = '<path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M16 6l-4-4-4 4M12 2v13"/>';
 const EDIT_PATH = '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>';
 const TRASH_PATH = '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-12M9 7V4h6v3"/>';
-const CHECK_PATH = '<path d="M5 12.5l4.5 4.5L19 7.5"/>';
 
-/** Copy the page link and give the Share button a short "Copied" confirmation (a check mark) instead of only a toast. */
-async function copyPageLink(btn) {
-    let ok = true;
-    try { await navigator.clipboard.writeText(location.href); } catch { ok = false; }
-    if (!ok) { toast('Copy the link from your address bar.'); return; }
-    toast('Link copied.');
-    if (!btn || btn.classList.contains('is-done')) return;
-    const original = btn.innerHTML;
-    btn.classList.add('is-done');
-    btn.innerHTML = `${IC(CHECK_PATH)}<span>Copied</span>`;
-    setTimeout(() => { if (btn.isConnected) { btn.classList.remove('is-done'); btn.innerHTML = original; } }, 1600);
-}
 const countText = (n) => Number(n || 0).toLocaleString(window.YELI_LANG);
 
 /** "3 minutes ago", in the language of the page */
@@ -201,7 +188,7 @@ async function pageVideo(root, id, alive) {
                 paint();
             }
         } else if (b.dataset.vod === 'share') {
-            await copyPageLink(b);
+            openShareDialog({ title: v.title, text: `${v.title} | ${v.username} on Yeli` });
         } else if (b.dataset.vod === 'edit') {
             openVideoEdit(v, (next) => { v = next; paint(); });
         } else if (b.dataset.vod === 'delete') {

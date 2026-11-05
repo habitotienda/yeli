@@ -81,3 +81,4 @@ VOD_CHUNK_MAX = 8 * 1024 * 1024  # one upload piece (the browser sends ~5 s at a
 VOD_STALE_SECONDS = 120  # a recording that stops sending data this long is closed with what it has
 VOD_TITLE_MAX = 80
 VOD_DESC_MAX = 500
+VOD_COMMENT_MAX = 300

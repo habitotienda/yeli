@@ -520,6 +520,9 @@ function createWatcher(username, video, cb) {
     };
 }
 
+const CHAT_SHOW_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg>';
+const CHAT_HIDE_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M15 4v16M8.5 9.5 11 12l-2.5 2.5"/></svg>';
+
 function channelMarkup(ch) {
     return `
     <div class="channel-layout">
@@ -528,6 +531,7 @@ function channelMarkup(ch) {
                 <video id="video" playsinline autoplay hidden></video>
                 <div class="player-overlay" id="overlay"></div>
                 <button type="button" class="unmute-btn" id="unmuteBtn" hidden>Tap to unmute</button>
+                <button type="button" class="player-chat-btn" id="chatReopen" hidden aria-label="Show chat" title="Show chat">${CHAT_SHOW_ICON}<span>Chat</span></button>
             </div>
             <div class="channel-head">
                 ${avatar(ch, 'avatar-lg')}
@@ -589,6 +593,28 @@ async function pageChannel(root, name, alive) {
     const chestChip = createChestChip($('#chestChip'), { isOwner: ch.is_me });
     const chat = createChat($('#chatPanel'), ch.username, { isOwner: ch.is_me, canMod: ch.is_me || ch.is_mod });
     onLeave(() => { controls.destroy(); chat.destroy(); });
+
+    /* Show / hide the chat, like Kick: a button in the chat header hides it (the video gets the room),
+       and a "Chat" button over the video brings it back. The choice is remembered on this device. */
+    const layout = $('.channel-layout'), reopen = $('#chatReopen');
+    const hideBtn = document.createElement('button');
+    hideBtn.type = 'button';
+    hideBtn.className = 'chat-popout chat-collapse';
+    hideBtn.title = 'Hide chat';
+    hideBtn.setAttribute('aria-label', 'Hide chat');
+    hideBtn.innerHTML = CHAT_HIDE_ICON;
+    const chatTools = $('.chat-tools', $('#chatPanel'));
+    if (chatTools) chatTools.appendChild(hideBtn);
+    const setChatHidden = (hidden, remember = true) => {
+        layout.classList.toggle('chat-hidden', hidden);
+        reopen.hidden = !hidden;
+        if (remember) { try { localStorage.setItem('yeli:chat-hidden', hidden ? '1' : '0'); } catch { /* private mode */ } }
+    };
+    hideBtn.addEventListener('click', () => setChatHidden(true));
+    reopen.addEventListener('click', () => setChatHidden(false));
+    let chatWasHidden = false;
+    try { chatWasHidden = localStorage.getItem('yeli:chat-hidden') === '1'; } catch { /* private mode */ }
+    setChatHidden(chatWasHidden, false);
 
     function setOverlay(kind) {
         const showVideo = kind === 'playing' || kind === 'reconnecting';

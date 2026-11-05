@@ -5,15 +5,17 @@
     cx="5"
     cy="5"
     r="5"
+    fill="none"
     stroke="white" 
-    stroke-width="4" 
+    stroke-width="3" 
     stroke-linecap="round" 
     stroke-linejoin="round"
     />
     <path
     d="M15 15L17 17"
+    fill="none"
     stroke="white" 
-    stroke-width="4" 
+    stroke-width="3" 
     stroke-linecap="round" 
     stroke-linejoin="round"
     />

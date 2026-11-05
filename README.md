@@ -313,3 +313,13 @@ Tampoco había Waitress instalado en ese entorno (las pruebas corrieron con el s
 - **Idioma:** Automático (sigue al navegador), English o Español (Ajustes → Idioma). Las traducciones están en `static/js/i18n-es.js`; lo que no esté ahí se queda en inglés. Para añadir un texto nuevo: `"English": "Español",`. El motor es `static/js/i18n.js`.
 - **Instalar como app (PWA):** `manifest.webmanifest` + `sw.js` (los sirve `yeli/pwa.py` desde la raíz). Necesita HTTPS (Render ya lo da). Android/Chrome: Ajustes → App → Instalar; iPhone: Compartir → Añadir a pantalla de inicio. El service worker solo guarda la interfaz; nunca toca `/api/` ni el video.
 - **Compartir pantalla:** instalar la app **no** lo habilita en el celular: los navegadores móviles no implementan `getDisplayMedia`. En computadora funciona igual que antes.
+
+## Videos: me gusta y comentarios
+
+Cada video guardado tiene un botón de *me gusta* (uno por cuenta, se puede quitar) y comentarios de hasta 300 caracteres,
+del más nuevo al más antiguo y de 20 en 20. Pueden borrarlos su autor, el streamer y los moderadores del canal. Los
+comentarios respetan las reglas del canal (bloqueos, palabras bloqueadas, enlaces y mayúsculas) y se limitan a 5 por minuto.
+API: `POST /api/vod/<id>/like`, `GET|POST /api/vod/<id>/comments`, `POST /api/vod/<id>/comments/<n>/delete`.
+
+En la página de un directo, el botón de la cabecera del chat lo oculta (el video ocupa todo el ancho) y el botón *Chat* sobre el video lo
+vuelve a mostrar; la elección se recuerda en el dispositivo.

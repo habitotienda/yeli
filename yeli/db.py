@@ -298,6 +298,22 @@ CREATE TABLE IF NOT EXISTS vods (
     edited      INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_vods_user ON vods(user_id, started_at);
+
+CREATE TABLE IF NOT EXISTS vod_likes (
+    vod_id     TEXT NOT NULL REFERENCES vods(id) ON DELETE CASCADE,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY (vod_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS vod_comments (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    vod_id     TEXT NOT NULL REFERENCES vods(id) ON DELETE CASCADE,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    text       TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_vod_comments ON vod_comments(vod_id, id);
 CREATE TABLE IF NOT EXISTS assets (
     id         TEXT PRIMARY KEY,
     user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

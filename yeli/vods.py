@@ -20,6 +20,8 @@ from . import config
 from .config import *
 from .core import *
 from .db import get_db
+from .bot import LINK_RE, chat_settings
+from .moderation import active_ban, can_moderate
 
 bp = Blueprint("vods", __name__)
 
@@ -81,6 +83,10 @@ def vod_json(row, me_row=None):
         "is_mine": mine,
         "edited": bool(row["edited"]),
         "can_edit": bool(mine and row["status"] == "ready" and not row["edited"]),
+        "likes": row["likes"],
+        "comment_count": row["comment_count"],
+        "liked": bool(me_row and get_db().execute(
+            "SELECT 1 FROM vod_likes WHERE vod_id = ? AND user_id = ?", (row["id"], me_row["id"])).fetchone()),
     }
     return out
 
@@ -88,6 +94,8 @@ def vod_json(row, me_row=None):
 VOD_SELECT = """
 SELECT v.id, v.user_id, v.title, v.description, v.category, v.mime, v.status, v.size, v.duration, v.started_at,
        v.cover_ver, v.edited, (v.cover IS NOT NULL AND LENGTH(v.cover) > 0) AS has_cover,
+       (SELECT COUNT(*) FROM vod_likes l WHERE l.vod_id = v.id) AS likes,
+       (SELECT COUNT(*) FROM vod_comments c WHERE c.vod_id = v.id) AS comment_count,
        u.username, u.avatar, u.avatar_updated
 FROM vods v JOIN users u ON u.id = v.user_id
 """
@@ -317,7 +325,148 @@ def vod_delete(vid):
     row = _get(db, vid)
     if row is None or row["user_id"] != me_row["id"]:
         return err("Video not found.", 404)
+    db.execute("DELETE FROM vod_likes WHERE vod_id = ?", (vid,))
+    db.execute("DELETE FROM vod_comments WHERE vod_id = ?", (vid,))
     db.execute("DELETE FROM vods WHERE id = ?", (vid,))
     db.commit()
     _remove_file(row)
     return jsonify(ok=True)
+
+
+# --------------------------------------------------------------------------
+# Likes and comments on saved videos
+# --------------------------------------------------------------------------
+COMMENTS_PAGE = 20
+
+
+def _watchable(db, vid):
+    """The video row if it is saved and public, else None."""
+    row = _get(db, vid)
+    return row if row is not None and row["status"] == "ready" and vod_path(row).exists() else None
+
+
+@bp.post("/api/vod/<vid>/like")
+@login_required
+def vod_like(vid):
+    """Set (or remove) my like. Sending the same value twice is harmless."""
+    me_row = current_user()
+    db = get_db()
+    row = _watchable(db, vid)
+    if row is None:
+        return err("Video not found.", 404)
+    liked = (request.get_json(silent=True) or {}).get("liked")
+    if not isinstance(liked, bool):
+        return err("Say whether you like it.")
+    if liked:
+        db.execute("INSERT OR IGNORE INTO vod_likes (vod_id, user_id, created_at) VALUES (?,?,?)", (vid, me_row["id"], now()))
+    else:
+        db.execute("DELETE FROM vod_likes WHERE vod_id = ? AND user_id = ?", (vid, me_row["id"]))
+    db.commit()
+    n = db.execute("SELECT COUNT(*) AS n FROM vod_likes WHERE vod_id = ?", (vid,)).fetchone()["n"]
+    return jsonify(ok=True, liked=liked, likes=n)
+
+
+def _comment_json(r, me_row, can_mod):
+    mine = bool(me_row and me_row["id"] == r["user_id"])
+    return {
+        "id": r["id"],
+        "text": r["text"],
+        "created_at": r["created_at"],
+        "username": r["username"],
+        "hue": avatar_hue(r["username"]),
+        "avatar": avatar_value(r),
+        "is_mine": mine,
+        "can_delete": mine or can_mod,
+    }
+
+
+COMMENT_SELECT = """
+SELECT c.id, c.user_id, c.text, c.created_at, u.username, u.avatar, u.avatar_updated
+FROM vod_comments c JOIN users u ON u.id = c.user_id
+"""
+
+
+@bp.get("/api/vod/<vid>/comments")
+def vod_comments(vid):
+    """Newest first, COMMENTS_PAGE at a time. `before` is the id of the oldest comment already shown."""
+    db = get_db()
+    row = _watchable(db, vid)
+    if row is None:
+        return err("Video not found.", 404)
+    me_row = current_user()
+    can_mod = bool(me_row and can_moderate(db, row["user_id"], me_row["id"]))
+    before = int_arg("before", 0)
+    sql = f"{COMMENT_SELECT} WHERE c.vod_id = ?"
+    args = [vid]
+    if before:
+        sql += " AND c.id < ?"
+        args.append(before)
+    rows = db.execute(sql + " ORDER BY c.id DESC LIMIT ?", args + [COMMENTS_PAGE + 1]).fetchall()
+    total = db.execute("SELECT COUNT(*) AS n FROM vod_comments WHERE vod_id = ?", (vid,)).fetchone()["n"]
+    return jsonify(comments=[_comment_json(r, me_row, can_mod) for r in rows[:COMMENTS_PAGE]],
+                   more=len(rows) > COMMENTS_PAGE, total=total)
+
+
+def _comment_blocked(db, channel_id, user_id, text):
+    """The channel's chat rules that make sense for a comment: bans, blocked words, links, capitals."""
+    ban = active_ban(db, channel_id, user_id)
+    if ban:
+        return "You're banned from this channel." + (f" Reason: {ban['reason']}" if ban["reason"] else ""), 403
+    if can_moderate(db, channel_id, user_id):
+        return None
+    st = chat_settings(db, channel_id)
+    if st["block_links"] and LINK_RE.search(text):
+        return "Links aren't allowed here.", 400
+    low = text.lower()
+    if any(w and w in low for w in (x.strip().lower() for x in st["banned_words"].split(","))):
+        return "That comment has a word this channel doesn't allow.", 400
+    letters = [c for c in text if c.isalpha()]
+    if st["caps_percent"] and len(letters) >= 10 and 100 * sum(c.isupper() for c in letters) / len(letters) > st["caps_percent"]:
+        return "Too many capital letters.", 400
+    return None
+
+
+@bp.post("/api/vod/<vid>/comments")
+@login_required
+def vod_comment_add(vid):
+    me_row = current_user()
+    db = get_db()
+    row = _watchable(db, vid)
+    if row is None:
+        return err("Video not found.", 404)
+    data = request.get_json(silent=True) or {}
+    text = " ".join(text_field(data, "text", config.VOD_COMMENT_MAX * 2).split())[: config.VOD_COMMENT_MAX]
+    if not text:
+        return err("Write a comment first.")
+    t = now()
+    recent = db.execute("SELECT COUNT(*) AS n FROM vod_comments WHERE user_id = ? AND created_at >= ?", (me_row["id"], t - 60)).fetchone()["n"]
+    if recent >= 5:
+        return err("You're commenting too fast. Wait a moment.", 429)
+    blocked = _comment_blocked(db, row["user_id"], me_row["id"], text)
+    if blocked:
+        return err(blocked[0], blocked[1])
+    cur = db.execute("INSERT INTO vod_comments (vod_id, user_id, text, created_at) VALUES (?,?,?,?)", (vid, me_row["id"], text, t))
+    db.commit()
+    created = db.execute(f"{COMMENT_SELECT} WHERE c.id = ?", (cur.lastrowid,)).fetchone()
+    total = db.execute("SELECT COUNT(*) AS n FROM vod_comments WHERE vod_id = ?", (vid,)).fetchone()["n"]
+    return jsonify(comment=_comment_json(created, me_row, can_moderate(db, row["user_id"], me_row["id"])), total=total), 201
+
+
+@bp.post("/api/vod/<vid>/comments/<int:cid>/delete")
+@login_required
+def vod_comment_delete(vid, cid):
+    """The author, the streamer and the channel's moderators can remove a comment."""
+    me_row = current_user()
+    db = get_db()
+    row = _watchable(db, vid)
+    if row is None:
+        return err("Video not found.", 404)
+    c = db.execute("SELECT user_id FROM vod_comments WHERE id = ? AND vod_id = ?", (cid, vid)).fetchone()
+    if c is None:
+        return err("Comment not found.", 404)
+    if c["user_id"] != me_row["id"] and not can_moderate(db, row["user_id"], me_row["id"]):
+        return err("You can't remove that comment.", 403)
+    db.execute("DELETE FROM vod_comments WHERE id = ?", (cid,))
+    db.commit()
+    total = db.execute("SELECT COUNT(*) AS n FROM vod_comments WHERE vod_id = ?", (vid,)).fetchone()["n"]
+    return jsonify(ok=True, total=total)

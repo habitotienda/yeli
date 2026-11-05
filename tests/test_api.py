@@ -30,7 +30,7 @@ class YeliTests(unittest.TestCase):
         _bot._cooldowns.clear()
         core._failed_logins.clear()
         con = sqlite3.connect(config.DB_PATH)
-        for t in ("vods", "free_points", "watch_sessions", "chat_bans", "chat_mods", "events", "alert_rules", "assets", "chat_settings", "commands", "spendings", "upgrades", "upgrade_points", "ledger", "payouts", "donations", "purchases", "wallets", "chat_messages", "avatars", "thumbnails", "signals", "viewers", "follows", "streams", "users"):
+        for t in ("vod_comments", "vod_likes", "vods", "free_points", "watch_sessions", "chat_bans", "chat_mods", "events", "alert_rules", "assets", "chat_settings", "commands", "spendings", "upgrades", "upgrade_points", "ledger", "payouts", "donations", "purchases", "wallets", "chat_messages", "avatars", "thumbnails", "signals", "viewers", "follows", "streams", "users"):
             con.execute(f"DELETE FROM {t}")
         con.commit()
         con.close()
@@ -1104,6 +1104,84 @@ class YeliTests(unittest.TestCase):
         self.assertEqual(self.anon.get("/api/chat/alice?after=0").get_json()["messages"][-1]["color"], "#123456")
         self.assertEqual(setc("").status_code, 200)                          # back to the default
         self.assertEqual(self.bob.get("/api/me").get_json()["user"]["name_color"], "")
+
+    def test_video_likes_and_comments(self):
+        octet = {"content_type": "application/octet-stream"}
+        self.signup(self.alice, "alice")
+        self.signup(self.bob, "bob")
+        post(self.alice, "/api/stream/start", {"title": "Live", "category": "Music"})
+        vid = post(self.alice, "/api/vod/start", {"mime": "video/webm"}).get_json()["id"]
+        self.alice.post(f"/api/vod/{vid}/chunk?seq=0", data=b"AAAA", **octet)
+        like, comments = f"/api/vod/{vid}/like", f"/api/vod/{vid}/comments"
+
+        # a recording that isn't saved yet can't be liked or commented
+        self.assertEqual(post(self.bob, like, {"liked": True}).status_code, 404)
+        self.assertEqual(post(self.bob, comments, {"text": "hi"}).status_code, 404)
+        post(self.alice, f"/api/vod/{vid}/finish")
+
+        # likes: only accounts, idempotent, one per person, counted and reported per viewer
+        self.assertEqual(post(self.anon, like, {"liked": True}).status_code, 401)
+        self.assertEqual(post(self.bob, like, {"liked": "yes"}).status_code, 400)
+        self.assertEqual(post(self.bob, like, {"liked": True}).get_json()["likes"], 1)
+        self.assertEqual(post(self.bob, like, {"liked": True}).get_json()["likes"], 1)
+        self.assertEqual(post(self.alice, like, {"liked": True}).get_json()["likes"], 2)
+        v = self.bob.get(f"/api/vod/{vid}").get_json()["video"]
+        self.assertEqual((v["likes"], v["liked"]), (2, True))
+        v = self.anon.get(f"/api/vod/{vid}").get_json()["video"]
+        self.assertEqual((v["likes"], v["liked"]), (2, False))
+        self.assertEqual(post(self.bob, like, {"liked": False}).get_json()["likes"], 1)
+
+        # comments: accounts only, trimmed, newest first, counted
+        self.assertEqual(post(self.anon, comments, {"text": "hi"}).status_code, 401)
+        self.assertEqual(post(self.bob, comments, {"text": "   "}).status_code, 400)
+        first = post(self.bob, comments, {"text": "  great   stream  "})
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(first.get_json()["comment"]["text"], "great stream")
+        second = post(self.alice, comments, {"text": "thanks!"}).get_json()
+        self.assertEqual(second["total"], 2)
+        listed = self.anon.get(comments).get_json()
+        self.assertEqual([c["text"] for c in listed["comments"]], ["thanks!", "great stream"])
+        self.assertFalse(any(c["can_delete"] for c in listed["comments"]))
+        self.assertEqual(self.anon.get(f"/api/vod/{vid}").get_json()["video"]["comment_count"], 2)
+
+        # pagination: 25 more comments, 20 per page, `before` continues
+        con = sqlite3.connect(config.DB_PATH)
+        bob_id = con.execute("SELECT id FROM users WHERE username = 'bob'").fetchone()[0]
+        for i in range(25):
+            con.execute("INSERT INTO vod_comments (vod_id, user_id, text, created_at) VALUES (?, ?, ?, ?)", (vid, bob_id, f"c{i}", core.now() - 3600))
+        con.commit()
+        con.close()
+        page1 = self.anon.get(comments).get_json()
+        self.assertEqual((len(page1["comments"]), page1["more"], page1["total"]), (20, True, 27))
+        page2 = self.anon.get(f"{comments}?before={page1['comments'][-1]['id']}").get_json()
+        self.assertEqual((len(page2["comments"]), page2["more"]), (7, False))
+
+        # who can delete: the author and the streamer, not other people
+        bob_c = first.get_json()["comment"]["id"]
+        self.signup(self.anon, "carol")
+        self.assertEqual(post(self.anon, f"{comments}/{bob_c}/delete").status_code, 403)
+        mine = self.bob.get(comments).get_json()["comments"]
+        self.assertTrue(any(c["is_mine"] and c["can_delete"] for c in mine))
+        self.assertEqual(post(self.alice, f"{comments}/{bob_c}/delete").status_code, 200)
+        self.assertEqual(post(self.alice, f"{comments}/{bob_c}/delete").status_code, 404)
+
+        # the channel's rules apply: blocked words and bans
+        db = sqlite3.connect(config.DB_PATH)
+        alice_id = db.execute("SELECT id FROM users WHERE username = 'alice'").fetchone()[0]
+        db.execute("INSERT INTO chat_settings (channel_id, banned_words) VALUES (?, 'spoiler') "
+                   "ON CONFLICT(channel_id) DO UPDATE SET banned_words = 'spoiler'", (alice_id,))
+        db.commit()
+        db.close()
+        self.assertEqual(post(self.bob, comments, {"text": "no SPOILER please"}).status_code, 400)
+        post(self.alice, "/api/mod/alice/ban", {"user": "bob", "minutes": 0})
+        self.assertEqual(post(self.bob, comments, {"text": "hello"}).status_code, 403)
+
+        # deleting the video removes its likes and comments
+        post(self.alice, f"/api/vod/{vid}/delete")
+        con = sqlite3.connect(config.DB_PATH)
+        self.assertEqual(con.execute("SELECT COUNT(*) FROM vod_likes").fetchone()[0], 0)
+        self.assertEqual(con.execute("SELECT COUNT(*) FROM vod_comments").fetchone()[0], 0)
+        con.close()
 
     def test_saved_streams(self):
         import base64

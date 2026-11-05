@@ -8,6 +8,21 @@ const videoHref = (id) => `#/video/${encodeURIComponent(id)}`;
 const vodCoverSrc = (v) => `/api/vod/${encodeURIComponent(v.id)}/cover?v=${Number(v.cover)}`;
 const vodDate = (t) => new Date(t * 1000).toLocaleDateString(window.YELI_LANG, { year: 'numeric', month: 'short', day: 'numeric' });
 
+const IC = (path, fill = 'none') => `<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="${fill}" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
+const HEART_PATH = '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21.2l7.8-7.7 1-1.1a5.5 5.5 0 0 0 0-7.8z"/>';
+const COMMENT_PATH = '<path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.5 8.5 0 0 1-3.7-.9L3 21l1.9-5.3A8.4 8.4 0 0 1 3 11.5 8.5 8.5 0 0 1 12 3a8.5 8.5 0 0 1 9 8.5z"/>';
+const countText = (n) => Number(n || 0).toLocaleString(window.YELI_LANG);
+
+/** "3 minutes ago", in the language of the page */
+function vodAgo(t) {
+    const secs = Math.round(t - Date.now() / 1000);
+    const rtf = new Intl.RelativeTimeFormat(window.YELI_LANG, { numeric: 'auto' });
+    for (const [unit, size] of [['year', 31536000], ['month', 2592000], ['week', 604800], ['day', 86400], ['hour', 3600], ['minute', 60]]) {
+        if (Math.abs(secs) >= size) return rtf.format(Math.round(secs / size), unit);
+    }
+    return rtf.format(0, 'second');
+}
+
 function videoCard(v) {
     return `
     <a class="stream-card vod-card" href="${videoHref(v.id)}">
@@ -20,6 +35,7 @@ function videoCard(v) {
             <div class="stream-text">
                 <h3 class="stream-title">${esc(v.title)}</h3>
                 <p class="stream-channel">${esc(vodDate(v.started_at))}</p>
+                <p class="vod-stats" aria-hidden="true"><span>${IC(HEART_PATH)}${countText(v.likes)}</span><span>${IC(COMMENT_PATH)}${countText(v.comment_count)}</span></p>
                 <p class="stream-cat"><span class="chip-static">${esc(v.category)}</span>${v.can_edit ? ' <span class="chip-static chip-edit">Edit available</span>' : ''}</p>
             </div>
         </div>
@@ -114,6 +130,13 @@ async function pageVideo(root, id, alive) {
             <p id="vDesc" data-no-i18n></p>
             <p class="muted" id="vNote"></p>
         </section>
+        <section class="vod-comments" aria-labelledby="vcTitle">
+            <h2 class="section-title" id="vcTitle"><span>Comments</span> <span class="vc-count" id="vcCount"></span></h2>
+            <div id="vcCompose"></div>
+            <ul class="vc-list" id="vcList"></ul>
+            <p class="muted vc-empty" id="vcEmpty" hidden>No comments yet. Be the first.</p>
+            <button type="button" class="btn btn-secondary vc-more" id="vcMore" hidden>Show more comments</button>
+        </section>
     </div>`;
 
     const video = $('#vodVideo');
@@ -130,7 +153,8 @@ async function pageVideo(root, id, alive) {
         $('#vDesc').textContent = v.description || (v.is_mine ? 'No description.' : '');
         $('#vDesc').hidden = !v.description && !v.is_mine;
         $('#vNote').textContent = v.is_mine ? (v.can_edit ? 'You can change the cover, the title and the description one time.' : 'You already used your one change for this video.') : '';
-        $('#vActions').innerHTML = '<button type="button" class="btn btn-secondary" data-vod="share">Share</button>'
+        $('#vActions').innerHTML = `<button type="button" class="btn btn-secondary like-btn${v.liked ? ' is-liked' : ''}" data-vod="like" aria-pressed="${v.liked}" aria-label="${v.liked ? 'Unlike' : 'Like'}" title="${v.liked ? 'Unlike' : 'Like'}">${IC(HEART_PATH, v.liked ? 'currentColor' : 'none')}<span class="like-count">${countText(v.likes)}</span></button>`
+            + '<button type="button" class="btn btn-secondary" data-vod="share">Share</button>'
             + (v.is_mine ? `${v.can_edit ? '<button type="button" class="btn btn-primary" data-vod="edit">Edit (one time)</button>' : ''}<button type="button" class="btn btn-secondary" data-vod="delete">Delete</button>` : '');
     }
     paint();
@@ -138,7 +162,25 @@ async function pageVideo(root, id, alive) {
     $('#vActions').addEventListener('click', async (e) => {
         const b = e.target.closest('[data-vod]');
         if (!b) return;
-        if (b.dataset.vod === 'share') {
+        if (b.dataset.vod === 'like') {
+            if (!state.me) { openAuth('login', 'Log in to like this video.'); return; }
+            if (b.disabled) return;
+            b.disabled = true;
+            const was = { liked: v.liked, likes: v.likes };
+            v.liked = !v.liked;                       // show the change right away, undo it if the server says no
+            v.likes += v.liked ? 1 : -1;
+            paint();
+            try {
+                const r = await api(`/vod/${encodeURIComponent(v.id)}/like`, { method: 'POST', body: { liked: v.liked } });
+                v.liked = r.liked;
+                v.likes = r.likes;
+            } catch (e2) {
+                Object.assign(v, was);
+                toast(e2.message);
+            } finally {
+                paint();
+            }
+        } else if (b.dataset.vod === 'share') {
             try { await navigator.clipboard.writeText(location.href); toast('Link copied.'); }
             catch { toast('Copy the link from your address bar.'); }
         } else if (b.dataset.vod === 'edit') {
@@ -147,6 +189,101 @@ async function pageVideo(root, id, alive) {
             openVideoDelete(v);
         }
     });
+
+    mountVideoComments(v, alive);
+}
+
+/** The comments under a saved video: write, read (newest first, 20 at a time) and delete. */
+function mountVideoComments(v, alive) {
+    const list = $('#vcList'), more = $('#vcMore'), empty = $('#vcEmpty'), count = $('#vcCount'), compose = $('#vcCompose');
+    const base = `/vod/${encodeURIComponent(v.id)}/comments`;
+    let total = 0, oldest = 0, busy = false;
+
+    const paintCount = () => {
+        count.textContent = total ? `(${countText(total)})` : '';
+        empty.hidden = total > 0 || list.children.length > 0;
+    };
+
+    function itemHtml(c) {
+        const isStreamer = c.username === v.username;
+        return `<li class="vc-item" data-id="${c.id}">
+            <a href="${channelHref(c.username)}" tabindex="-1" aria-hidden="true">${avatar(c, 'avatar-md')}</a>
+            <div class="vc-body">
+                <p class="vc-meta"><a class="vc-user" href="${channelHref(c.username)}" translate="no">${esc(c.username)}</a>${isStreamer ? '<span class="chip-static vc-streamer">Streamer</span>' : ''}<time class="muted" datetime="${new Date(c.created_at * 1000).toISOString()}">${esc(vodAgo(c.created_at))}</time></p>
+                <p class="vc-text" translate="no">${esc(c.text)}</p>
+            </div>
+            ${c.can_delete ? `<button type="button" class="vc-del" data-del="${c.id}" aria-label="Delete comment" title="Delete comment">&times;</button>` : ''}
+        </li>`;
+    }
+
+    async function load() {
+        if (busy) return;
+        busy = true;
+        more.disabled = true;
+        try {
+            const r = await api(oldest ? `${base}?before=${oldest}` : base);
+            if (!alive()) return;
+            list.insertAdjacentHTML('beforeend', r.comments.map(itemHtml).join(''));
+            if (r.comments.length) oldest = r.comments[r.comments.length - 1].id;
+            total = r.total;
+            more.hidden = !r.more;
+            paintCount();
+        } catch (e) {
+            if (alive()) toast(e.message);
+        } finally {
+            busy = false;
+            more.disabled = false;
+        }
+    }
+
+    function paintCompose() {
+        if (!state.me) {
+            compose.innerHTML = '<button type="button" class="btn btn-secondary vc-login" data-auth="login">Log in to comment</button>';
+            return;
+        }
+        compose.innerHTML = `<form class="vc-form" id="vcForm" novalidate>
+            ${avatar(state.me, 'avatar-md')}
+            <input id="vcInput" maxlength="300" autocomplete="off" placeholder="Add a comment\u2026" aria-label="Add a comment">
+            <button type="submit" class="btn btn-primary" id="vcSend">Comment</button>
+        </form>`;
+        $('#vcForm').addEventListener('submit', async (ev) => {
+            ev.preventDefault();
+            const input = $('#vcInput'), send = $('#vcSend');
+            const text = input.value.trim();
+            if (!text) return;
+            send.disabled = true;
+            try {
+                const r = await api(base, { method: 'POST', body: { text } });
+                input.value = '';
+                total = r.total;
+                list.insertAdjacentHTML('afterbegin', itemHtml(r.comment));
+                paintCount();
+            } catch (e) {
+                toast(e.message);
+            } finally {
+                send.disabled = false;
+                input.focus();
+            }
+        });
+    }
+
+    list.addEventListener('click', async (e) => {
+        const b = e.target.closest('[data-del]');
+        if (!b) return;
+        b.disabled = true;
+        try {
+            const r = await api(`${base}/${encodeURIComponent(b.dataset.del)}/delete`, { method: 'POST' });
+            b.closest('.vc-item').remove();
+            total = r.total;
+            paintCount();
+        } catch (e2) {
+            b.disabled = false;
+            toast(e2.message);
+        }
+    });
+    more.addEventListener('click', load);
+    paintCompose();
+    load();
 }
 
 function openVideoEdit(v, done) {

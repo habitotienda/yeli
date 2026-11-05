@@ -22,6 +22,7 @@ html[data-theme="light"] {
     --primary-hover: #e07400;
     --primary-text: #b45a00;
     --live: #e0143a;
+    --fg-rgb: 10, 10, 10;
 }
 
 /* ---------- 2. Generated from style.css ---------- */
@@ -395,11 +396,10 @@ html[data-theme="light"] .site-header {
 }
 html[data-theme="light"] .sidebar { box-shadow: 1px 0 0 rgba(24, 30, 48, 0.04); }
 
-/* Surfaces that are dark by design (video, thumbnails, the studio, toasts, badges over pictures)
+/* Surfaces that are dark by design (video, thumbnails, toasts, badges over pictures; the studio follows the theme)
    keep the dark palette, so everything inside them stays readable */
 html[data-theme="light"] .player,
 html[data-theme="light"] .stream-thumb,
-html[data-theme="light"] .obs,
 html[data-theme="light"] .toast,
 html[data-theme="light"] .badge-viewers,
 html[data-theme="light"] .badge-corner {
@@ -452,3 +452,50 @@ html[data-theme="light"] .chat-jump,
 html[data-theme="light"] .sticker-tabs button[aria-selected="true"],
 html[data-theme="light"] .um-balance em { color: #fff; }
 html[data-theme="light"] .switch input:checked + span::after { background: #fff; }
+
+/* ---------- 4. The studio follows the theme ----------
+   It used to stay dark; now its panels are light, and only the preview picture (the canvas) stays black,
+   because that is what the viewers will see. */
+html[data-theme="light"] .obs {
+    --o-bg: #eef0f4;
+    --o-panel: #ffffff;
+    --o-head: #f3f4f8;
+    --o-border: #d6dae2;
+    --o-hover: #e9ebf1;
+    --o-sel: rgba(245, 154, 0, 0.16);
+    color: #1c2030;
+    box-shadow: 0 1px 2px rgba(24, 30, 48, 0.05);
+}
+html[data-theme="light"] .obs .dock-title,
+html[data-theme="light"] .obs-chat .chat-head h2 { color: #2b3040; }
+html[data-theme="light"] .preview-stage { background: #dfe2e8; }
+html[data-theme="light"] .preview-wrap { box-shadow: 0 0 0 1px #c3c8d2, 0 10px 30px rgba(24, 30, 48, 0.25); }
+html[data-theme="light"] .preview-empty {
+    --text-color: #f1f1f1;
+    --text-muted: #b3b7c2;
+    color: #f1f1f1;
+}
+html[data-theme="light"] .tbtn { color: #4a5060; }
+html[data-theme="light"] .tbtn:hover { background: #e4e7ee; }
+html[data-theme="light"] .tbtn[aria-pressed="true"] { color: #d6204a; }
+html[data-theme="light"] .type-ico { color: #7b8192; }
+html[data-theme="light"] .eye { color: #6a7184; }
+html[data-theme="light"] .eye:hover { background: #e4e7ee; }
+html[data-theme="light"] .eye[aria-pressed="true"] { color: #a0a6b5; }
+html[data-theme="light"] .obs-input { background: #fff; border-color: #cdd2dc; color: #16181d; }
+html[data-theme="light"] .obs-input:focus { border-color: var(--primary-color); }
+html[data-theme="light"] .menu { background: #fff; border-color: #d3d7df; box-shadow: 0 12px 32px rgba(24, 30, 48, 0.18); }
+html[data-theme="light"] .menu button { color: #1c2030; }
+html[data-theme="light"] .menu button:hover,
+html[data-theme="light"] .menu button:focus-visible { background: #eef0f4; }
+html[data-theme="light"] .mix-meter { background: #e1e4ea; }
+html[data-theme="light"] .obs-btn { background: #fff; border-color: #d0d4dc; color: #1c2030; }
+html[data-theme="light"] .obs-btn:hover { background: #f1f2f6; border-color: #bfc4ce; }
+html[data-theme="light"] .obs-status { color: #59607a; }
+html[data-theme="light"] .st i { background: #9aa1b3; }
+html[data-theme="light"] .st-live { color: #d6204a; }
+html[data-theme="light"] .obs-help ol,
+html[data-theme="light"] .obs-conn { color: #3b4150; }
+
+/* A liked video keeps its red heart (the generic secondary-button colour above would turn it dark) */
+html[data-theme="light"] .btn-secondary.like-btn.is-liked { color: var(--live); border-color: var(--live); }

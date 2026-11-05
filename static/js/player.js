@@ -39,9 +39,10 @@ function saveQualityPref(q) {
 
 /**
  * opts.quality = { onChange(height) } adds a quality menu (0 = source).
+ * opts.seekable = true adds a progress bar, the time and a speed button (recorded videos).
  * Returns { destroy(), getQuality() }.
  */
-function createPlayerControls(player, video, { live = true, quality = null } = {}) {
+function createPlayerControls(player, video, { live = true, quality = null, seekable = false } = {}) {
     let currentQuality = quality ? loadQualityPref() : 0;
     const prefs = loadVolumePrefs();
     video.volume = prefs.volume;
@@ -51,12 +52,15 @@ function createPlayerControls(player, video, { live = true, quality = null } = {
     const el = document.createElement('div');
     el.className = 'vc';
     el.innerHTML = `
+        ${seekable ? '<div class="vc-seek"><input type="range" class="vc-progress" min="0" max="1000" step="1" value="0" aria-label="Seek" aria-valuetext="0:00"></div>' : ''}
         <div class="vc-bar">
             <button type="button" class="vc-btn" data-vc="play" aria-label="Pause"></button>
             <button type="button" class="vc-btn" data-vc="mute" aria-label="Mute"></button>
             <input type="range" class="vc-volume" min="0" max="1" step="0.02" aria-label="Volume">
             ${live ? '<span class="vc-live"><i aria-hidden="true"></i>LIVE</span>' : ''}
+            ${seekable ? '<span class="vc-time" aria-hidden="true">0:00 / 0:00</span>' : ''}
             <span class="vc-spacer"></span>
+            ${seekable ? '<button type="button" class="vc-btn vc-speed" data-vc="speed" aria-label="Playback speed">1\u00d7</button>' : ''}
             ${quality ? '<button type="button" class="vc-btn" data-vc="quality" aria-label="Quality" aria-haspopup="menu" aria-expanded="false"></button>' : ''}
             ${canPip ? '<button type="button" class="vc-btn" data-vc="pip" aria-label="Picture in picture"></button>' : ''}
             <button type="button" class="vc-btn" data-vc="fs" aria-label="Fullscreen"></button>
@@ -99,6 +103,61 @@ function createPlayerControls(player, video, { live = true, quality = null } = {
         } catch { /* not available right now */ }
     };
 
+    // Recorded videos: progress bar, time and speed
+    const progress = el.querySelector('.vc-progress');
+    const timeEl = el.querySelector('.vc-time');
+    const SPEEDS = [1, 1.25, 1.5, 2, 0.75];
+    let scrubbing = false;
+    const fmtClock = (t) => {
+        if (!Number.isFinite(t) || t < 0) t = 0;
+        const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = Math.floor(t % 60);
+        return h ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}` : `${m}:${String(sec).padStart(2, '0')}`;
+    };
+    function paintSeek() {
+        if (!seekable) return;
+        const dur = video.duration;
+        const ok = Number.isFinite(dur) && dur > 0;
+        const cur = video.currentTime || 0;
+        let buffered = 0;
+        if (ok) for (let i = 0; i < video.buffered.length; i++) {
+            if (video.buffered.start(i) <= cur + 0.5) buffered = Math.max(buffered, video.buffered.end(i));
+        }
+        const played = ok ? Math.min(1, cur / dur) : 0;
+        if (!scrubbing) progress.value = Math.round(played * 1000);
+        progress.disabled = !ok;
+        progress.style.setProperty('--played', `${(scrubbing ? Number(progress.value) / 10 : played * 100)}%`);
+        progress.style.setProperty('--buffered', `${ok ? Math.min(100, (buffered / dur) * 100) : 0}%`);
+        progress.setAttribute('aria-valuetext', `${fmtClock(cur)} of ${fmtClock(ok ? dur : 0)}`);
+        timeEl.textContent = `${fmtClock(cur)} / ${fmtClock(ok ? dur : 0)}`;
+    }
+    const skip = (secs) => {
+        const dur = Number.isFinite(video.duration) ? video.duration : Infinity;
+        video.currentTime = Math.max(0, Math.min(dur, video.currentTime + secs));
+    };
+    const cycleSpeed = () => {
+        const next = SPEEDS[(SPEEDS.indexOf(video.playbackRate) + 1) % SPEEDS.length];
+        video.playbackRate = next;
+    };
+    const paintSpeed = () => { const b = btn('speed'); if (b) b.textContent = `${video.playbackRate}\u00d7`; };
+    const onScrubStart = () => { scrubbing = true; };
+    const onScrubEnd = () => { scrubbing = false; paintSeek(); };
+    const onScrubInput = () => {
+        const dur = video.duration;
+        if (!Number.isFinite(dur)) return;
+        video.currentTime = (Number(progress.value) / 1000) * dur;
+        paintSeek();
+    };
+    if (seekable) {
+        progress.addEventListener('input', onScrubInput);
+        progress.addEventListener('pointerdown', onScrubStart);
+        progress.addEventListener('pointerup', onScrubEnd);
+        progress.addEventListener('pointercancel', onScrubEnd);
+        progress.addEventListener('change', onScrubEnd);
+        ['timeupdate', 'durationchange', 'loadedmetadata', 'progress', 'seeked', 'ended'].forEach((t) => video.addEventListener(t, paintSeek));
+        video.addEventListener('ratechange', paintSpeed);
+        video.addEventListener('ended', paint);
+    }
+
     const menu = el.querySelector('.vc-menu');
     const QUALITY_LABELS = [[0, 'Source'], [720, '720p'], [480, '480p'], [360, '360p'], [240, '240p']];
     function closeMenu() {
@@ -121,7 +180,7 @@ function createPlayerControls(player, video, { live = true, quality = null } = {
         const b = e.target.closest('[data-vc]');
         if (!b) return;
         if (b.dataset.vc === 'quality') { if (menu.hidden) openMenu(); else closeMenu(); return; }
-        ({ play: togglePlay, mute: toggleMute, fs: toggleFs, pip: togglePip })[b.dataset.vc]();
+        ({ play: togglePlay, mute: toggleMute, fs: toggleFs, pip: togglePip, speed: cycleSpeed })[b.dataset.vc]();
     });
     if (menu) {
         menu.addEventListener('click', (e) => {
@@ -172,11 +231,13 @@ function createPlayerControls(player, video, { live = true, quality = null } = {
 
     // Keyboard shortcuts when the player has focus
     player.addEventListener('keydown', (e) => {
-        if (e.target.matches('input')) return;
+        if (e.target.matches('input') && !(seekable && e.target === progress && /^(j|l)$/i.test(e.key))) return;
         const key = e.key.toLowerCase();
         if (key === ' ' || key === 'k') { e.preventDefault(); togglePlay(); }
         else if (key === 'm') toggleMute();
         else if (key === 'f') toggleFs();
+        else if (seekable && (key === 'arrowleft' || key === 'j')) { skip(key === 'j' ? -10 : -5); e.preventDefault(); }
+        else if (seekable && (key === 'arrowright' || key === 'l')) { skip(key === 'l' ? 10 : 5); e.preventDefault(); }
         else if (key === 'arrowup') { userChoice(); video.volume = Math.min(1, video.volume + 0.1); video.muted = false; e.preventDefault(); }
         else if (key === 'arrowdown') { userChoice(); video.volume = Math.max(0, video.volume - 0.1); e.preventDefault(); }
         wake();
@@ -191,6 +252,8 @@ function createPlayerControls(player, video, { live = true, quality = null } = {
     document.addEventListener('webkitfullscreenchange', onFs);
 
     paint();
+    paintSeek();
+    paintSpeed();
     wake();
 
     return {
@@ -203,6 +266,11 @@ function createPlayerControls(player, video, { live = true, quality = null } = {
             video.removeEventListener('play', paint);
             video.removeEventListener('pause', paint);
             video.removeEventListener('volumechange', onVol);
+            if (seekable) {
+                ['timeupdate', 'durationchange', 'loadedmetadata', 'progress', 'seeked', 'ended'].forEach((t) => video.removeEventListener(t, paintSeek));
+                video.removeEventListener('ratechange', paintSpeed);
+                video.removeEventListener('ended', paint);
+            }
             document.removeEventListener('click', onDocClick);
             document.removeEventListener('fullscreenchange', onFs);
             document.removeEventListener('webkitfullscreenchange', onFs);

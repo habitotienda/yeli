@@ -443,7 +443,7 @@ html[data-theme="light"] .dialog { box-shadow: 0 24px 60px rgba(20, 26, 44, 0.28
 html[data-theme="light"] .sidebar-item.active { background: rgba(255, 166, 0, 0.14); }
 html[data-theme="light"] ::-webkit-scrollbar-thumb { background: #c4c8d2; border-radius: 6px; }
 html[data-theme="light"] ::-webkit-scrollbar-track { background: transparent; }
-html[data-theme="light"] .splash-word { color: #fff; }
+html[data-theme="light"] .splash-word { color: var(--primary-color); }
 
 /* Light theme: white text on every solid orange surface (it was near-black, which looked muddy) */
 html[data-theme="light"] .chip[aria-current="true"],

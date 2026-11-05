@@ -100,7 +100,7 @@ async function pageVideo(root, id, alive) {
 
     root.innerHTML = `
     <div class="vod-page">
-        <div class="player vod-player"><video id="vodVideo" controls playsinline preload="metadata"></video></div>
+        <div class="player vod-player"><video id="vodVideo" playsinline preload="metadata"></video></div>
         <div class="channel-head">
             <a href="${channelHref(v.username)}" aria-label="${esc(v.username)}">${avatar(v, 'avatar-lg')}</a>
             <div class="channel-titles">
@@ -119,7 +119,8 @@ async function pageVideo(root, id, alive) {
     const video = $('#vodVideo');
     video.src = `/api/vod/${encodeURIComponent(v.id)}/video`;
     fixRecordedDuration(video);
-    onLeave(() => { video.pause(); video.removeAttribute('src'); video.load(); });
+    const controls = createPlayerControls($('.vod-player'), video, { live: false, seekable: true });
+    onLeave(() => { controls.destroy(); video.pause(); video.removeAttribute('src'); video.load(); });
 
     function paint() {
         document.title = `${v.title} | Yeli`;

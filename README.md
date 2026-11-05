@@ -323,3 +323,16 @@ API: `POST /api/vod/<id>/like`, `GET|POST /api/vod/<id>/comments`, `POST /api/vo
 
 En la página de un directo, el botón de la cabecera del chat lo oculta (el video ocupa todo el ancho) y el botón *Chat* sobre el video lo
 vuelve a mostrar; la elección se recuerda en el dispositivo.
+
+## La voz del bot dentro del directo
+
+Por defecto la voz (`!say`) sale **en el directo**: el servidor convierte el mensaje en audio con `espeak-ng`, el estudio del
+streamer lo mezcla en el audio de la transmisión (aparece como *Voz del bot* en el mezclador, con su volumen y su silencio) y por eso
+lo escuchan todos los que ven el directo, y queda guardado en el video. Los navegadores de los espectadores no la leen.
+
+- Hace falta `espeak-ng` en el servidor: `apt install espeak-ng`, o usa el `Dockerfile` (en Render, `runtime: docker`; mira `render.yaml`).
+  Con otra ruta: `YELI_TTS_BIN=/ruta/al/programa` (con los mismos argumentos que espeak-ng).
+- Sin ese programa, o si en *Bot > Voz* eliges **En el dispositivo de cada espectador**, funciona como antes: cada navegador la lee en voz alta.
+- El estudio tiene que estar abierto mientras transmites. Si transmites con OBS, elige la opción de los dispositivos de los espectadores.
+- El idioma sale de *Voz > idioma* o, si está vacío, del idioma del navegador del streamer.
+- Solo el streamer puede pedir ese audio: `GET /api/tts/<canal>/<id del mensaje>`.

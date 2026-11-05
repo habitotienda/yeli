@@ -141,7 +141,10 @@ function buildWorkspace(root) {
     </div>`;
 
     $('#previewWrap').insertBefore(S.canvas, $('#previewWrap').firstChild);
-    studioChat = createChat($('#obsChat'), state.me.username, { isOwner: true });
+    studioChat = createChat($('#obsChat'), state.me.username, {
+        isOwner: true,
+        onVoice: (m) => playVoice(`/api/tts/${encodeURIComponent(state.me.username)}/${encodeURIComponent(m.id)}`),
+    });
 
     wireDocks();
     wirePreview();

@@ -92,7 +92,7 @@ const Voice = (() => {
     return { speak, cancel, status, beep };
 })();
 
-function createChat(container, channel, { isOwner = false, canMod = isOwner } = {}) {
+function createChat(container, channel, { isOwner = false, canMod = isOwner, onVoice = null } = {}) {
     const MAX = 300;
     const path = `/chat/${encodeURIComponent(channel)}`;
     let lastId = 0;
@@ -122,6 +122,7 @@ function createChat(container, channel, { isOwner = false, canMod = isOwner } = 
 
     let armed = false;      // messages that were already in the chat when it opened are never read aloud
     let ttsLang = '';
+    let streamVoice = false; // the server turns the voice into audio and the studio mixes it into the stream
     const ttsBtn = $('[data-chat-tts]', container);
     // The streamer's studio has its own mute switch, so muting the voice while watching other channels doesn't silence it
     const TTS_KEY = isOwner ? 'yeli:tts:own' : 'yeli:tts';
@@ -277,7 +278,10 @@ function createChat(container, channel, { isOwner = false, canMod = isOwner } = 
         lastId = Math.max(lastId, m.id);
         empty.remove();
         log.appendChild(buildRow(m));
-        if (armed && m.kind === 'tts' && Date.now() / 1000 - m.ts < (isOwner ? 180 : 30)) speak(m.text);
+        if (armed && m.kind === 'tts' && Date.now() / 1000 - m.ts < (isOwner ? 180 : 30)) {
+            // In the stream, the studio plays it (onVoice) and every other browser stays quiet; otherwise this browser reads it
+            if (streamVoice) { if (onVoice) onVoice(m); } else speak(m.text);
+        }
     }
 
     function showEmptyIfNeeded() {
@@ -299,7 +303,8 @@ function createChat(container, channel, { isOwner = false, canMod = isOwner } = 
             const r = await api(`${path}?after=${lastId}${since ? `&since=${since}` : ''}`);
             if (destroyed) return;
             since = r.t;
-            if (r.tts_lang !== undefined) { ttsLang = r.tts_lang || ''; ttsBtn.hidden = r.tts_lang === null; }
+            streamVoice = !!r.tts_stream;
+            if (r.tts_lang !== undefined) { ttsLang = r.tts_lang || ''; ttsBtn.hidden = r.tts_lang === null || streamVoice; }
             r.removed.forEach((id) => { const el = log.querySelector(`[data-id="${id}"]`); if (el) el.remove(); });
             render(r.messages);
             armed = true;

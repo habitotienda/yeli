@@ -518,6 +518,59 @@ async function enableMic() {
     addAudioChannel('mic', 'Mic/Aux', stream.getAudioTracks()[0], Number(S.cfg.micVolume) || 1);
 }
 
+/* ---------- Bot voice (the !say messages) ----------
+   The server turns the message into audio; it is played here into the program mix, so it is part of the stream
+   and of the saved video, and also to the streamer's speakers. It shows up in the mixer as "Bot voice". */
+function ensureVoiceChannel() {
+    const a = ensureAudio();
+    let ch = a.channels.get('voice');
+    if (ch) return ch;
+    const gain = a.ctx.createGain();
+    const analyser = a.ctx.createAnalyser();
+    analyser.fftSize = 256;
+    gain.connect(analyser);
+    gain.connect(a.master);
+    gain.connect(a.ctx.destination);
+    ch = { id: 'voice', label: 'Bot voice', src: null, gain, analyser, track: null, volume: 1, muted: false };
+    a.channels.set('voice', ch);
+    notifyStudio();
+    return ch;
+}
+
+const voiceQueue = [];
+let voicePlaying = false;
+
+/** Fetch one voice message and play it; messages wait in line (no more than 3) so they never talk over each other. */
+function playVoice(url) {
+    if (voiceQueue.length >= 3) return;
+    voiceQueue.push(url);
+    if (!voicePlaying) drainVoice();
+}
+
+async function drainVoice() {
+    voicePlaying = true;
+    while (voiceQueue.length && S) {
+        const url = voiceQueue.shift();
+        try {
+            const res = await fetch(url, { credentials: 'same-origin' });
+            if (!res.ok || !S) continue;
+            const ch = ensureVoiceChannel();
+            const ctx = S.audio.ctx;
+            if (ctx.state === 'suspended') await ctx.resume().catch(() => {});
+            const buffer = await ctx.decodeAudioData(await res.arrayBuffer());
+            await new Promise((resolve) => {
+                const src = ctx.createBufferSource();
+                src.buffer = buffer;
+                src.connect(ch.gain);
+                src.onended = resolve;
+                setTimeout(resolve, buffer.duration * 1000 + 1500); // never get stuck
+                src.start();
+            });
+        } catch { /* a piece that can't be played is skipped */ }
+    }
+    voicePlaying = false;
+}
+
 const micChannel = () => (S && S.audio ? S.audio.channels.get('mic') : null);
 
 /* ---------- Program output ---------- */

@@ -5,6 +5,7 @@ from flask import Blueprint, jsonify, request
 
 from . import config, economy
 from .config import *
+from .voice import stream_ready
 from .core import *
 from .db import get_db
 from .chest import owns_sticker
@@ -70,7 +71,7 @@ def chat_poll(username):
         ]
     st = chat_settings(db, channel["id"])
     return jsonify(messages=[chat_json(r, channel["id"]) for r in rows], removed=removed, t=now(),
-                   tts_lang=st["tts_lang"] if st["tts_enabled"] else None)
+                   tts_lang=st["tts_lang"] if st["tts_enabled"] else None, tts_stream=stream_ready(st))
 
 
 @bp.post("/api/chat/<username>")

@@ -1183,6 +1183,53 @@ class YeliTests(unittest.TestCase):
         self.assertEqual(con.execute("SELECT COUNT(*) FROM vod_comments").fetchone()[0], 0)
         con.close()
 
+    def test_voice_in_the_stream(self):
+        import stat
+        fake = Path(_tmp) / "fake-espeak"
+        fake.write_text("#!/usr/bin/env python3\nimport sys, wave\n"
+                        "w = wave.open(sys.stdout.buffer, 'wb')\nw.setnchannels(1); w.setsampwidth(2); w.setframerate(8000)\n"
+                        "w.writeframes(b'\\x00\\x01' * 800)\nw.close()\n")
+        fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
+        self.signup(self.alice, "alice")
+        self.signup(self.bob, "bob")
+        post(self.alice, "/api/bot/settings", {"tts_enabled": True, "tts_command": "say", "tts_cooldown": 0, "tts_name": False})
+        post(self.bob, "/api/chat/alice", {"text": "!say hola"})
+        poll = lambda c: c.get("/api/chat/alice?after=0").get_json()
+        mid = [m for m in poll(self.anon)["messages"] if m["kind"] == "tts"][0]["id"]
+        url = f"/api/tts/alice/{mid}"
+
+        # no speech program on the server: the voice stays in the viewers' browsers
+        config.TTS_BIN = ""
+        orig_which = __import__("shutil").which
+        __import__("shutil").which = lambda name: None
+        try:
+            self.assertFalse(poll(self.anon)["tts_stream"])
+            self.assertEqual(self.alice.get(url).status_code, 409)
+            self.assertFalse(self.alice.get("/api/bot").get_json()["voice_engine"])
+
+            # with a program: the poll says so, and only the streamer gets the audio
+            config.TTS_BIN = str(fake)
+            self.assertTrue(poll(self.anon)["tts_stream"])
+            self.assertTrue(self.alice.get("/api/bot").get_json()["voice_engine"])
+            self.assertEqual(self.anon.get(url).status_code, 401)
+            self.assertEqual(self.bob.get(url).status_code, 403)
+            r = self.alice.get(url)
+            self.assertEqual((r.status_code, r.mimetype), (200, "audio/wav"))
+            self.assertEqual(r.data[:4], b"RIFF")
+            self.assertEqual(self.alice.get(url).data, r.data)  # cached
+            normal = [m for m in poll(self.anon)["messages"] if m["kind"] == "msg"][0]["id"]
+            self.assertEqual(self.alice.get(f"/api/tts/alice/{normal}").status_code, 404)  # only voice messages
+            self.assertEqual(self.alice.get("/api/tts/alice/99999").status_code, 404)
+
+            # "viewers" puts the voice back in each browser
+            self.assertEqual(post(self.alice, "/api/bot/settings", {"tts_enabled": True, "tts_output": "nowhere"}).status_code, 400)
+            post(self.alice, "/api/bot/settings", {"tts_enabled": True, "tts_command": "say", "tts_output": "viewers"})
+            self.assertFalse(poll(self.anon)["tts_stream"])
+            self.assertEqual(self.alice.get(url).status_code, 409)
+        finally:
+            __import__("shutil").which = orig_which
+            config.TTS_BIN = ""
+
     def test_saved_streams(self):
         import base64
         jpeg = "data:image/jpeg;base64," + base64.b64encode(b"\xff\xd8\xff" + b"x" * 500).decode()

@@ -341,7 +341,8 @@ def init_db(path=None):
         "chat_settings": [("tts_enabled", "INTEGER NOT NULL DEFAULT 0"), ("tts_command", "TEXT NOT NULL DEFAULT 'say'"),
                           ("tts_name", "INTEGER NOT NULL DEFAULT 1"), ("tts_template", "TEXT NOT NULL DEFAULT '{user} says: {text}'"),
                           ("tts_perm", "TEXT NOT NULL DEFAULT 'everyone'"), ("tts_cooldown", "INTEGER NOT NULL DEFAULT 30"),
-                          ("tts_max", "INTEGER NOT NULL DEFAULT 120"), ("tts_lang", "TEXT NOT NULL DEFAULT ''")],
+                          ("tts_max", "INTEGER NOT NULL DEFAULT 120"), ("tts_lang", "TEXT NOT NULL DEFAULT ''"),
+                          ("tts_output", "TEXT NOT NULL DEFAULT 'stream'")],
         "chat_messages": [("kind", "TEXT NOT NULL DEFAULT 'msg'"), ("sticker", "TEXT NOT NULL DEFAULT ''"), ("amount", "INTEGER NOT NULL DEFAULT 0")],
         "viewers": [("viewer_key", "TEXT NOT NULL DEFAULT ''"), ("user_id", "INTEGER"), ("superseded", "INTEGER NOT NULL DEFAULT 0"), ("ip", "TEXT NOT NULL DEFAULT ''")],
     }.items():

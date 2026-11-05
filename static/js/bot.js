@@ -16,6 +16,7 @@ async function pageBot(root, alive) {
     let { settings, commands } = data;
     let editing = null;
     const st = settings;
+    const voiceEngine = !!data.voice_engine;
 
     const render = () => {
         root.innerHTML = `
@@ -51,7 +52,16 @@ async function pageBot(root, alive) {
         <section class="section"><h2 class="section-title">Voice: read messages aloud</h2>
             <form class="panel" id="ttsForm" novalidate>
                 <label class="check"><input type="checkbox" name="tts_enabled"${st.tts_enabled ? ' checked' : ''}><span><strong>Turn on the voice command</strong>
-                    <small>A viewer types the command and a message, and everyone watching hears it. Each viewer\u2019s browser reads it aloud (they can mute it), and it also plays in the studio, where the speaker button in the chat can mute it. Use Test voice to check this device.</small></span></label>
+                    <small>A viewer types the command and a message, and everyone watching hears it.</small></span></label>
+                <div class="field"><label for="ttOut">Where is the voice heard?</label>
+                    <select id="ttOut" name="tts_output">
+                        <option value="stream"${st.tts_output === 'viewers' ? '' : ' selected'}>In the stream</option>
+                        <option value="viewers"${st.tts_output === 'viewers' ? ' selected' : ''}>On each viewer\u2019s device</option>
+                    </select>
+                    <small>${voiceEngine
+                        ? 'In the stream: your studio adds the voice to your audio, so everyone hears it with the stream (and it is saved in the video). Keep the studio open while you stream.'
+                        : 'This server has no voice program (espeak-ng) installed, so the voice is read on each viewer\u2019s device. See the README to turn on the voice in the stream.'}</small>
+                    <small>On each viewer\u2019s device: every browser reads it aloud (they can mute it). Use Test voice to check this device.</small></div>
                 <div class="field-row">
                     <div class="field"><label for="ttCmd">Command</label><input id="ttCmd" name="tts_command" maxlength="20" value="!${esc(st.tts_command)}" autocomplete="off"><small>Example: <code>!${esc(st.tts_command)} Hola a todos</code></small></div>
                     <div class="field"><label for="ttPerm">Who can use it</label>
@@ -131,7 +141,7 @@ async function pageBot(root, alive) {
             try {
                 const r = await api('/bot/settings', { method: 'POST', body: { ...st,
                     tts_enabled: f.tts_enabled.checked, tts_command: f.tts_command.value, tts_perm: f.tts_perm.value, tts_name: f.tts_name.checked,
-                    tts_template: f.tts_template.value, tts_cooldown: Number(f.tts_cooldown.value), tts_max: Number(f.tts_max.value), tts_lang: f.tts_lang.value } });
+                    tts_template: f.tts_template.value, tts_cooldown: Number(f.tts_cooldown.value), tts_max: Number(f.tts_max.value), tts_lang: f.tts_lang.value, tts_output: f.tts_output.value } });
                 Object.assign(st, r.settings);
                 toast('Voice settings saved.');
                 render();

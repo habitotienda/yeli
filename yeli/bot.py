@@ -7,6 +7,7 @@ from flask import Blueprint, jsonify, request
 
 from . import economy
 from .core import *
+from .voice import engine as voice_engine
 from .db import get_db
 from .moderation import active_ban, can_moderate
 from .queries import *
@@ -27,7 +28,7 @@ DEFAULTS = {"slow_seconds": 0, "followers_only": 0, "block_links": 0, "banned_wo
             "welcome": 0, "welcome_text": "Thanks for the follow, {user}!", "thanks": 0,
             "thanks_text": "Thank you {user} for {amount} Yelis!",
             "tts_enabled": 0, "tts_command": "say", "tts_name": 1, "tts_template": "{user} says: {text}",
-            "tts_perm": "everyone", "tts_cooldown": 30, "tts_max": 120, "tts_lang": ""}
+            "tts_perm": "everyone", "tts_cooldown": 30, "tts_max": 120, "tts_lang": "", "tts_output": "stream"}
 _cooldowns = {}  # (channel, command[, user]) -> last use; per process, which is fine for chat spam control
 
 
@@ -255,7 +256,7 @@ def bot_state():
     db = get_db()
     cmds = db.execute("SELECT * FROM commands WHERE channel_id = ? ORDER BY name", (uid,)).fetchall()
     return jsonify(settings=chat_settings(db, uid), commands=[command_json(r) for r in cmds], slots=command_slots(db, uid),
-                   builtin=list(BUILTIN), variables=VARIABLES)
+                   builtin=list(BUILTIN), variables=VARIABLES, voice_engine=bool(voice_engine()))
 
 
 @bp.post("/api/bot/settings")
@@ -289,7 +290,10 @@ def bot_settings():
         return err("Unknown permission.")
     if lang and not re.fullmatch(r"[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})?", lang):
         return err("Use a language code like es-AR or en-US.", field="tts_lang")
-    vals.update(tts_command=cmd, tts_template=tpl, tts_perm=perm, tts_lang=lang)
+    output = d.get("tts_output", "stream")
+    if output not in ("stream", "viewers"):
+        return err("Choose where the voice is heard.")
+    vals.update(tts_command=cmd, tts_template=tpl, tts_perm=perm, tts_lang=lang, tts_output=output)
     db = get_db()
     cols = list(vals)
     db.execute(

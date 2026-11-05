@@ -4,6 +4,9 @@
 # service restarts, is redeployed, or spins down after ~15 minutes without traffic. That's fine for a demo, but
 # accounts, Yelis and chats will disappear. To keep your data: switch to a paid plan and uncomment the `disk`
 # block and the YELI_DB variable below (persistent disks are only available on paid plans).
+# VOICE IN THE STREAM: the bot's voice needs the speech program espeak-ng on the server. Render's Python runtime can't
+# install it, so to use that feature change `runtime: python` below to `runtime: docker` (the Dockerfile installs it) and
+# delete the buildCommand and startCommand lines. Without it everything works; the voice is read on each viewer's device.
 services:
   - type: web
     name: yeli                      # the service name decides the address: yeli.onrender.com

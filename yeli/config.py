@@ -82,3 +82,4 @@ VOD_STALE_SECONDS = 120  # a recording that stops sending data this long is clos
 VOD_TITLE_MAX = 80
 VOD_DESC_MAX = 500
 VOD_COMMENT_MAX = 300
+TTS_BIN = os.environ.get("YELI_TTS_BIN", "")  # speech program (espeak-ng); empty = look for espeak-ng / espeak on the PATH

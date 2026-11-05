@@ -326,11 +326,12 @@ html[data-theme="light"] .prefs-row + .prefs-row {
 html[data-theme="light"] .seg input:checked + span {
     color: var(--primary-text);
 }
+/* the theme previews always show their own colours (the generated rule used to swap them) */
 html[data-theme="light"] .theme-chip[data-for="dark"] {
-    background: #dedede;
+    background: #1e1e1e;
 }
 html[data-theme="light"] .theme-chip[data-for="light"] {
-    background: #121419;
+    background: #f1f2f5;
 }
 html[data-theme="light"] .switch span::after {
     background: #373737;
@@ -455,7 +456,7 @@ html[data-theme="light"] .switch input:checked + span::after { background: #fff;
 
 /* ---------- 4. The studio follows the theme ----------
    It used to stay dark; now its panels are light, and only the preview picture (the canvas) stays black,
-   because that is what the viewers will see. */
+   because that is what the viewers will see (its backdrop stays black too, so the picture fills the whole area). */
 html[data-theme="light"] .obs {
     --o-bg: #eef0f4;
     --o-panel: #ffffff;
@@ -468,8 +469,6 @@ html[data-theme="light"] .obs {
 }
 html[data-theme="light"] .obs .dock-title,
 html[data-theme="light"] .obs-chat .chat-head h2 { color: #2b3040; }
-html[data-theme="light"] .preview-stage { background: #dfe2e8; }
-html[data-theme="light"] .preview-wrap { box-shadow: 0 0 0 1px #c3c8d2, 0 10px 30px rgba(24, 30, 48, 0.25); }
 html[data-theme="light"] .preview-empty {
     --text-color: #f1f1f1;
     --text-muted: #b3b7c2;

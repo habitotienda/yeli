@@ -511,3 +511,22 @@ html[data-theme="light"] .share-more .share-app-ico { background: #f1f2f5; }
 
 /* Search bar: white while typing, with the single orange ring */
 html[data-theme="light"] .search-form:focus-within { background: #fff; }
+
+/* Notifications */
+html[data-theme="light"] .notif-btn { color: var(--text-color); border-color: #dde0e7; }
+html[data-theme="light"] .notif-btn:hover, html[data-theme="light"] .notif-btn[aria-expanded="true"] { background: #f1f2f5; }
+html[data-theme="light"] .notif-badge { box-shadow: 0 0 0 2px #fff; }
+html[data-theme="light"] .notif-panel { background: #fff; border-color: #dde0e7; box-shadow: 0 16px 40px rgba(20, 26, 44, 0.22); }
+html[data-theme="light"] .notif-head, html[data-theme="light"] .notif-foot { border-color: #e6e8ee; }
+html[data-theme="light"] .notif-item { border-bottom-color: #eef0f4; }
+html[data-theme="light"] .notif-item:hover, html[data-theme="light"] .notif-item:focus-visible { background: #f4f5f8; }
+html[data-theme="light"] .notif-item.is-unread { background: #fff6e5; }
+html[data-theme="light"] .notif-item.is-unread:hover { background: #ffefd0; }
+html[data-theme="light"] .notif-kind { box-shadow: 0 0 0 2px #fff; }
+html[data-theme="light"] .notif-link { color: #b86e00; }
+html[data-theme="light"] .notif-link:hover:not(:disabled) { background: #fff1d6; }
+html[data-theme="light"] .notif-gear:hover, html[data-theme="light"] .notif-gear:focus-visible { background: #eef0f4; }
+html[data-theme="light"] .notif-amt { color: #b86e00; }
+html[data-theme="light"] .notif-dot { background: #e08a00; }
+html[data-theme="light"] .np-switch { background: #c3c7d1; }
+html[data-theme="light"] .np-toggle input:checked + .np-switch { background: #e08a00; }

@@ -855,6 +855,10 @@ html.reduce-motion .btn-ico svg { animation: none !important; transition: none; 
    Share dialog (share.js): link, apps, QR code
    ========================================================================== */
 .dialog:has(.share-dialog) { width: min(440px, calc(100vw - 24px)); }
+/* Phones: the dialog is a bottom sheet and must touch both sides of the screen (this rule used to win over the sheet's 100% width) */
+@media (max-width: 700px) {
+    .dialog:has(.share-dialog) { width: 100%; max-width: none; margin: auto 0 0; border-inline: 0; }
+}
 .share-dialog { display: grid; gap: 18px; }
 .share-title {
     font-weight: 600;
@@ -866,7 +870,7 @@ html.reduce-motion .btn-ico svg { animation: none !important; transition: none; 
 }
 .share-dialog .copy-row input { font-size: 13px; text-overflow: ellipsis; }
 
-.share-apps { display: grid; grid-template-columns: repeat(auto-fit, minmax(62px, 1fr)); gap: 10px 6px; }
+.share-apps { display: grid; grid-template-columns: repeat(auto-fit, minmax(58px, 1fr)); gap: 10px 4px; }
 .share-app {
     display: grid;
     justify-items: center;
@@ -880,8 +884,10 @@ html.reduce-motion .btn-ico svg { animation: none !important; transition: none; 
     font-size: 12px;
     text-decoration: none;
     cursor: pointer;
+    min-width: 0;
     transition: transform 0.2s var(--ease-out, ease), background 0.2s;
 }
+.share-app-name { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .share-app:hover, .share-app:focus-visible { background: rgba(var(--accent-rgb, 255, 166, 0), 0.1); transform: translateY(-2px); }
 .share-app:active { transform: scale(0.94); }
 .share-app-ico {
@@ -889,15 +895,16 @@ html.reduce-motion .btn-ico svg { animation: none !important; transition: none; 
     place-items: center;
     width: 48px;
     height: 48px;
+    flex: none;
     border-radius: 50%;
     color: #fff;
     background: var(--brand, #6b7280);
 }
 .share-whatsapp { --brand: #25d366; }
-.share-telegram { --brand: #229ed9; }
+.share-telegram { --brand: #26a5e4; }
 .share-x { --brand: #111; }
 .share-facebook { --brand: #1877f2; }
-.share-mail { --brand: #7a808c; }
+.share-mail { --brand: #6b7280; }
 .share-more { --brand: var(--circle-bg, #2b2d37); }
 .share-more .share-app-ico { color: var(--text-color); border: 1px solid var(--border-color); background: var(--field-bg, transparent); }
 .share-x .share-app-ico { border: 1px solid rgba(255, 255, 255, 0.18); }
@@ -951,3 +958,181 @@ html.reduce-motion .btn-ico svg { animation: none !important; transition: none; 
     .site-header .brand-logo { width: 30px; height: 30px; }
     .site-header .btn { padding-top: 6px; padding-bottom: 6px; }
 }
+
+
+/* ==========================================================================
+   Channel page actions on phones: one tidy row, labels never wrap onto two lines
+   (the owner sees Share, Edit profile and Go live; Share shrinks to an icon so the other two keep their words)
+   ========================================================================== */
+.channel-actions .btn { white-space: nowrap; }
+@media (max-width: 700px) {
+    .channel .channel-actions { flex-wrap: nowrap; align-items: stretch; gap: 8px; }
+    .channel .channel-actions .btn {
+        flex: 1 1 0;
+        min-width: 0;
+        min-height: 46px;
+        padding: 0 10px;
+        gap: 6px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .channel .channel-actions .btn > span,
+    .channel .channel-actions .btn-primary { overflow: hidden; text-overflow: ellipsis; }
+    .channel .channel-actions .btn-primary { flex-grow: 1.15; }
+}
+@media (max-width: 460px) {
+    .channel .channel-actions.is-owner .btn-share { flex: 0 0 46px; padding: 0; }
+    .channel .channel-actions.is-owner .btn-share > span { display: none; }
+}
+
+/* ==========================================================================
+   Notifications: the bell, its panel, and the settings switches (notifications.js)
+   ========================================================================== */
+.notif-menu { position: relative; }
+.notif-btn {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--text-color);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, transform 0.2s var(--ease-out, ease);
+}
+.notif-btn:hover, .notif-btn[aria-expanded="true"] { background: rgba(255, 255, 255, 0.07); border-color: var(--primary-color); }
+.notif-btn:active { transform: scale(0.92); }
+.notif-btn.has-unread svg { animation: bell-ring 0.9s var(--ease-out, ease) 0.3s 1; transform-origin: 50% 4px; }
+@keyframes bell-ring { 0%, 100% { transform: rotate(0); } 15% { transform: rotate(16deg); } 35% { transform: rotate(-13deg); } 55% { transform: rotate(8deg); } 75% { transform: rotate(-4deg); } }
+.notif-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--live, #ff2e4d);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+    box-shadow: 0 0 0 2px var(--bg-main, #1e1e1e);
+    font-variant-numeric: tabular-nums;
+}
+.notif-badge[hidden] { display: none; }
+
+.notif-panel {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 10px);
+    z-index: 1400;
+    width: 380px;
+    max-width: calc(100vw - 16px);
+    max-height: min(560px, calc(100vh - 90px));
+    display: flex;
+    flex-direction: column;
+    background: #1f2026;
+    border: 1px solid #35373f;
+    border-radius: 10px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+    overflow: hidden;
+}
+.notif-panel[hidden] { display: none; }
+.notif-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 16px 10px; border-bottom: 1px solid #35373f; }
+.notif-head h3 { margin: 0; font-size: 17px; font-family: "Changa One", sans-serif; font-weight: 400; letter-spacing: 0.2px; }
+.notif-tools { display: flex; align-items: center; gap: 4px; }
+.notif-link {
+    border: 0; background: none; padding: 6px 8px; border-radius: 6px;
+    color: var(--primary-color); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.notif-link:hover:not(:disabled) { background: rgba(255, 166, 0, 0.12); }
+.notif-link:disabled { color: var(--text-muted); cursor: default; opacity: 0.6; }
+.notif-gear { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; color: var(--text-muted); text-decoration: none; }
+.notif-gear:hover, .notif-gear:focus-visible { background: rgba(255, 255, 255, 0.08); color: var(--text-color); }
+.notif-gear svg { width: 18px; height: 18px; }
+.notif-list { overflow-y: auto; overscroll-behavior: contain; flex: 1 1 auto; }
+.notif-foot { border-top: 1px solid #35373f; padding: 6px 10px; text-align: center; }
+
+.notif-item {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px 16px;
+    color: var(--text-color); text-decoration: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    transition: background 0.15s;
+}
+.notif-item:last-child { border-bottom: 0; }
+.notif-item:hover, .notif-item:focus-visible { background: rgba(255, 255, 255, 0.06); outline: none; }
+.notif-item.is-unread { background: rgba(255, 166, 0, 0.07); }
+.notif-item.is-unread:hover { background: rgba(255, 166, 0, 0.12); }
+.notif-av { position: relative; flex: none; }
+.notif-av .avatar { display: block; }
+.notif-kind {
+    position: absolute; right: -4px; bottom: -4px;
+    display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%;
+    color: #fff; background: #6b7280; box-shadow: 0 0 0 2px #1f2026;
+}
+.notif-kind-follow { background: #2f9e44; }
+.notif-kind-donation { background: #f08c00; }
+.notif-kind-comment { background: #3b82f6; }
+.notif-kind-like { background: #e64980; }
+.notif-kind-live { background: var(--live, #ff2e4d); }
+.notif-body { display: grid; gap: 3px; min-width: 0; flex: 1; }
+.notif-line { font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; }
+.notif-line strong { font-weight: 700; }
+.notif-quote { font-style: normal; font-weight: 600; }
+.notif-sub { color: var(--text-muted); }
+.notif-amt { display: inline-flex; align-items: center; gap: 3px; color: #ffd24d; font-variant-numeric: tabular-nums; }
+.notif-amt .coin { vertical-align: 0; }
+.notif-msg { font-size: 13px; color: var(--text-muted); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.notif-time { font-size: 12px; color: var(--text-muted); }
+.notif-dot { flex: none; width: 9px; height: 9px; margin-top: 6px; border-radius: 50%; background: var(--primary-color); }
+.notif-empty { display: grid; justify-items: center; gap: 6px; padding: 38px 24px; text-align: center; color: var(--text-muted); }
+.notif-empty svg { opacity: 0.55; margin-bottom: 6px; }
+.notif-empty strong { color: var(--text-color); }
+.notif-empty span { font-size: 13px; line-height: 1.5; }
+
+/* Phones: the panel is a sheet under the header that touches both sides of the screen */
+@media (max-width: 700px) {
+    .notif-menu { position: static; }
+    .notif-panel {
+        position: fixed;
+        left: 0; right: 0;
+        top: var(--header-height, 60px);
+        width: auto; max-width: none;
+        max-height: calc(100dvh - var(--header-height, 60px) - 74px - env(safe-area-inset-bottom, 0px));
+        border-inline: 0; border-top: 0;
+        border-radius: 0 0 14px 14px;
+    }
+    .notif-item { padding: 14px 16px; }
+    .notif-btn { width: 36px; height: 36px; }
+}
+
+/* ----- Settings: what to receive ----- */
+.np-table { display: grid; }
+.np-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px 18px; padding: 14px 0; border-top: 1px solid var(--border-color); }
+.np-row:first-child { border-top: 0; }
+.np-what { display: grid; gap: 2px; min-width: 0; }
+.np-what small { color: var(--text-muted); font-size: 13px; }
+.np-toggle { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; color: var(--text-muted); user-select: none; }
+.np-toggle input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.np-switch { position: relative; flex: none; width: 38px; height: 22px; border-radius: 999px; background: #4a4d57; transition: background 0.2s; }
+.np-switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform 0.2s var(--ease-out, ease); }
+.np-toggle input:checked + .np-switch { background: var(--primary-color); }
+.np-toggle input:checked + .np-switch::after { transform: translateX(16px); }
+.np-toggle input:focus-visible + .np-switch { outline: 2px solid var(--primary-color); outline-offset: 2px; }
+.np-toggle input:disabled + .np-switch { opacity: 0.4; }
+.np-toggle:has(input:disabled) { cursor: not-allowed; opacity: 0.7; }
+.np-cap { min-width: 62px; }
+@media (max-width: 560px) {
+    .np-row { grid-template-columns: 1fr 1fr; }
+    .np-what { grid-column: 1 / -1; }
+    .np-cap { min-width: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .notif-btn.has-unread svg { animation: none; } }
+html.reduce-motion .notif-btn.has-unread svg { animation: none; }

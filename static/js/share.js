@@ -243,14 +243,24 @@ const SH_ICON = (inner, size = 22) => `<svg viewBox="0 0 24 24" width="${size}" 
 const SH_PATHS = {
     copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>',
     check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
-    whatsapp: '<path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.5 8.5 0 0 1-3.7-.9L3 21l1.9-5.3A8.4 8.4 0 0 1 3 11.5 8.5 8.5 0 0 1 12 3a8.5 8.5 0 0 1 9 8.5z"/><g transform="translate(7.2 6.7) scale(.4)"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z" stroke-width="3.4"/></g>',
-    telegram: '<path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/>',
-    x: '<path d="M4 4l16 16M20 4L4 20"/>',
-    facebook: '<path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>',
-    mail: '<path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M22 6l-10 7L2 6"/>',
+    mail: '<rect x="2.5" y="4.5" width="19" height="15" rx="2.5"/><path d="M3.5 7.5l8.5 6 8.5-6"/>',
     more: '<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>',
     download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
 };
+
+/* The real brand glyphs (filled, from Simple Icons / Font Awesome Free), each with its own viewBox. */
+const SH_BRANDS = {
+    whatsapp: ['0 0 24 24', 'M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52s.198-.298.298-.497c.099-.198.05-.371-.025-.52s-.669-1.612-.916-2.207c-.242-.579-.487-.5-.669-.51a13 13 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074s2.096 3.2 5.077 4.487c.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413s.248-1.289.173-1.413c-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.82 9.82 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.82 11.82 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.9 11.9 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.82 11.82 0 0 0-3.48-8.413'],
+    /* only the paper plane of the Telegram logo: the round button is the circle */
+    telegram: ['2.6 3.5 17 17', 'M16.906 7.224c.1-.002.321.023.465.14a.5.5 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024q-.159.037-5.061 3.345-.72.495-1.302.48c-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789q.04-.324.893-.663 5.247-2.286 6.998-3.014c3.332-1.386 4.025-1.627 4.476-1.635'],
+    x: ['0 0 24 24', 'M14.234 10.162 22.977 0h-2.072l-7.591 8.824L7.251 0H.258l9.168 13.343L.258 24H2.33l8.016-9.318L16.749 24h6.993zm-2.837 3.299-.929-1.329L3.076 1.56h3.182l5.965 8.532.929 1.329 7.754 11.09h-3.182z'],
+    facebook: ['0 0 320 512', 'M80 299.3V512h116V299.3h86.5l18-97.8H196v-34.6c0-51.7 20.3-71.5 72.7-71.5 16.3 0 29.4.4 37 1.2V7.9C291.4 4 256.4 0 236.2 0 129.3 0 80 50.5 80 159.4v42.1H14v97.8z'],
+};
+const SH_BRAND = (key, size) => {
+    const [vb, d] = SH_BRANDS[key];
+    return `<svg viewBox="${vb}" width="${size}" height="${size}" aria-hidden="true" fill="currentColor" focusable="false"><path d="${d}"/></svg>`;
+};
+
 
 /**
  * Open the share dialog for the current page.
@@ -278,7 +288,7 @@ function openShareDialog({ title, text }) {
             </div>
             <div class="share-apps">${apps.map(([name, key, href]) => `
                 <a class="share-app share-${key}" href="${esc(href)}" target="_blank" rel="noopener noreferrer">
-                    <span class="share-app-ico">${SH_ICON(SH_PATHS[key])}</span><span class="share-app-name" translate="no">${name}</span>
+                    <span class="share-app-ico">${SH_BRANDS[key] ? SH_BRAND(key, key === 'facebook' ? 24 : key === 'telegram' ? 28 : 26) : SH_ICON(SH_PATHS[key], 26)}</span><span class="share-app-name" translate="no">${name}</span>
                 </a>`).join('')}
                 ${canNative ? `<button type="button" class="share-app share-more" id="shareNative"><span class="share-app-ico">${SH_ICON(SH_PATHS.more)}</span><span class="share-app-name">More</span></button>` : ''}
             </div>

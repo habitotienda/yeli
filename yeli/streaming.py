@@ -8,6 +8,7 @@ from .core import *
 from .db import get_db
 from . import chest, rewards
 from .bot import run_timers
+from .notifications import notify_followers_live
 from .queries import *
 
 bp = Blueprint("streaming", __name__)
@@ -40,6 +41,7 @@ def stream_start():
     db.execute("DELETE FROM viewers WHERE streamer_id = ?", (me_row["id"],))
     db.execute("DELETE FROM signals WHERE to_key = ?", (f"u:{me_row['id']}",))
     db.execute("DELETE FROM thumbnails WHERE user_id = ?", (me_row["id"],))
+    notify_followers_live(db, me_row["id"], me_row["username"], title)
     db.commit()
     return jsonify(ok=True, title=title, category=category, started_at=t, mode=mode)
 

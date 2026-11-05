@@ -163,7 +163,7 @@ async function route(focus = false) {
         else if (path === '/following') await pageFollowing(root, alive);
         else if (path === '/search') await pageSearch(root, params, alive);
         else if (path === '/studio') pageStudio(root);
-        else if (path === '/settings') await pageSettings(root, alive);
+        else if (path === '/settings') await pageSettings(root, alive, params);
         else if (path === '/wallet') await pageWallet(root, alive, params);
         else if (path === '/chest') await pageChest(root, alive);
         else if (path === '/bot') await pageBot(root, alive);
@@ -705,7 +705,8 @@ async function pageChannel(root, name, alive) {
         paintStats();
         $('#chDonate').hidden = ch.is_me;
         $('#chDonateLabel').textContent = `Support ${ch.username} with Yelis, or send a sticker in chat.`;
-        const share = `<button type="button" class="btn btn-secondary btn-ico btn-share" id="shareBtn">${IC(SHARE_PATH)}<span>Share</span></button>`;
+        const share = `<button type="button" class="btn btn-secondary btn-ico btn-share" id="shareBtn" aria-label="Share" title="Share">${IC(SHARE_PATH)}<span>Share</span></button>`;
+        $('#chActions').classList.toggle('is-owner', !!ch.is_me);
         $('#chActions').innerHTML = share + (ch.is_me
             ? `<a class="btn btn-secondary btn-ico btn-edit" href="#/settings">${IC(EDIT_PATH)}<span>Edit profile</span></a><a class="btn btn-primary" href="#/studio">${broadcast ? 'Open studio' : 'Go live'}</a>`
             : `<button type="button" class="btn ${ch.following ? 'btn-secondary is-following' : 'btn-primary'}" id="followBtn" aria-pressed="${ch.following}">
@@ -790,6 +791,7 @@ function renderAuth() {
         ? '<a class="live-pill" href="#/studio"><span class="live-dot" aria-hidden="true"></span>You\u2019re live</a>'
         : '<a class="btn btn-primary btn-icon" href="#/studio"><img src="static/svg/broadcast.svg" alt="" width="18" height="18">Go live</a>';
     box.innerHTML = `
+        ${bellHtml()}
         <a class="coin-chip" href="#/wallet" aria-label="Your wallet: ${Number(state.me.balance || 0).toLocaleString(window.YELI_LANG)} Yelis" title="Your wallet">${coinImg(18)}<span>${Number(state.me.balance || 0).toLocaleString(window.YELI_LANG)}</span></a>
         ${liveBtn}
         <div class="user-menu">
@@ -824,6 +826,9 @@ function renderAuth() {
                 <button type="button" role="menuitem" class="um-danger" data-action="logout">${MI.logout}<span>Log out</span></button>
             </div>
         </div>`;
+    notif.open = false;
+    document.body.classList.remove('notif-open');
+    paintBell();
 }
 
 function closeUserMenu() {
@@ -988,6 +993,7 @@ authForm.addEventListener('submit', async (e) => {
         authDialog.close();
         toast(mode === 'login' ? `Welcome back, ${r.user.username}.` : `Welcome to Yeli, ${r.user.username}.`);
         renderAuth();
+        startNotifications();
         await refreshSidebar();
         route();
     } catch (err) {
@@ -1008,6 +1014,7 @@ async function logout() {
     state.me = null;
     state.following = [];
     renderAuth();
+    startNotifications();
     renderSidebar();
     if (location.hash && location.hash !== '#/') location.hash = '#/'; else route();
 }
@@ -1081,6 +1088,7 @@ window.addEventListener('pagehide', () => {
         document.body.prepend(bar);
     }
     renderAuth();
+    startNotifications();
     try {
         await refreshSidebar();
         await route();

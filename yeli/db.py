@@ -314,6 +314,34 @@ CREATE TABLE IF NOT EXISTS vod_comments (
     created_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_vod_comments ON vod_comments(vod_id, id);
+
+-- Notifications: one row per event per person. `shown` = appears in the bell; `emailed` = an email went out for it.
+CREATE TABLE IF NOT EXISTS notifications (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    kind       TEXT NOT NULL,
+    actor      TEXT NOT NULL DEFAULT '',
+    ref        TEXT NOT NULL DEFAULT '',
+    title      TEXT NOT NULL DEFAULT '',
+    body       TEXT NOT NULL DEFAULT '',
+    amount     INTEGER NOT NULL DEFAULT 0,
+    shown      INTEGER NOT NULL DEFAULT 1,
+    emailed    INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    read_at    INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, id);
+CREATE TABLE IF NOT EXISTS notify_prefs (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    kind    TEXT NOT NULL,
+    in_app  INTEGER NOT NULL DEFAULT 1,
+    email   INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id, kind)
+);
+CREATE TABLE IF NOT EXISTS notify_meta (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    lang    TEXT NOT NULL DEFAULT 'en'
+);
 CREATE TABLE IF NOT EXISTS assets (
     id         TEXT PRIMARY KEY,
     user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -337,7 +365,7 @@ def init_db(path=None):
         con.execute("ALTER TABLE users ADD COLUMN avatar_updated INTEGER NOT NULL DEFAULT 0")
     for table, columns in {
         "users": [("stream_key", "TEXT NOT NULL DEFAULT ''"), ("name_color", "TEXT NOT NULL DEFAULT ''")],
-        "streams": [("mode", "TEXT NOT NULL DEFAULT 'p2p'"), ("ip", "TEXT NOT NULL DEFAULT ''")],
+        "streams": [("mode", "TEXT NOT NULL DEFAULT 'p2p'"), ("ip", "TEXT NOT NULL DEFAULT ''"), ("notified_at", "INTEGER NOT NULL DEFAULT 0")],
         "chat_settings": [("tts_enabled", "INTEGER NOT NULL DEFAULT 0"), ("tts_command", "TEXT NOT NULL DEFAULT 'say'"),
                           ("tts_name", "INTEGER NOT NULL DEFAULT 1"), ("tts_template", "TEXT NOT NULL DEFAULT '{user} says: {text}'"),
                           ("tts_perm", "TEXT NOT NULL DEFAULT 'everyone'"), ("tts_cooldown", "INTEGER NOT NULL DEFAULT 30"),

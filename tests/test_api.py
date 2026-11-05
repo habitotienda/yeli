@@ -30,7 +30,7 @@ class YeliTests(unittest.TestCase):
         _bot._cooldowns.clear()
         core._failed_logins.clear()
         con = sqlite3.connect(config.DB_PATH)
-        for t in ("vod_comments", "vod_likes", "vods", "free_points", "watch_sessions", "chat_bans", "chat_mods", "events", "alert_rules", "assets", "chat_settings", "commands", "spendings", "upgrades", "upgrade_points", "ledger", "payouts", "donations", "purchases", "wallets", "chat_messages", "avatars", "thumbnails", "signals", "viewers", "follows", "streams", "users"):
+        for t in ("notifications", "notify_prefs", "notify_meta", "vod_comments", "vod_likes", "vods", "free_points", "watch_sessions", "chat_bans", "chat_mods", "events", "alert_rules", "assets", "chat_settings", "commands", "spendings", "upgrades", "upgrade_points", "ledger", "payouts", "donations", "purchases", "wallets", "chat_messages", "avatars", "thumbnails", "signals", "viewers", "follows", "streams", "users"):
             con.execute(f"DELETE FROM {t}")
         con.commit()
         con.close()
@@ -1342,6 +1342,173 @@ class YeliTests(unittest.TestCase):
         self.assertEqual(post(self.alice, f"/api/vod/{vid}/delete").status_code, 200)
         self.assertEqual(self.anon.get(f"/api/vod/{vid}/video").status_code, 404)
         self.assertNotIn(vid, [x["id"] for x in self.anon.get("/api/channel/alice/videos").get_json()["videos"]])
+
+    # ------------------------------------------------------------------ notifications
+    def test_notifications(self):
+        from yeli import mailer
+        mailer.sent_log.clear()
+        self.signup(self.alice, "alice")
+        self.signup(self.bob, "bob")
+        self.signup(self.anon, "carol")
+        carol = self.anon
+        self.assertEqual(app.test_client().get("/api/notifications").status_code, 401)
+
+        # follow: the streamer gets one in the app (and a repeat follow within a day doesn't ring twice)
+        post(self.bob, "/api/follow/alice", {"follow": True})
+        post(self.bob, "/api/follow/alice", {"follow": False})
+        post(self.bob, "/api/follow/alice", {"follow": True})
+        r = self.alice.get("/api/notifications").get_json()
+        self.assertEqual((r["unread"], [(n["kind"], n["actor"]) for n in r["notifications"]]), (1, [("follow", "bob")]))
+        poll = self.alice.get("/api/notifications/poll?after=0").get_json()
+        self.assertEqual((poll["unread"], len(poll["notifications"])), (1, 1))
+        self.assertEqual(self.alice.get(f"/api/notifications/poll?after={poll['last']}").get_json()["notifications"], [])
+        self.assertEqual(self.bob.get("/api/notifications").get_json()["unread"], 0)  # you aren't told about your own actions
+
+        # reading
+        nid = r["notifications"][0]["id"]
+        self.assertEqual(post(self.bob, "/api/notifications/read", {"ids": [nid]}).get_json()["unread"], 0)
+        self.assertEqual(self.alice.get("/api/notifications").get_json()["unread"], 1)  # someone else's id does nothing
+        self.assertEqual(post(self.alice, "/api/notifications/read", {"ids": [nid]}).get_json()["unread"], 0)
+
+        # donation
+        self.buy(self.bob)
+        post(self.bob, "/api/wallet/donate", {"channel": "alice", "coins": 100, "message": "great show"})
+        n = self.alice.get("/api/notifications").get_json()["notifications"][0]
+        self.assertEqual((n["kind"], n["actor"], n["amount"], n["body"]), ("donation", "bob", 100, "great show"))
+
+        # going live tells followers, once per half hour
+        post(self.alice, "/api/stream/start", {"title": "Pasta night", "category": "Cooking"})
+        n = self.bob.get("/api/notifications").get_json()["notifications"][0]
+        self.assertEqual((n["kind"], n["actor"], n["title"]), ("live", "alice", "Pasta night"))
+        post(self.alice, "/api/stream/stop")
+        post(self.alice, "/api/stream/start", {"title": "Pasta night 2", "category": "Cooking"})
+        self.assertEqual([x["kind"] for x in self.bob.get("/api/notifications").get_json()["notifications"]].count("live"), 1)
+        self.assertEqual(self.alice.get("/api/notifications").get_json()["notifications"][0]["kind"], "donation")  # not told about her own stream
+
+        # likes and comments on a video
+        vid = post(self.alice, "/api/vod/start", {"mime": "video/webm"}).get_json()["id"]
+        self.alice.post(f"/api/vod/{vid}/chunk?seq=0", data=b"AAAA", content_type="application/octet-stream")
+        post(self.alice, f"/api/vod/{vid}/finish")
+        post(self.bob, f"/api/vod/{vid}/like", {"liked": True})
+        post(self.bob, f"/api/vod/{vid}/like", {"liked": True})
+        post(self.bob, f"/api/vod/{vid}/comments", {"text": "nice one"})
+        post(self.alice, f"/api/vod/{vid}/comments", {"text": "thanks"})  # her own comment: nothing
+        kinds = [(x["kind"], x["ref"]) for x in self.alice.get("/api/notifications").get_json()["notifications"][:2]]
+        self.assertEqual(kinds, [("comment", vid), ("like", vid)])
+        self.assertEqual(self.alice.get("/api/notifications").get_json()["notifications"][0]["body"], "nice one")
+
+        # settings: switch kinds off for the app, defaults are what we documented
+        p = self.alice.get("/api/notifications/prefs").get_json()
+        self.assertEqual((p["prefs"]["follow"], p["prefs"]["live"]), ({"in_app": True, "email": True}, {"in_app": True, "email": False}))
+        self.assertEqual(post(self.alice, "/api/notifications/prefs", {"prefs": {"nope": {"email": True}}}).status_code, 400)
+        self.assertEqual(post(self.alice, "/api/notifications/prefs", {"prefs": {"like": {"in_app": "yes"}}}).status_code, 400)
+        post(self.alice, "/api/notifications/prefs", {"prefs": {"like": {"in_app": False}}})
+        before = self.alice.get("/api/notifications").get_json()["unread"]
+        post(carol, "/api/follow/alice", {"follow": True})  # a follow still arrives
+        post(carol, f"/api/vod/{vid}/like", {"liked": True})  # a like doesn't show any more
+        r = self.alice.get("/api/notifications").get_json()
+        self.assertEqual(r["unread"], before + 1)
+        self.assertEqual(r["notifications"][0]["kind"], "follow")
+
+        # no emails go out while email isn't configured
+        self.assertEqual(mailer.sent_log, [])
+        self.assertFalse(self.alice.get("/api/notifications/prefs").get_json()["email_ready"])
+        self.assertEqual(post(self.alice, "/api/notifications/test").status_code, 503)
+
+        # clearing
+        self.assertEqual(post(self.alice, "/api/notifications/read", {"all": True}).get_json()["unread"], 0)
+        post(self.alice, "/api/notifications/clear")
+        self.assertEqual(self.alice.get("/api/notifications").get_json()["notifications"], [])
+
+    def test_notification_emails(self):
+        import time
+        from yeli import mailer, notifications
+        mailer.sent_log.clear()
+        old = (config.MAIL_CONSOLE, config.PUBLIC_URL, config.NOTIFY_EMAILS_PER_HOUR)
+        config.MAIL_CONSOLE, config.PUBLIC_URL = True, "https://yeli.test"
+        try:
+            self.signup(self.alice, "alice")
+            self.signup(self.bob, "bob")
+            self.assertTrue(self.alice.get("/api/notifications/prefs").get_json()["email_ready"])
+
+            def wait(n):
+                for _ in range(100):
+                    if len(mailer.sent_log) >= n:
+                        return
+                    time.sleep(0.02)
+
+            # follow emails are on by default; the mail goes to the owner's address, with links and an unsubscribe link
+            post(self.bob, "/api/follow/alice", {"follow": True})
+            wait(1)
+            m = mailer.sent_log[-1]
+            self.assertEqual((m["to"], m["subject"]), ("alice@x.com", "bob started following you"))
+            self.assertIn("https://yeli.test/#/c/bob", m["text"])
+            self.assertIn("/unsubscribe/", m["headers"]["List-Unsubscribe"])
+            self.assertIn("One-Click", m["headers"]["List-Unsubscribe-Post"])
+            self.assertIn("<a href=", m["html"])
+
+            # the person's language is remembered from the app, and html is escaped
+            self.alice.get("/api/notifications/poll?lang=es")
+            self.buy(self.bob)
+            post(self.bob, "/api/wallet/donate", {"channel": "alice", "coins": 100, "message": "<b>hola</b>"})
+            wait(2)
+            m = mailer.sent_log[-1]
+            self.assertEqual(m["subject"], "bob te envi\u00f3 100 Yelis")
+            self.assertNotIn("<b>hola</b>", m["html"])
+            self.assertIn("&lt;b&gt;hola&lt;/b&gt;", m["html"])
+
+            # switch email off for donations: nothing more is sent, the bell still rings
+            post(self.alice, "/api/notifications/prefs", {"prefs": {"donation": {"email": False}}})
+            post(self.bob, "/api/wallet/donate", {"channel": "alice", "coins": 100})
+            time.sleep(0.2)
+            self.assertEqual(len(mailer.sent_log), 2)
+            self.assertEqual(self.alice.get("/api/notifications").get_json()["notifications"][0]["kind"], "donation")
+
+            # hourly cap per person
+            config.NOTIFY_EMAILS_PER_HOUR = 2
+            post(self.alice, "/api/notifications/prefs", {"prefs": {"donation": {"email": True}}})
+            post(self.bob, "/api/wallet/donate", {"channel": "alice", "coins": 100})
+            time.sleep(0.2)
+            self.assertEqual(len(mailer.sent_log), 2)
+
+            # test email button
+            r = post(self.alice, "/api/notifications/test")
+            self.assertEqual(r.status_code, 200)
+            self.assertEqual(mailer.sent_log[-1]["subject"], "Yeli test email")
+            self.assertEqual(post(self.alice, "/api/notifications/test").status_code, 429)
+
+            # unsubscribe link: GET only asks, POST turns every email off
+            token = notifications.URLSafeSerializer(app.secret_key, salt="yeli-unsubscribe").dumps(self.alice_id())
+            page = self.anon.get(f"/unsubscribe/{token}")
+            self.assertEqual(page.status_code, 200)
+            self.assertTrue(self.alice.get("/api/notifications/prefs").get_json()["prefs"]["follow"]["email"])
+            self.assertEqual(self.anon.post(f"/unsubscribe/{token}").status_code, 200)
+            prefs = self.alice.get("/api/notifications/prefs").get_json()["prefs"]
+            self.assertFalse(any(v["email"] for v in prefs.values()))
+            self.assertTrue(all(v["in_app"] for v in prefs.values()))
+            self.assertEqual(self.anon.get("/unsubscribe/not-a-token").status_code, 400)
+        finally:
+            config.MAIL_CONSOLE, config.PUBLIC_URL, config.NOTIFY_EMAILS_PER_HOUR = old
+
+    def test_email_links_ignore_a_forged_host(self):
+        from yeli import notifications
+        old = (config.MAIL_CONSOLE, config.PUBLIC_URL)
+        config.MAIL_CONSOLE, config.PUBLIC_URL = False, ""
+        try:
+            # no YELI_PUBLIC_URL and no allowed hosts: no links (so no emails) rather than trusting the Host header
+            with app.test_request_context("/", headers={"Host": "evil.example"}):
+                self.assertEqual(notifications.base_url(), "")
+            config.PUBLIC_URL = "https://yeli.test"
+            with app.test_request_context("/", headers={"Host": "evil.example"}):
+                self.assertEqual(notifications.base_url(), "https://yeli.test")
+        finally:
+            config.MAIL_CONSOLE, config.PUBLIC_URL = old
+
+    def alice_id(self):
+        con = sqlite3.connect(config.DB_PATH)
+        uid = con.execute("SELECT id FROM users WHERE username = 'alice'").fetchone()[0]
+        con.close()
+        return uid
 
     def test_index_and_headers(self):
         r = self.anon.get("/")

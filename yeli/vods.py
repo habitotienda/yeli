@@ -22,6 +22,7 @@ from .core import *
 from .db import get_db
 from .bot import LINK_RE, chat_settings
 from .moderation import active_ban, can_moderate
+from .notifications import notify
 
 bp = Blueprint("vods", __name__)
 
@@ -358,7 +359,9 @@ def vod_like(vid):
     if not isinstance(liked, bool):
         return err("Say whether you like it.")
     if liked:
-        db.execute("INSERT OR IGNORE INTO vod_likes (vod_id, user_id, created_at) VALUES (?,?,?)", (vid, me_row["id"], now()))
+        added = db.execute("INSERT OR IGNORE INTO vod_likes (vod_id, user_id, created_at) VALUES (?,?,?)", (vid, me_row["id"], now())).rowcount == 1
+        if added and row["user_id"] != me_row["id"]:
+            notify(db, row["user_id"], "like", actor=me_row["username"], ref=vid, title=row["title"])
     else:
         db.execute("DELETE FROM vod_likes WHERE vod_id = ? AND user_id = ?", (vid, me_row["id"]))
     db.commit()
@@ -446,6 +449,8 @@ def vod_comment_add(vid):
     if blocked:
         return err(blocked[0], blocked[1])
     cur = db.execute("INSERT INTO vod_comments (vod_id, user_id, text, created_at) VALUES (?,?,?,?)", (vid, me_row["id"], text, t))
+    if row["user_id"] != me_row["id"]:
+        notify(db, row["user_id"], "comment", actor=me_row["username"], ref=vid, title=row["title"], body=text)
     db.commit()
     created = db.execute(f"{COMMENT_SELECT} WHERE c.id = ?", (cur.lastrowid,)).fetchone()
     total = db.execute("SELECT COUNT(*) AS n FROM vod_comments WHERE vod_id = ?", (vid,)).fetchone()["n"]

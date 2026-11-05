@@ -13,6 +13,7 @@ from .core import *
 from .db import get_db
 from .queries import *
 from .alerts import add_event
+from .notifications import notify
 from .bot import chat_settings, post_bot, render
 from .chat import chat_json
 
@@ -203,6 +204,7 @@ def wallet_donate():
         (target["id"], me_row["id"], message, t, "donation", sticker, coins),
     )
     add_event(db, target["id"], "donation", me_row["username"], coins, sticker, message)
+    notify(db, target["id"], "donation", actor=me_row["username"], amount=coins, body=message)
     st = chat_settings(db, target["id"])
     if st["thanks"]:
         post_bot(db, target["id"], render(st["thanks_text"], {"user": me_row["username"], "amount": coins, "channel": target["username"]}))

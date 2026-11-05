@@ -24,7 +24,7 @@ async function fileToAvatarDataUrl(file) {
     throw new Error('Couldn\u2019t shrink that image enough. Try a different one.');
 }
 
-async function pageSettings(root, alive) {
+async function pageSettings(root, alive, params) {
     document.title = 'Edit profile | Yeli';
     if (!state.me) {
         root.innerHTML = emptyState('Log in to edit your profile', 'Your picture and bio live on your account.', '<button type="button" class="btn btn-primary" data-auth="login">Log In</button>');
@@ -83,7 +83,12 @@ async function pageSettings(root, alive) {
             <p class="form-error" id="pwError" role="alert" hidden></p>
             <div class="row"><button type="submit" class="btn btn-secondary">Change password</button></div>
         </form>
+
+        ${notifPrefsPanelHtml()}
     </div>`;
+    setupNotifPrefs(root).then(() => {
+        if (params && params.get('tab') === 'notifications' && alive()) $('#notifPrefs').scrollIntoView({ block: 'start' });
+    });
 
     const bio = $('#bio');
     bio.value = me.bio || '';

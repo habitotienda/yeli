@@ -30,6 +30,13 @@ services:
         sync: false                 # you'll be asked for it: your own username
       - key: YELI_DEMO
         value: "1"                  # shows the "data may be reset" banner. Remove it when you use a persistent disk
+      # Notification emails (the bell works without these). Render's free plan blocks SMTP, so use Resend's HTTPS API:
+      # - key: YELI_PUBLIC_URL
+      #   value: https://yeli.onrender.com
+      # - key: YELI_MAIL_FROM
+      #   value: Yeli <no-reply@your-domain.com>
+      # - key: YELI_RESEND_API_KEY
+      #   sync: false
       # - key: YELI_DB
       #   value: /var/data/yeli.db  # with the disk below
       # - key: YELI_MEDIA_URL

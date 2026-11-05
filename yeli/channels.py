@@ -10,6 +10,7 @@ from .config import *
 from .core import *
 from .db import get_db
 from .alerts import add_event
+from .notifications import notify
 from .bot import chat_settings, post_bot, render
 from .moderation import is_mod
 from .cache import cached_json
@@ -119,6 +120,7 @@ def follow(username):
         st = chat_settings(db, target["id"])
         if added:
             add_event(db, target["id"], "follow", me_row["username"])
+            notify(db, target["id"], "follow", actor=me_row["username"])
         if added and st["welcome"]:
             post_bot(db, target["id"], render(st["welcome_text"], {"user": me_row["username"], "channel": username}))
     else:

@@ -4,6 +4,41 @@
    curly vs straight quotes and extra spaces. "~" at the start or end of a value drops the space
    that was around the original text. Patterns at the bottom handle text with numbers or names in it. */
 window.YELI_ES = {
+    /* ---- Notifications ---- */
+    "Notifications": "Notificaciones",
+    "Notifications | Yeli": "Notificaciones | Yeli",
+    "No notifications yet": "Aún no tienes notificaciones",
+    "Follows, Yelis, comments and live streams will show up here.": "Aquí aparecerán seguidores, Yelis, comentarios y directos.",
+    "Mark all as read": "Marcar todo como leído",
+    "Clear all": "Borrar todo",
+    "Notification settings": "Ajustes de notificaciones",
+    "started following you": "empezó a seguirte",
+    "sent you": "te envió",
+    "commented on": "comentó en",
+    "liked": "le dio me gusta a",
+    "is live now": "está en directo ahora",
+    "New followers": "Nuevos seguidores",
+    "Someone follows your channel.": "Alguien sigue tu canal.",
+    "Yelis and stickers": "Yelis y stickers",
+    "Someone sends you Yelis or a paid sticker.": "Alguien te envía Yelis o un sticker de pago.",
+    "Someone comments on one of your videos.": "Alguien comenta en uno de tus videos.",
+    "Someone likes one of your videos.": "A alguien le gusta uno de tus videos.",
+    "Live streams": "Directos",
+    "A channel you follow goes live.": "Un canal que sigues empieza un directo.",
+    "Likes": "Me gusta",
+    "In the app": "En la app",
+    "Choose what you want to be told about. The bell in the top bar shows the ones marked": "Elige de qué quieres que te avisemos. La campana de la barra superior muestra las marcadas como",
+    "Emails go to": "Los correos llegan a",
+    "Emails are not set up on this server yet, so only the app notifications will arrive.": "Los correos todavía no están configurados en este servidor, así que solo llegarán las notificaciones de la app.",
+    "Send me a test email": "Enviarme un correo de prueba",
+    "Saved.": "Guardado.",
+    "Email isn't set up on this server yet.": "El correo todavía no está configurado en este servidor.",
+    "Wait a few seconds before sending another test.": "Espera unos segundos antes de enviar otra prueba.",
+    "The email couldn't be sent. Check the server's email settings.": "No se pudo enviar el correo. Revisa la configuración de correo del servidor.",
+    "Nothing to save.": "No hay nada que guardar.",
+    "Unknown notification type.": "Tipo de notificación desconocido.",
+    "Use true or false.": "Usa verdadero o falso.",
+
     /* ---- Daily chest ---- */
     "Daily chest": "Cofre diario",
     "Daily chest | Yeli": "Cofre diario | Yeli",
@@ -874,6 +909,14 @@ window.YELI_ES = {
     var cat = function (s) { var t = T(s); return t; };
 
     window.YELI_ES_PATTERNS = [
+        [/^(\S+) started following you$/, '$1 empezó a seguirte'],
+        [/^(\S+) sent you ([\d.,\s]+) Yelis$/, '$1 te envió $2 Yelis'],
+        [/^(\S+) commented on (.+)$/, '$1 comentó en $2'],
+        [/^(\S+) liked (.+)$/, 'A $1 le gustó $2'],
+        [/^(\S+) is live now$/, '$1 está en directo ahora'],
+        [/^(\d+) new notifications$/, '$1 notificaciones nuevas'],
+        [/^Notifications \((\d+) new\)$/, 'Notificaciones ($1 nuevas)'],
+        [/^Test email sent to (.+)$/, 'Correo de prueba enviado a $1'],
         [/^You have (\d+) saved videos, which is the limit\. Delete one to save your next stream\.$/, 'Tienes $1 videos guardados, que es el límite. Elimina uno para guardar tu próximo directo.'],
         [/^Next chest in (.+) \(00:00 UTC\)\.$/, function (m, t) { return 'Próximo cofre en ' + t.replace(/ h /, ' h ').replace(/ min$/, ' min') + ' (00:00 UTC).'; }],
         [/^Watch a live stream: (\d+) of (\d+) minutes\.$/, 'Mira un directo: $1 de $2 minutos.'],

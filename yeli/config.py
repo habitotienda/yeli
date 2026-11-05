@@ -83,3 +83,20 @@ VOD_TITLE_MAX = 80
 VOD_DESC_MAX = 500
 VOD_COMMENT_MAX = 300
 TTS_BIN = os.environ.get("YELI_TTS_BIN", "")  # speech program (espeak-ng); empty = look for espeak-ng / espeak on the PATH
+
+
+# Notifications (see notifications.py). In-app ones need nothing. Email needs ONE of these:
+#   - an HTTPS email API (Resend): YELI_RESEND_API_KEY. Works on hosts that block SMTP ports (Render's free plan does).
+#   - an SMTP server: YELI_SMTP_HOST (+ PORT / USER / PASSWORD / SECURITY = starttls | ssl | none).
+# YELI_MAIL_FROM is the sender ("Yeli <no-reply@your-domain>"); YELI_PUBLIC_URL is the address used in the links of the emails.
+MAIL_FROM = os.environ.get("YELI_MAIL_FROM", "")
+PUBLIC_URL = os.environ.get("YELI_PUBLIC_URL", "").rstrip("/")
+RESEND_API_KEY = os.environ.get("YELI_RESEND_API_KEY", "")
+SMTP_HOST = os.environ.get("YELI_SMTP_HOST", "")
+SMTP_PORT = int(os.environ.get("YELI_SMTP_PORT", "587"))
+SMTP_USER = os.environ.get("YELI_SMTP_USER", "")
+SMTP_PASSWORD = os.environ.get("YELI_SMTP_PASSWORD", "")
+SMTP_SECURITY = os.environ.get("YELI_SMTP_SECURITY", "starttls").lower()
+MAIL_CONSOLE = os.environ.get("YELI_MAIL_CONSOLE") == "1"  # development: print the emails instead of sending them
+NOTIFY_EMAILS_PER_HOUR = int(os.environ.get("YELI_NOTIFY_EMAILS_PER_HOUR", "12"))  # per person, so nobody can flood an inbox
+NOTIFY_KEEP = 100  # notifications kept per person in the bell

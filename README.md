@@ -41,6 +41,19 @@ Cosas que debes saber (Render, plan gratis):
 
 ---
 
+## Notificaciones (en la app y por correo)
+
+La campana de la barra superior avisa de: nuevos seguidores, Yelis/stickers recibidos, comentarios y me gusta en tus videos, y
+cuando un canal que sigues empieza un directo. En **Editar perfil → Notificaciones** cada persona elige, por tipo, si quiere
+el aviso en la app y/o por correo (por defecto: todo en la app; correo solo para seguidores, Yelis y comentarios).
+
+Los correos necesitan configurar el envío (ver `.env.example`): `YELI_PUBLIC_URL` y `YELI_MAIL_FROM`, más **una** de estas
+opciones: `YELI_RESEND_API_KEY` (API por HTTPS, la opción para Render gratis, que bloquea SMTP) o `YELI_SMTP_HOST` (+ usuario y
+clave). Sin eso la app sigue funcionando y solo llegan los avisos de la campana. Cada correo lleva enlace para darse de baja,
+hay un tope de correos por persona y hora, y el botón *Enviarme un correo de prueba* sirve para comprobar la configuración.
+
+---
+
 ## Por qué "no aguantaba": P2P contra servidor de medios
 
 | | P2P (por defecto) | Servidor de medios (MediaMTX) |

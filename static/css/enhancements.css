@@ -55,7 +55,14 @@ body::before {
 
 .search-form:focus-within {
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.18);
+    box-shadow: 0 0 0 1px var(--primary-color);
+}
+
+/* The bar already shows the focus ring, so the field inside must not draw a second square outline */
+.search-input:focus,
+.search-input:focus-visible {
+    outline: none;
+    box-shadow: none;
 }
 
 .btn-primary {
@@ -903,4 +910,44 @@ html.reduce-motion .btn-ico svg { animation: none !important; transition: none; 
 @media (max-width: 400px) {
     .share-qr { flex-direction: column; text-align: center; }
     .share-qr-info { justify-items: center; }
+}
+
+/* ==========================================================================
+   Video page actions on phones: Like, Share, Edit and Delete stay in one tidy row
+   ========================================================================== */
+@media (max-width: 700px) {
+    .vod-page .channel-head { margin-top: 16px; }
+    .vod-page .player { box-shadow: none; }
+
+    .vod-page .channel-actions {
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: stretch;
+        gap: 8px;
+    }
+    .vod-page .channel-actions .btn {
+        flex: 1 1 0;
+        min-width: 0;
+        min-height: 46px;
+        padding: 0 10px;
+        gap: 6px;
+        white-space: nowrap;
+    }
+    .vod-page .channel-actions .btn > span { overflow: hidden; text-overflow: ellipsis; }
+    .vod-page .channel-actions .like-btn { flex: 0 0 auto; padding: 0 16px; }
+    .vod-page .channel-actions .btn-trash { flex: 0 0 46px; padding: 0; }
+    .vod-page .channel-actions .btn-trash > span { display: none; }   /* icon only: it still has an accessible name */
+    .btn-hint { display: none; }                                      /* the note under the buttons already says it */
+}
+@media (max-width: 359px) {
+    .vod-page .channel-actions .btn-share > span { display: none; }
+    .vod-page .channel-actions .btn-share { flex: 0 0 46px; padding: 0; }
+}
+
+/* Phones turned sideways (and the keyboard open): a slimmer header leaves room for the page */
+@media (orientation: landscape) and (max-height: 500px) {
+    :root { --header-height: 48px; }
+    .site-header { padding-top: 0; padding-bottom: 0; }
+    .site-header .brand-logo { width: 30px; height: 30px; }
+    .site-header .btn { padding-top: 6px; padding-bottom: 6px; }
 }

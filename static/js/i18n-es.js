@@ -181,6 +181,7 @@ window.YELI_ES = {
     "Follow this channel to see it in your sidebar when it goes live.": "Sigue este canal para verlo en tu barra lateral cuando empiece a transmitir.",
     "Link copied.": "Enlace copiado.",
     "Copied": "Copiado",
+    "(one time)": "(una sola vez)",
     "Link": "Enlace",
     "More": "Más",
     "QR code": "Código QR",

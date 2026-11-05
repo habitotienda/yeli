@@ -508,3 +508,6 @@ html[data-theme="light"] .like-btn.is-liked { background: rgba(224, 20, 58, 0.08
 html[data-theme="light"] .share-x .share-app-ico { border-color: transparent; }
 html[data-theme="light"] .share-qr { background: #fff; border-color: #dde0e7; }
 html[data-theme="light"] .share-more .share-app-ico { background: #f1f2f5; }
+
+/* Search bar: white while typing, with the single orange ring */
+html[data-theme="light"] .search-form:focus-within { background: #fff; }

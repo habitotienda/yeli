@@ -133,6 +133,7 @@ async function pageVideo(root, id, alive) {
         <section class="channel-about">
             <h2 class="section-title">Description</h2>
             <p id="vDesc" data-no-i18n></p>
+            <p class="muted" id="vDescEmpty" hidden>No description.</p>
             <p class="muted" id="vNote"></p>
         </section>
         <section class="vod-comments" aria-labelledby="vcTitle">
@@ -155,13 +156,14 @@ async function pageVideo(root, id, alive) {
         if (v.cover) video.poster = vodCoverSrc(v); else video.removeAttribute('poster');
         $('#vTitle').textContent = v.title;
         $('#vLine').innerHTML = `<a class="stream-channel" href="${channelHref(v.username)}">${esc(v.username)}</a><span class="chip-static">${esc(v.category)}</span><span class="muted">${esc(vodDate(v.started_at))} \u00b7 ${fmtDuration(v.duration * 1000)}</span>`;
-        $('#vDesc').textContent = v.description || (v.is_mine ? 'No description.' : '');
-        $('#vDesc').hidden = !v.description && !v.is_mine;
+        $('#vDesc').textContent = v.description || '';
+        $('#vDesc').hidden = !v.description;
+        $('#vDescEmpty').hidden = !!v.description || !v.is_mine;
         $('#vNote').textContent = v.is_mine ? (v.can_edit ? 'You can change the cover, the title and the description one time.' : 'You already used your one change for this video.') : '';
         const pop = popNext; popNext = false;      // the heart bounces only right after you tap it, not on every repaint
         $('#vActions').innerHTML = `<button type="button" class="btn btn-secondary btn-ico like-btn${v.liked ? ' is-liked' : ''}${v.liked && pop ? ' pop' : ''}" data-vod="like" aria-pressed="${v.liked}" aria-label="${v.liked ? 'Unlike' : 'Like'}" title="${v.liked ? 'Unlike' : 'Like'}">${IC(HEART_PATH, v.liked ? 'currentColor' : 'none')}<span class="like-count">${countText(v.likes)}</span></button>`
             + `<button type="button" class="btn btn-secondary btn-ico btn-share" data-vod="share">${IC(SHARE_PATH)}<span>Share</span></button>`
-            + (v.is_mine ? `${v.can_edit ? `<button type="button" class="btn btn-primary btn-ico btn-edit" data-vod="edit">${IC(EDIT_PATH)}<span>Edit (one time)</span></button>` : ''}<button type="button" class="btn btn-secondary btn-ico btn-trash" data-vod="delete">${IC(TRASH_PATH)}<span>Delete</span></button>` : '');
+            + (v.is_mine ? `${v.can_edit ? `<button type="button" class="btn btn-primary btn-ico btn-edit" data-vod="edit">${IC(EDIT_PATH)}<span>Edit <span class="btn-hint">(one time)</span></span></button>` : ''}<button type="button" class="btn btn-secondary btn-ico btn-trash" data-vod="delete" aria-label="Delete" title="Delete">${IC(TRASH_PATH)}<span>Delete</span></button>` : '');
     }
     paint();
 

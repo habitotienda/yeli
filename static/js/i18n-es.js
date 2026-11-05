@@ -180,6 +180,7 @@ window.YELI_ES = {
     "Channel not found.": "Canal no encontrado.",
     "Follow this channel to see it in your sidebar when it goes live.": "Sigue este canal para verlo en tu barra lateral cuando empiece a transmitir.",
     "Link copied.": "Enlace copiado.",
+    "Copied": "Copiado",
     "Copy the link from your address bar.": "Copia el enlace de la barra de direcciones.",
     "You can't follow your own channel.": "No puedes seguir tu propio canal.",
     "Your network may be blocking peer-to-peer video.": "Tu red podría estar bloqueando el video punto a punto.",

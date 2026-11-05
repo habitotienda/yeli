@@ -705,9 +705,9 @@ async function pageChannel(root, name, alive) {
         paintStats();
         $('#chDonate').hidden = ch.is_me;
         $('#chDonateLabel').textContent = `Support ${ch.username} with Yelis, or send a sticker in chat.`;
-        const share = '<button type="button" class="btn btn-secondary" id="shareBtn">Share</button>';
+        const share = `<button type="button" class="btn btn-secondary btn-ico btn-share" id="shareBtn">${IC(SHARE_PATH)}<span>Share</span></button>`;
         $('#chActions').innerHTML = share + (ch.is_me
-            ? `<a class="btn btn-secondary" href="#/settings">Edit profile</a><a class="btn btn-primary" href="#/studio">${broadcast ? 'Open studio' : 'Go live'}</a>`
+            ? `<a class="btn btn-secondary btn-ico btn-edit" href="#/settings">${IC(EDIT_PATH)}<span>Edit profile</span></a><a class="btn btn-primary" href="#/studio">${broadcast ? 'Open studio' : 'Go live'}</a>`
             : `<button type="button" class="btn ${ch.following ? 'btn-secondary is-following' : 'btn-primary'}" id="followBtn" aria-pressed="${ch.following}">
                    <img src="static/svg/${ch.following ? 'heart-filled' : 'heart'}.svg" alt="" width="16" height="16">${ch.following ? 'Following' : 'Follow'}
                </button>`);
@@ -730,11 +730,8 @@ async function pageChannel(root, name, alive) {
     $('#chDonateBtn').addEventListener('click', () => openDonate(ch.username));
 
     $('#chActions').addEventListener('click', async (e) => {
-        if (e.target.closest('#shareBtn')) {
-            try { await navigator.clipboard.writeText(location.href); toast('Link copied.'); }
-            catch { toast('Copy the link from your address bar.'); }
-            return;
-        }
+        const shareBtn = e.target.closest('#shareBtn');
+        if (shareBtn) { await copyPageLink(shareBtn); return; }
         const btn = e.target.closest('#followBtn');
         if (!btn) return;
         if (!state.me) { openAuth('login', `Log in to follow ${ch.username}.`); return; }

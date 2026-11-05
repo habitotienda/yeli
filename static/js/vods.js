@@ -11,6 +11,23 @@ const vodDate = (t) => new Date(t * 1000).toLocaleDateString(window.YELI_LANG, {
 const IC = (path, fill = 'none') => `<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="${fill}" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
 const HEART_PATH = '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21.2l7.8-7.7 1-1.1a5.5 5.5 0 0 0 0-7.8z"/>';
 const COMMENT_PATH = '<path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.5 8.5 0 0 1-3.7-.9L3 21l1.9-5.3A8.4 8.4 0 0 1 3 11.5 8.5 8.5 0 0 1 12 3a8.5 8.5 0 0 1 9 8.5z"/>';
+const SHARE_PATH = '<path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M16 6l-4-4-4 4M12 2v13"/>';
+const EDIT_PATH = '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>';
+const TRASH_PATH = '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-12M9 7V4h6v3"/>';
+const CHECK_PATH = '<path d="M5 12.5l4.5 4.5L19 7.5"/>';
+
+/** Copy the page link and give the Share button a short "Copied" confirmation (a check mark) instead of only a toast. */
+async function copyPageLink(btn) {
+    let ok = true;
+    try { await navigator.clipboard.writeText(location.href); } catch { ok = false; }
+    if (!ok) { toast('Copy the link from your address bar.'); return; }
+    toast('Link copied.');
+    if (!btn || btn.classList.contains('is-done')) return;
+    const original = btn.innerHTML;
+    btn.classList.add('is-done');
+    btn.innerHTML = `${IC(CHECK_PATH)}<span>Copied</span>`;
+    setTimeout(() => { if (btn.isConnected) { btn.classList.remove('is-done'); btn.innerHTML = original; } }, 1600);
+}
 const countText = (n) => Number(n || 0).toLocaleString(window.YELI_LANG);
 
 /** "3 minutes ago", in the language of the page */
@@ -100,6 +117,7 @@ function fixRecordedDuration(video) {
 
 async function pageVideo(root, id, alive) {
     let v;
+    let popNext = false;
     try {
         v = (await api(`/vod/${encodeURIComponent(id)}`)).video;
     } catch (e) {
@@ -153,9 +171,10 @@ async function pageVideo(root, id, alive) {
         $('#vDesc').textContent = v.description || (v.is_mine ? 'No description.' : '');
         $('#vDesc').hidden = !v.description && !v.is_mine;
         $('#vNote').textContent = v.is_mine ? (v.can_edit ? 'You can change the cover, the title and the description one time.' : 'You already used your one change for this video.') : '';
-        $('#vActions').innerHTML = `<button type="button" class="btn btn-secondary like-btn${v.liked ? ' is-liked' : ''}" data-vod="like" aria-pressed="${v.liked}" aria-label="${v.liked ? 'Unlike' : 'Like'}" title="${v.liked ? 'Unlike' : 'Like'}">${IC(HEART_PATH, v.liked ? 'currentColor' : 'none')}<span class="like-count">${countText(v.likes)}</span></button>`
-            + '<button type="button" class="btn btn-secondary" data-vod="share">Share</button>'
-            + (v.is_mine ? `${v.can_edit ? '<button type="button" class="btn btn-primary" data-vod="edit">Edit (one time)</button>' : ''}<button type="button" class="btn btn-secondary" data-vod="delete">Delete</button>` : '');
+        const pop = popNext; popNext = false;      // the heart bounces only right after you tap it, not on every repaint
+        $('#vActions').innerHTML = `<button type="button" class="btn btn-secondary btn-ico like-btn${v.liked ? ' is-liked' : ''}${v.liked && pop ? ' pop' : ''}" data-vod="like" aria-pressed="${v.liked}" aria-label="${v.liked ? 'Unlike' : 'Like'}" title="${v.liked ? 'Unlike' : 'Like'}">${IC(HEART_PATH, v.liked ? 'currentColor' : 'none')}<span class="like-count">${countText(v.likes)}</span></button>`
+            + `<button type="button" class="btn btn-secondary btn-ico btn-share" data-vod="share">${IC(SHARE_PATH)}<span>Share</span></button>`
+            + (v.is_mine ? `${v.can_edit ? `<button type="button" class="btn btn-primary btn-ico btn-edit" data-vod="edit">${IC(EDIT_PATH)}<span>Edit (one time)</span></button>` : ''}<button type="button" class="btn btn-secondary btn-ico btn-trash" data-vod="delete">${IC(TRASH_PATH)}<span>Delete</span></button>` : '');
     }
     paint();
 
@@ -169,6 +188,7 @@ async function pageVideo(root, id, alive) {
             const was = { liked: v.liked, likes: v.likes };
             v.liked = !v.liked;                       // show the change right away, undo it if the server says no
             v.likes += v.liked ? 1 : -1;
+            popNext = v.liked;
             paint();
             try {
                 const r = await api(`/vod/${encodeURIComponent(v.id)}/like`, { method: 'POST', body: { liked: v.liked } });
@@ -181,8 +201,7 @@ async function pageVideo(root, id, alive) {
                 paint();
             }
         } else if (b.dataset.vod === 'share') {
-            try { await navigator.clipboard.writeText(location.href); toast('Link copied.'); }
-            catch { toast('Copy the link from your address bar.'); }
+            await copyPageLink(b);
         } else if (b.dataset.vod === 'edit') {
             openVideoEdit(v, (next) => { v = next; paint(); });
         } else if (b.dataset.vod === 'delete') {

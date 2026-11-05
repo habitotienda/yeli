@@ -498,3 +498,8 @@ html[data-theme="light"] .obs-conn { color: #3b4150; }
 
 /* A liked video keeps its red heart (the generic secondary-button colour above would turn it dark) */
 html[data-theme="light"] .btn-secondary.like-btn.is-liked { color: var(--live); border-color: var(--live); }
+
+/* Icon buttons in light theme */
+html[data-theme="light"] .btn-ico.is-done { color: #1c7a2f; }
+html[data-theme="light"] .btn-trash:hover { color: #c0213d; }
+html[data-theme="light"] .like-btn.is-liked { background: rgba(224, 20, 58, 0.08); }

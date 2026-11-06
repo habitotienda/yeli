@@ -57,6 +57,19 @@ const ED_ICON = {
     download: ['<path d="M12 4v12M7 11l5 5 5-5M4 20h16"/>'],
     film: [FILM_PATH],
     globe: [GLOBE_PATH],
+    speed: ['<path d="M4.5 18a8.5 8.5 0 1 1 15 0"/><path d="M12 14l4-5"/><circle cx="12" cy="14" r="1.2"/>'],
+    volume: ['<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>'],
+    mute: ['<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M17 9l5 6M22 9l-5 6"/>'],
+    filter: ['<circle cx="9" cy="10" r="5.5"/><circle cx="15.5" cy="10" r="5.5"/><circle cx="12.3" cy="15.5" r="5.5"/>'],
+    fade: ['<path d="M3 20L21 4v16z"/>'],
+    crop: ['<path d="M6 2v14a2 2 0 0 0 2 2h14M18 22V8a2 2 0 0 0-2-2H2"/>'],
+    format: ['<rect x="3" y="6" width="18" height="12" rx="2"/>'],
+    back: ['<path d="M15 5l-7 7 7 7"/>'],
+    check: ['<path d="M5 12.5l4.5 4.5L19 7.5"/>'],
+    close: ['<path d="M6 6l12 12M18 6L6 18"/>'],
+    style: ['<path d="M5 19L12 5l7 14M8 14h8"/>'],
+    align: ['<path d="M4 6h16M4 12h10M4 18h16"/>'],
+    pen: [EDIT_PATH],
 };
 const edIc = (name, size = 18) => IC(ED_ICON[name][0], ED_ICON[name][1] || 'none', size);
 
@@ -227,63 +240,56 @@ async function pageEditor(root, vodId, alive) {
     const P = EDP || (EDP = edNewProject());
     root.innerHTML = `
     <div class="ed">
-        <div class="ed-top">
-            <div><h1 class="page-title">Video editor</h1></div>
-            <div class="ed-top-actions">
-                <button type="button" class="btn btn-secondary btn-icon" id="edUndo" aria-label="Undo" title="Undo (Ctrl+Z)">${edIc('undo')}</button>
-                <button type="button" class="btn btn-secondary btn-icon" id="edRedo" aria-label="Redo" title="Redo (Ctrl+Shift+Z)">${edIc('redo')}</button>
-                <a class="btn btn-secondary" href="#/clips">Clips</a>
-                <button type="button" class="btn btn-primary btn-ico" id="edExport">${edIc('download', 17)}<span>Export</span></button>
-            </div>
-        </div>
-        <div class="ed-main">
-            <aside class="ed-bin" aria-label="Your clips and videos">
-                <h2 class="ed-h2">Your clips and streams</h2>
-                <div class="ed-bin-list" id="edBin"><p class="muted">Loading\u2026</p></div>
-                <label class="btn btn-secondary btn-ico ed-upload">${edIc('upload', 16)}<span>Add a video from this device</span><input type="file" id="edFile" accept="video/*" hidden></label>
-            </aside>
-            <section class="ed-stage" aria-label="Preview">
-                <div class="ed-screen" id="edScreen">
-                    <canvas id="edCanvas" width="1280" height="720"></canvas>
-                    <div class="ed-screen-empty" id="edEmpty"><strong>Start with a clip</strong><span>Pick one from the list to put it on the timeline.</span></div>
-                </div>
-                <div class="ed-transport">
-                    <button type="button" class="btn btn-secondary btn-icon" id="edToStart" aria-label="Go to the start" title="Go to the start">${edIc('start')}</button>
-                    <button type="button" class="btn btn-primary btn-icon ed-play" id="edPlay" aria-label="Play" title="Play (Space)">${edIc('play', 20)}</button>
-                    <button type="button" class="btn btn-secondary btn-icon" id="edToEnd" aria-label="Go to the end" title="Go to the end">${edIc('end')}</button>
-                    <span class="ed-time" id="edTime" aria-live="off">0:00.0 / 0:00.0</span>
-                </div>
-            </section>
-            <aside class="ed-insp" id="edInsp" aria-label="Settings"></aside>
-        </div>
-        <section class="ed-tl" aria-label="Timeline">
-            <div class="ed-tl-bar" role="toolbar" aria-label="Timeline tools">
-                <button type="button" class="btn btn-secondary btn-ico" data-act="split" title="Split at the playhead (S)">${edIc('cut', 16)}<span>Split</span></button>
-                <button type="button" class="btn btn-secondary btn-ico" data-act="dup" title="Duplicate">${edIc('copy', 16)}<span>Duplicate</span></button>
-                <button type="button" class="btn btn-secondary btn-ico" data-act="del" title="Delete (Del)">${edIc('trash', 16)}<span>Delete</span></button>
-                <button type="button" class="btn btn-secondary btn-icon" data-act="left" aria-label="Move earlier" title="Move earlier ([)">${edIc('left', 16)}</button>
-                <button type="button" class="btn btn-secondary btn-icon" data-act="right" aria-label="Move later" title="Move later (])">${edIc('right', 16)}</button>
-                <button type="button" class="btn btn-secondary btn-ico" data-act="text" title="Add a text at the playhead">${edIc('text', 16)}<span>Text</span></button>
-                <span class="ed-spacer"></span>
-                <button type="button" class="btn btn-secondary btn-icon" data-act="zoomout" aria-label="Zoom out" title="Zoom out">${edIc('minus', 16)}</button>
-                <button type="button" class="btn btn-secondary btn-icon" data-act="zoomin" aria-label="Zoom in" title="Zoom in">${edIc('plus', 16)}</button>
-            </div>
-            <div class="ed-tl-scroll" id="edScroll">
-                <div class="ed-tl-inner" id="edInner">
-                    <div class="ed-ruler" id="edRuler"></div>
-                    <div class="ed-track ed-track-v" id="edTrackV"></div>
-                    <div class="ed-track ed-track-t" id="edTrackT"></div>
-                    <div class="ed-playhead" id="edHead"><span></span></div>
-                </div>
+        <header class="ed-bar">
+            <a class="ed-ib" href="#/clips" aria-label="Close the editor" title="Close">${edIc('close', 22)}</a>
+            <button type="button" class="ed-export-btn" id="edExport">Export</button>
+        </header>
+        <section class="ed-stage" id="edStage" aria-label="Preview">
+            <div class="ed-screen" id="edScreen">
+                <canvas id="edCanvas" width="1280" height="720"></canvas>
+                <div class="ed-screen-empty" id="edEmpty"><strong>Start with a clip</strong><span>Tap the + on the timeline to add one.</span></div>
             </div>
         </section>
-        <p class="ed-tip muted">Tip: click the timeline to place the playhead, then split. Drag the edges of a block to trim it. Space plays and pauses. Exporting runs in real time: keep this tab open and visible until it ends.</p>
+        <div class="ed-transport">
+            <span class="ed-time" id="edTime" aria-live="off">0:00.0 / 0:00.0</span>
+            <button type="button" class="ed-play" id="edPlay" aria-label="Play" title="Play (Space)">${edIc('play', 22)}</button>
+            <div class="ed-tr-r">
+                <button type="button" class="ed-ib ed-zoom" data-act="zoomout" aria-label="Zoom out" title="Zoom out">${edIc('minus', 18)}</button>
+                <button type="button" class="ed-ib ed-zoom" data-act="zoomin" aria-label="Zoom in" title="Zoom in">${edIc('plus', 18)}</button>
+                <button type="button" class="ed-ib" id="edUndo" aria-label="Undo" title="Undo (Ctrl+Z)">${edIc('undo', 20)}</button>
+                <button type="button" class="ed-ib" id="edRedo" aria-label="Redo" title="Redo (Ctrl+Shift+Z)">${edIc('redo', 20)}</button>
+            </div>
+        </div>
+        <section class="ed-tl" aria-label="Timeline">
+            <div class="ed-tl-wrap">
+                <div class="ed-tl-scroll" id="edScroll">
+                    <div class="ed-tl-inner" id="edInner">
+                        <div class="ed-ruler" id="edRuler"></div>
+                        <div class="ed-track ed-track-t" id="edTrackT"></div>
+                        <div class="ed-track ed-track-v" id="edTrackV"></div>
+                    </div>
+                </div>
+                <div class="ed-playhead" aria-hidden="true"></div>
+            </div>
+        </section>
+        <section class="ed-bottom" id="edInsp" aria-label="Tools"></section>
+        <div class="ed-sheet" id="edSheet" hidden>
+            <div class="ed-sheet-card" role="dialog" aria-label="Add a clip">
+                <div class="ed-sheet-head"><strong>Add a clip</strong><button type="button" class="ed-ib" data-sheet-close aria-label="Close">${edIc('close', 20)}</button></div>
+                <label class="ed-device">${edIc('upload', 20)}<span>Add a video from this device</span><input type="file" id="edFile" accept="video/*" hidden></label>
+                <p class="ed-sheet-sub">Your clips and streams</p>
+                <div class="ed-bin-grid" id="edBin"><p class="muted">Loading\u2026</p></div>
+            </div>
+        </div>
     </div>`;
 
     const canvas = $('#edCanvas'), ctx = canvas.getContext('2d');
     const binEl = $('#edBin'), insp = $('#edInsp'), scroll = $('#edScroll'), inner = $('#edInner');
-    const rulerEl = $('#edRuler'), trackV = $('#edTrackV'), trackT = $('#edTrackT'), head = $('#edHead');
-    const timeEl = $('#edTime'), playBtn = $('#edPlay'), emptyEl = $('#edEmpty');
+    const rulerEl = $('#edRuler'), trackV = $('#edTrackV'), trackT = $('#edTrackT'), stage = $('#edStage');
+    const timeEl = $('#edTime'), playBtn = $('#edPlay'), emptyEl = $('#edEmpty'), sheet = $('#edSheet');
+    let tool = null;      // the panel that is open above the toolbar: speed, volume, filter, fade, fit, ttext, tstyle, tpos, format
+    let skipClick = -1e9; // a tap that really was the end of a drag must not select or deselect anything
+    let lastSet = 0;
     let raf = 0, lastNow = 0, exportCtl = null;
 
     /* ---------- the picture ---------- */
@@ -294,7 +300,18 @@ async function pageEditor(root, vodId, alive) {
         if (shortSide) { if (aw >= ah) { h = shortSide; w = even(shortSide * aw / ah); } else { w = shortSide; h = even(shortSide * ah / aw); } }
         else if (aw >= ah) { w = 1280; h = even(1280 * ah / aw); } else { h = 1280; w = even(1280 * aw / ah); }
         if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
-        $('#edScreen').style.aspectRatio = `${aw} / ${ah}`;
+        fitScreen();
+    }
+
+    /** The preview takes as much of the free room as its shape allows. */
+    function fitScreen() {
+        const [aw, ah] = ED_ASPECTS[P.aspect];
+        const W = stage.clientWidth, H = stage.clientHeight;
+        if (!W || !H) return;
+        const k = Math.min(W / aw, H / ah);
+        const scr = $('#edScreen');
+        scr.style.width = `${Math.floor(aw * k)}px`;
+        scr.style.height = `${Math.floor(ah * k)}px`;
     }
 
     function wrapLines(text, maxW) {
@@ -395,14 +412,12 @@ async function pageEditor(root, vodId, alive) {
         }
     }
 
+    /** The playhead stays in the middle: the timeline slides under it, so the time is the scroll position. */
     function updateHead() {
         const x = P.t * P.zoom;
-        head.style.transform = `translateX(${x}px)`;
+        if (Math.abs(scroll.scrollLeft - x) > 0.5) scroll.scrollLeft = x;
+        lastSet = scroll.scrollLeft;
         timeEl.textContent = `${edFmt(P.t)} / ${edFmt(edTotal(P))}`;
-        if (P.playing) {
-            if (x > scroll.scrollLeft + scroll.clientWidth - 40) scroll.scrollLeft = x - 40;
-            else if (x < scroll.scrollLeft) scroll.scrollLeft = Math.max(0, x - 40);
-        }
     }
 
     function renderTransport() {
@@ -529,6 +544,7 @@ async function pageEditor(root, vodId, alive) {
 
     function select(sel) {
         P.sel = sel;
+        tool = null;
         renderTimeline();
         renderInspector();
     }
@@ -573,8 +589,12 @@ async function pageEditor(root, vodId, alive) {
                 const tx = { uid: edUid(), text: 'Your text', start: Math.min(P.t, Math.max(0, total - 1)), dur: Math.min(3, total), size: 7, color: '#ffffff', bg: false, pos: 'bottom' };
                 P.texts.push(tx);
                 P.sel = { type: 'text', uid: tx.uid };
+                tool = 'ttext';
             }, '', true);
         },
+        add() { openSheet(); },
+        back() { select(null); },
+        closetool() { tool = null; renderInspector(); },
         zoomin() { zoomBy(1.4); },
         zoomout() { zoomBy(1 / 1.4); },
     };
@@ -588,12 +608,15 @@ async function pageEditor(root, vodId, alive) {
     }
 
     function zoomBy(f) {
-        const center = (scroll.scrollLeft + scroll.clientWidth / 2) / P.zoom;
         P.zoom = edClamp(P.zoom * f, 8, 300);
         renderTimeline();
         updateHead();
-        scroll.scrollLeft = Math.max(0, center * P.zoom - scroll.clientWidth / 2);
     }
+
+    /* ---------- add a clip: the sheet that slides up ---------- */
+    const openSheet = () => { sheet.hidden = false; };
+    const closeSheet = () => { sheet.hidden = true; };
+    sheet.addEventListener('click', (e) => { if (e.target === sheet || e.target.closest('[data-sheet-close]')) closeSheet(); });
 
     /* ---------- the list of your clips ---------- */
     function renderBin() {
@@ -602,10 +625,10 @@ async function pageEditor(root, vodId, alive) {
             return;
         }
         binEl.innerHTML = P.bin.map((v) => `
-            <button type="button" class="ed-bin-item" data-add="${esc(v.id)}">
-                <span class="ed-bin-thumb" ${v.cover ? `style="background-image:url('${esc(vodCoverSrc(v))}')"` : ''}></span>
-                <span class="ed-bin-meta"><strong data-no-i18n>${esc(v.title)}</strong><em>${esc(fmtDuration(v.duration * 1000))} \u00b7 ${v.is_clip ? 'Private clip' : 'Published'}</em></span>
-                <span class="ed-bin-add" aria-hidden="true">+</span>
+            <button type="button" class="ed-tile" data-add="${esc(v.id)}">
+                <span class="ed-tile-thumb" ${v.cover ? `style="background-image:url('${esc(vodCoverSrc(v))}')"` : ''}><em>${esc(fmtDuration(v.duration * 1000))}</em></span>
+                <strong data-no-i18n>${esc(v.title)}</strong>
+                <small>${v.is_clip ? 'Private clip' : 'Published'}</small>
             </button>`).join('');
     }
 
@@ -637,35 +660,36 @@ async function pageEditor(root, vodId, alive) {
                 if (v) await addAsset(vodInfo(v));
                 else toast('That clip was not found.');
             }
+            if (!P.clips.length && !vodId && alive()) openSheet();
         } catch (e) {
             if (alive()) binEl.innerHTML = `<p class="form-error">${esc(e.message)}</p>`;
         }
     }
 
     /* ---------- timeline ---------- */
+    const padW = () => Math.round(scroll.clientWidth / 2);
+
     function renderTimeline() {
         const L = edLayout(P);
-        const w = Math.max(L.total * P.zoom + 240, scroll.clientWidth);
-        inner.style.width = `${w}px`;
+        const pad = padW();
+        inner.style.width = `${Math.round(L.total * P.zoom + pad * 2)}px`;
         const steps = [0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600];
-        const step = steps.find((s) => s * P.zoom >= 70) || 600;
+        const step = steps.find((s) => s * P.zoom >= 64) || 600;
         let ticks = '';
-        for (let t = 0; t * P.zoom < w; t += step) ticks += `<span class="ed-tick" style="left:${t * P.zoom}px">${edFmtShort(t)}</span>`;
+        for (let t = 0; t <= L.total + step; t += step) ticks += `<span class="ed-tick" style="left:${pad + t * P.zoom}px">${edFmtShort(t)}</span>`;
         rulerEl.innerHTML = ticks;
-        trackV.innerHTML = L.items.length ? L.items.map(({ c, start, end }) => {
+        trackV.innerHTML = L.items.map(({ c, start, end }) => {
             const a = c.asset, sel = P.sel && P.sel.type === 'clip' && P.sel.uid === c.uid;
             const tags = [c.speed !== 1 ? `${c.speed}\u00d7` : '', c.filter !== 'none' ? 'fx' : '', c.volume === 0 ? 'mute' : ''].filter(Boolean).join(' \u00b7 ');
-            return `<div class="ed-clip${sel ? ' is-sel' : ''}" data-clip="${c.uid}" style="left:${start * P.zoom}px;width:${Math.max(6, (end - start) * P.zoom)}px;${a.thumb ? `background-image:url('${esc(a.thumb)}')` : ''}">
-                <span class="ed-h ed-h-l" data-h="l"></span><span class="ed-clip-label" data-no-i18n>${esc(a.name)}${tags ? ` <em>${esc(tags)}</em>` : ''}</span><span class="ed-h ed-h-r" data-h="r"></span></div>`;
-        }).join('') : '<p class="ed-hint">The timeline is empty.</p>';
+            return `<div class="ed-clip${sel ? ' is-sel' : ''}" data-clip="${c.uid}" style="left:${pad + start * P.zoom}px;width:${Math.max(6, (end - start) * P.zoom)}px;${a.thumb ? `background-image:url('${esc(a.thumb)}')` : ''}">
+                <span class="ed-h ed-h-l" data-h="l"></span><span class="ed-clip-label" data-no-i18n>${esc(edFmtShort(end - start))}${tags ? ` <em>${esc(tags)}</em>` : ''}</span><span class="ed-h ed-h-r" data-h="r"></span></div>`;
+        }).join('') + `<button type="button" class="ed-addclip" data-act="add" aria-label="Add a clip" title="Add a clip" style="left:${pad + L.total * P.zoom + 10}px">${edIc('plus', 24)}</button>`;
         trackT.innerHTML = P.texts.map((tx) => {
             const sel = P.sel && P.sel.type === 'text' && P.sel.uid === tx.uid;
-            return `<div class="ed-text${sel ? ' is-sel' : ''}" data-text="${tx.uid}" style="left:${tx.start * P.zoom}px;width:${Math.max(6, tx.dur * P.zoom)}px">
+            return `<div class="ed-text${sel ? ' is-sel' : ''}" data-text="${tx.uid}" style="left:${pad + tx.start * P.zoom}px;width:${Math.max(6, tx.dur * P.zoom)}px">
                 <span class="ed-h ed-h-l" data-h="l"></span><span class="ed-clip-label" data-no-i18n>${esc(tx.text)}</span><span class="ed-h ed-h-r" data-h="r"></span></div>`;
         }).join('');
     }
-
-    const timeAtX = (x) => edClamp((x - inner.getBoundingClientRect().left) / P.zoom, 0, edTotal(P));
 
     function drag(e, onMove, onEnd) {
         e.preventDefault();
@@ -676,11 +700,26 @@ async function pageEditor(root, vodId, alive) {
             inner.removeEventListener('pointermove', move);
             inner.removeEventListener('pointerup', up);
             inner.removeEventListener('pointercancel', up);
+            skipClick = performance.now();
             if (onEnd) onEnd();
         };
         inner.addEventListener('pointermove', move);
         inner.addEventListener('pointerup', up);
         inner.addEventListener('pointercancel', up);
+    }
+
+    /** With a mouse the timeline can't be pushed by a finger, so dragging the background scrolls it. */
+    function mouseScroll(e) {
+        const x0 = e.clientX, s0 = scroll.scrollLeft;
+        let moved = false;
+        const move = (ev) => { if (Math.abs(ev.clientX - x0) > 3) moved = true; scroll.scrollLeft = s0 - (ev.clientX - x0); };
+        const up = () => {
+            window.removeEventListener('pointermove', move);
+            window.removeEventListener('pointerup', up);
+            if (moved) skipClick = performance.now();
+        };
+        window.addEventListener('pointermove', move);
+        window.addEventListener('pointerup', up);
     }
 
     inner.addEventListener('pointerdown', (e) => {
@@ -713,68 +752,98 @@ async function pageEditor(root, vodId, alive) {
                 else { const ns = edClamp(s0 + dt, 0, s0 + d0 - ED_MIN); tx.start = ns; tx.dur = d0 - (ns - s0); }
                 afterEdit();
             }, renderInspector);
-        } else if (textEl) {
-            const tx = P.texts.find((x) => x.uid === textEl.dataset.text);
+        } else if (textEl && P.sel && P.sel.type === 'text' && P.sel.uid === textEl.dataset.text) {
+            const tx = P.texts.find((x) => x.uid === textEl.dataset.text);   // a selected text slides along the timeline
             if (!tx) return;
-            P.sel = { type: 'text', uid: tx.uid };
             pushHistory();
             const s0 = tx.start;
             drag(e, (dt) => { tx.start = Math.max(0, s0 + dt); afterEdit(); }, renderInspector);
-        } else {
-            if (clipEl) select({ type: 'clip', uid: clipEl.dataset.clip });
-            drag(e, (dt, ev) => scrub(timeAtX(ev.clientX)));
-            scrub(timeAtX(e.clientX));
+        } else if (e.pointerType === 'mouse' && !e.target.closest('button')) {
+            mouseScroll(e);
         }
     });
 
-    /* ---------- the settings panel ---------- */
-    const opts = (list, current, label) => list.map((v) => `<option value="${v}"${Number(v) === Number(current) || v === current ? ' selected' : ''}>${label(v)}</option>`).join('');
+    inner.addEventListener('click', (e) => {
+        if (P.exporting || performance.now() - skipClick < 400) return;
+        if (e.target.closest('[data-act]')) return;
+        const clipEl = e.target.closest('[data-clip]');
+        const textEl = e.target.closest('[data-text]');
+        if (textEl) select({ type: 'text', uid: textEl.dataset.text });
+        else if (clipEl) select({ type: 'clip', uid: clipEl.dataset.clip });
+        else if (P.sel) select(null);
+    });
+
+    /* moving the timeline moves the playhead */
+    scroll.addEventListener('scroll', () => {
+        if (Math.abs(scroll.scrollLeft - lastSet) < 2) return;     // that was us moving it while playing
+        if (P.exporting) { updateHead(); return; }
+        scrub(scroll.scrollLeft / P.zoom);
+    });
+    scroll.addEventListener('wheel', (e) => {
+        if (e.ctrlKey || e.metaKey) { e.preventDefault(); zoomBy(e.deltaY < 0 ? 1.15 : 1 / 1.15); }
+        else if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.preventDefault(); scroll.scrollLeft += e.deltaY; }
+    }, { passive: false });
+    let pinch = null;
+    const fingers = (e) => Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY) || 1;
+    scroll.addEventListener('touchstart', (e) => { if (e.touches.length === 2) pinch = { d: fingers(e), z: P.zoom }; }, { passive: true });
+    scroll.addEventListener('touchmove', (e) => {
+        if (!pinch || e.touches.length !== 2) return;
+        e.preventDefault();
+        const z = edClamp(pinch.z * fingers(e) / pinch.d, 8, 300);
+        if (Math.abs(z - P.zoom) > 0.4) { P.zoom = z; renderTimeline(); updateHead(); }
+    }, { passive: false });
+    scroll.addEventListener('touchend', (e) => { if (e.touches.length < 2) pinch = null; }, { passive: true });
+
+    /* ---------- the toolbar and its panels ---------- */
+    const CLIP_TOOLS = ['speed', 'volume', 'filter', 'fade', 'fit'];
+    const TEXT_TOOLS = ['ttext', 'tstyle', 'tpos'];
+    const SWATCHES = ['#ffffff', '#ffd43b', '#ffa94d', '#ff6b6b', '#f783ac', '#9775fa', '#4dabf7', '#38d9a9', '#000000'];
+    const chips = (list, on, attr, label) => `<div class="ed-chips">${list.map((v) => `<button type="button" class="ed-chip${Number(v) === Number(on) || v === on ? ' is-on' : ''}" ${attr}="${v}">${label(v)}</button>`).join('')}</div>`;
 
     function renderInspector() {
         const c = selClip(), tx = selText();
-        if (c) {
-            insp.innerHTML = `
-                <h2 class="ed-h2">Clip</h2>
-                <p class="muted ed-name" data-no-i18n>${esc(c.asset.name)}</p>
-                <div class="ed-grid2">
-                    <label class="ed-f">Start (s)<input id="inIn" type="number" step="0.1" min="0"></label>
-                    <label class="ed-f">End (s)<input id="inOut" type="number" step="0.1" min="0"></label>
-                </div>
-                <div class="ed-row">
-                    <button type="button" class="btn btn-secondary" data-act2="in-here">Start at playhead</button>
-                    <button type="button" class="btn btn-secondary" data-act2="out-here">End at playhead</button>
-                </div>
-                <label class="ed-f">Speed<select id="inSpeed">${opts(ED_SPEEDS, c.speed, (v) => `${v}\u00d7`)}</select></label>
-                <label class="ed-f">Volume <output id="inVolO"></output><input id="inVol" type="range" min="0" max="200" step="5"></label>
-                <label class="ed-f">Filter<select id="inFilter" ${ED_FILTER_OK ? '' : 'disabled'}>${ED_FILTERS.map(([k, name]) => `<option value="${k}"${c.filter === k ? ' selected' : ''}>${name}</option>`).join('')}</select></label>
-                ${ED_FILTER_OK ? '' : '<p class="muted ed-note">Filters need Chrome, Edge or Firefox.</p>'}
-                <div class="ed-grid2">
-                    <label class="ed-f">Fade in<select id="inFi">${opts(ED_FADES, c.fadeIn, (v) => (v ? `${v} s` : 'None'))}</select></label>
-                    <label class="ed-f">Fade out<select id="inFo">${opts(ED_FADES, c.fadeOut, (v) => (v ? `${v} s` : 'None'))}</select></label>
-                </div>
-                <label class="ed-f">Framing<select id="inFit"><option value="fit"${c.fit === 'fit' ? ' selected' : ''}>Fit: show everything</option><option value="fill"${c.fit === 'fill' ? ' selected' : ''}>Fill: crop the edges</option></select></label>`;
-        } else if (tx) {
-            insp.innerHTML = `
-                <h2 class="ed-h2">Text</h2>
-                <label class="ed-f">Text<textarea id="txText" rows="2" maxlength="120"></textarea></label>
-                <div class="ed-grid2">
-                    <label class="ed-f">Start (s)<input id="txStart" type="number" step="0.1" min="0"></label>
-                    <label class="ed-f">Length (s)<input id="txDur" type="number" step="0.1" min="0.1"></label>
-                </div>
+        if ((CLIP_TOOLS.includes(tool) && !c) || (TEXT_TOOLS.includes(tool) && !tx) || (tool === 'format' && (c || tx))) tool = null;
+        const T = (k, icon, label) => `<button type="button" class="ed-tool" data-tool="${k}">${edIc(icon, 24)}<span>${label}</span></button>`;
+        const A = (k, icon, label) => `<button type="button" class="ed-tool" data-act="${k}">${edIc(icon, 24)}<span>${label}</span></button>`;
+        const head = (title) => `<div class="ed-panel-head"><strong>${title}</strong><button type="button" class="ed-ok" data-act="closetool" aria-label="Done" title="Done">${edIc('check', 20)}</button></div>`;
+        if (!tool) {
+            const back = `<button type="button" class="ed-tool ed-tool-back" data-act="back" aria-label="Back">${edIc('back', 24)}<span>Back</span></button><span class="ed-sep"></span>`;
+            const items = c
+                ? back + A('split', 'cut', 'Split') + T('speed', 'speed', 'Speed') + T('volume', c.volume === 0 ? 'mute' : 'volume', 'Volume') + T('filter', 'filter', 'Filters') + T('fade', 'fade', 'Fade') + T('fit', 'crop', 'Framing')
+                    + A('left', 'left', 'Earlier') + A('right', 'right', 'Later') + A('dup', 'copy', 'Duplicate') + A('del', 'trash', 'Delete')
+                : tx
+                    ? back + T('ttext', 'pen', 'Edit') + T('tstyle', 'style', 'Style') + T('tpos', 'align', 'Position') + A('dup', 'copy', 'Duplicate') + A('del', 'trash', 'Delete')
+                    : A('add', 'plus', 'Add') + A('text', 'text', 'Text') + T('format', 'format', 'Format');
+            insp.innerHTML = `<div class="ed-tools" role="toolbar">${items}</div>`;
+        } else if (tool === 'speed') {
+            insp.innerHTML = `<div class="ed-panel">${head('Speed')}${chips(ED_SPEEDS, c.speed, 'data-speed', (v) => `${v}\u00d7`)}</div>`;
+        } else if (tool === 'volume') {
+            insp.innerHTML = `<div class="ed-panel">${head('Volume')}<div class="ed-vol"><button type="button" class="ed-chip" id="inMute" data-set="mute" aria-label="Mute">${edIc('mute', 18)}</button><input id="inVol" type="range" min="0" max="200" step="5" aria-label="Volume"><output id="inVolO"></output></div></div>`;
+        } else if (tool === 'filter') {
+            const tiles = ED_FILTERS.map(([k, name, css]) => `<button type="button" class="ed-filter${c.filter === k ? ' is-on' : ''}" data-filter="${k}" ${ED_FILTER_OK ? '' : 'disabled'}>
+                <span class="ed-ft"><i style="${c.asset.thumb ? `background-image:url('${esc(c.asset.thumb)}');` : ''}${ED_FILTER_OK ? `filter:${css}` : ''}"></i></span><em>${name}</em></button>`).join('');
+            insp.innerHTML = `<div class="ed-panel">${head('Filters')}<div class="ed-chips ed-filters">${tiles}</div>${ED_FILTER_OK ? '' : '<p class="muted ed-note">Filters need Chrome, Edge or Firefox.</p>'}</div>`;
+        } else if (tool === 'fade') {
+            const lab = (v) => (v ? `${v} s` : 'None');
+            insp.innerHTML = `<div class="ed-panel">${head('Fade')}<p class="ed-lab">Fade in</p>${chips(ED_FADES, c.fadeIn, 'data-fi', lab)}<p class="ed-lab">Fade out</p>${chips(ED_FADES, c.fadeOut, 'data-fo', lab)}</div>`;
+        } else if (tool === 'fit') {
+            insp.innerHTML = `<div class="ed-panel">${head('Framing')}<div class="ed-chips">
+                <button type="button" class="ed-chip${c.fit === 'fit' ? ' is-on' : ''}" data-fit="fit">Fit: show everything</button>
+                <button type="button" class="ed-chip${c.fit === 'fill' ? ' is-on' : ''}" data-fit="fill">Fill: crop the edges</button></div></div>`;
+        } else if (tool === 'format') {
+            insp.innerHTML = `<div class="ed-panel">${head('Format')}${chips(Object.keys(ED_ASPECTS), P.aspect, 'data-aspect', (k) => ED_ASPECTS[k][2])}<p class="muted ed-note" id="pjLen"></p></div>`;
+        } else if (tool === 'ttext') {
+            insp.innerHTML = `<div class="ed-panel">${head('Text')}<textarea id="txText" rows="2" maxlength="120" placeholder="Type your text" aria-label="Text"></textarea></div>`;
+        } else if (tool === 'tstyle') {
+            insp.innerHTML = `<div class="ed-panel">${head('Style')}
                 <label class="ed-f">Size <output id="txSizeO"></output><input id="txSize" type="range" min="3" max="20" step="1"></label>
-                <div class="ed-grid2">
-                    <label class="ed-f">Color<input id="txColor" type="color"></label>
-                    <label class="ed-f">Position<select id="txPos"><option value="top">Top</option><option value="middle">Middle</option><option value="bottom">Bottom</option></select></label>
-                </div>
-                <label class="ed-check"><input id="txBg" type="checkbox"><span>Dark box behind the text</span></label>`;
-        } else {
-            insp.innerHTML = `
-                <h2 class="ed-h2">Project</h2>
-                <label class="ed-f">Shape of the video<select id="pjAspect">${Object.entries(ED_ASPECTS).map(([k, v]) => `<option value="${k}"${P.aspect === k ? ' selected' : ''}>${v[2]}</option>`).join('')}</select></label>
-                <p class="muted ed-note" id="pjLen"></p>
-                <p class="muted ed-note">Select a clip or a text on the timeline to change it.</p>`;
+                <div class="ed-chips ed-swatches">${SWATCHES.map((col) => `<button type="button" class="ed-sw${tx.color.toLowerCase() === col ? ' is-on' : ''}" data-color="${col}" style="background:${col}" aria-label="Color ${col}"></button>`).join('')}<input id="txColor" type="color" aria-label="Any color"></div>
+                <div class="ed-chips"><button type="button" class="ed-chip${tx.bg ? ' is-on' : ''}" data-set="bg" aria-pressed="${tx.bg}">Dark box behind the text</button></div></div>`;
+        } else if (tool === 'tpos') {
+            insp.innerHTML = `<div class="ed-panel">${head('Position')}${chips(['top', 'middle', 'bottom'], tx.pos, 'data-pos', (v) => v.charAt(0).toUpperCase() + v.slice(1))}</div>`;
         }
         fillInspector();
+        if (tool === 'ttext') { const ta = $('#txText', insp); if (ta) { ta.focus(); ta.select(); } }
     }
 
     /** Puts the numbers of the selected item into the fields, without rebuilding them (so typing is not interrupted). */
@@ -782,20 +851,17 @@ async function pageEditor(root, vodId, alive) {
         const set = (id, v) => { const el = $(`#${id}`, insp); if (el && document.activeElement !== el) el.value = v; };
         const c = selClip(), tx = selText();
         if (c) {
-            set('inIn', c.in.toFixed(2));
-            set('inOut', c.out.toFixed(2));
             set('inVol', Math.round(c.volume * 100));
-            $('#inVolO', insp).textContent = c.volume === 0 ? 'Muted' : `${Math.round(c.volume * 100)}%`;
+            const o = $('#inVolO', insp);
+            if (o) o.textContent = c.volume === 0 ? 'Muted' : `${Math.round(c.volume * 100)}%`;
+            const m = $('#inMute', insp);
+            if (m) m.classList.toggle('is-on', c.volume === 0);
         } else if (tx) {
             set('txText', tx.text);
-            set('txStart', tx.start.toFixed(2));
-            set('txDur', tx.dur.toFixed(2));
             set('txSize', tx.size);
             set('txColor', tx.color);
-            set('txPos', tx.pos);
-            const bg = $('#txBg', insp);
-            if (bg) bg.checked = tx.bg;
-            $('#txSizeO', insp).textContent = `${tx.size}%`;
+            const o = $('#txSizeO', insp);
+            if (o) o.textContent = `${tx.size}%`;
         } else {
             const len = $('#pjLen', insp);
             if (len) len.textContent = P.clips.length ? `${P.clips.length} clip${P.clips.length === 1 ? '' : 's'} \u00b7 ${edFmt(edTotal(P))} long` : 'The timeline is empty.';
@@ -813,38 +879,26 @@ async function pageEditor(root, vodId, alive) {
         }
     });
 
-    insp.addEventListener('change', (e) => {
-        const id = e.target.id, c = selClip(), tx = selText();
-        const v = e.target.value;
-        if (c) {
-            const min = ED_MIN * c.speed;
-            if (id === 'inIn') mutate(() => { c.in = edClamp(edNum(v), 0, c.out - min); }, '');
-            else if (id === 'inOut') mutate(() => { c.out = edClamp(edNum(v), c.in + min, c.asset.duration); }, '');
-            else if (id === 'inSpeed') mutate(() => { c.speed = edNum(v, 1); }, '');
-            else if (id === 'inFilter') mutate(() => { c.filter = v; }, '');
-            else if (id === 'inFi') mutate(() => { c.fadeIn = edNum(v); }, '');
-            else if (id === 'inFo') mutate(() => { c.fadeOut = edNum(v); }, '');
-            else if (id === 'inFit') mutate(() => { c.fit = v; }, '');
-        } else if (tx) {
-            if (id === 'txStart') mutate(() => { tx.start = Math.max(0, edNum(v)); }, '');
-            else if (id === 'txDur') mutate(() => { tx.dur = Math.max(ED_MIN, edNum(v, 1)); }, '');
-            else if (id === 'txPos') mutate(() => { tx.pos = v; }, '');
-            else if (id === 'txBg') mutate(() => { tx.bg = e.target.checked; }, '');
-        } else if (id === 'pjAspect') {
-            mutate(() => { P.aspect = v; sizeCanvas(); }, '');
-        }
-    });
-
     insp.addEventListener('click', (e) => {
-        const b = e.target.closest('[data-act2]');
-        const c = selClip();
-        if (!b || !c) return;
-        const L = edLayout(P);
-        const item = L.items.find((i) => i.c === c);
-        const local = edClamp(P.t - item.start, 0, item.end - item.start);
-        const src = c.in + local * c.speed, min = ED_MIN * c.speed;
-        if (b.dataset.act2 === 'in-here') mutate(() => { c.in = edClamp(src, 0, c.out - min); P.t = item.start; }, '');
-        else mutate(() => { c.out = edClamp(src, c.in + min, c.asset.duration); }, '');
+        const t = e.target.closest('[data-tool]');
+        if (t) { tool = t.dataset.tool; renderInspector(); return; }
+        const c = selClip(), tx = selText();
+        const q = (attr) => e.target.closest(`[${attr}]`);
+        let b;
+        if (c) {
+            if ((b = q('data-speed'))) mutate(() => { c.speed = Number(b.dataset.speed); }, '', true);
+            else if ((b = q('data-filter'))) mutate(() => { c.filter = b.dataset.filter; }, '', true);
+            else if ((b = q('data-fi'))) mutate(() => { c.fadeIn = Number(b.dataset.fi); }, '', true);
+            else if ((b = q('data-fo'))) mutate(() => { c.fadeOut = Number(b.dataset.fo); }, '', true);
+            else if ((b = q('data-fit'))) mutate(() => { c.fit = b.dataset.fit; }, '', true);
+            else if ((b = q('data-set')) && b.dataset.set === 'mute') mutate(() => { c.volume = c.volume === 0 ? 1 : 0; }, '', true);
+        } else if (tx) {
+            if ((b = q('data-pos'))) mutate(() => { tx.pos = b.dataset.pos; }, '', true);
+            else if ((b = q('data-color'))) mutate(() => { tx.color = b.dataset.color; }, '', true);
+            else if ((b = q('data-set')) && b.dataset.set === 'bg') mutate(() => { tx.bg = !tx.bg; }, '', true);
+        } else if ((b = q('data-aspect'))) {
+            mutate(() => { P.aspect = b.dataset.aspect; sizeCanvas(); }, '', true);
+        }
     });
 
     /* ---------- buttons and keys ---------- */
@@ -857,7 +911,7 @@ async function pageEditor(root, vodId, alive) {
         const b = e.target.closest('[data-add]');
         if (!b || b.classList.contains('is-loading')) return;
         const v = P.bin.find((x) => x.id === b.dataset.add);
-        if (v) addAsset(vodInfo(v), b);
+        if (v) addAsset(vodInfo(v), b).then(closeSheet);
     });
     $('#edFile').addEventListener('change', async (e) => {
         const f = e.target.files[0];
@@ -867,10 +921,9 @@ async function pageEditor(root, vodId, alive) {
         const key = `file:${f.name}:${f.size}:${f.lastModified}`;
         const known = P.assets.get(key);
         await addAsset(known ? { key } : { key, name: f.name, url: URL.createObjectURL(f), duration: 0, thumb: '' });
+        closeSheet();
     });
     playBtn.addEventListener('click', () => (P.playing ? pause() : play()));
-    $('#edToStart').addEventListener('click', () => scrub(0));
-    $('#edToEnd').addEventListener('click', () => scrub(edTotal(P)));
     $('#edUndo').addEventListener('click', undo);
     $('#edRedo').addEventListener('click', redo);
     $('#edExport').addEventListener('click', () => openExport());
@@ -882,18 +935,23 @@ async function pageEditor(root, vodId, alive) {
         const mod = e.ctrlKey || e.metaKey;
         if (mod && e.key.toLowerCase() === 'z') { if (typing && tag !== 'select') return; e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
         if (mod && e.key.toLowerCase() === 'y') { if (typing) return; e.preventDefault(); redo(); return; }
+        if (e.key === 'Escape' && !sheet.hidden) { closeSheet(); return; }
         if (typing || mod || e.altKey) return;
         if (e.key === ' ') { e.preventDefault(); if (P.clips.length) (P.playing ? pause() : play()); }
         else if (e.key === 's' || e.key === 'S') actions.split();
         else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); actions.del(); }
         else if (e.key === '[') actions.left();
         else if (e.key === ']') actions.right();
+        else if (e.key === '+' || e.key === '=') zoomBy(1.25);
+        else if (e.key === '-') zoomBy(1 / 1.25);
         else if (e.key === 'ArrowLeft') { e.preventDefault(); scrub(P.t - (e.shiftKey ? 1 : 1 / 30)); }
         else if (e.key === 'ArrowRight') { e.preventDefault(); scrub(P.t + (e.shiftKey ? 1 : 1 / 30)); }
     };
     document.addEventListener('keydown', onKey);
-    const onResize = () => renderTimeline();
+    const onResize = () => { fitScreen(); renderTimeline(); updateHead(); };
     window.addEventListener('resize', onResize);
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => fitScreen()) : null;
+    if (ro) ro.observe(stage);
 
     /* ---------- export ---------- */
     function openExport() {
@@ -1107,6 +1165,7 @@ async function pageEditor(root, vodId, alive) {
         P.mounted = null;
         document.removeEventListener('keydown', onKey);
         window.removeEventListener('resize', onResize);
+        if (ro) ro.disconnect();
         root.removeEventListener('click', onTop);
     });
 

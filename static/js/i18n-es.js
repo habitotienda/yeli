@@ -4,6 +4,17 @@
    curly vs straight quotes and extra spaces. "~" at the start or end of a value drops the space
    that was around the original text. Patterns at the bottom handle text with numbers or names in it. */
 window.YELI_ES = {
+    /* ---- Editor (CapCut style) ---- */
+    "Close the editor": "Cerrar el editor",
+    "Tap the + on the timeline to add one.": "Toca el + de la línea de tiempo para añadir uno.",
+    "Add a clip": "Añadir un clip",
+    "Tools": "Herramientas",
+    "Back": "Atrás",
+    "Filters": "Filtros",
+    "Earlier": "Antes",
+    "Later": "Después",
+    "Style": "Estilo",
+    "Type your text": "Escribe tu texto",
     /* ---- Privacy menu and live likes ---- */
     "Privacy": "Privacidad",
     "Private": "Privado",

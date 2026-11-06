@@ -2,6 +2,7 @@
 import os
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -30,7 +31,7 @@ class YeliTests(unittest.TestCase):
         _bot._cooldowns.clear()
         core._failed_logins.clear()
         con = sqlite3.connect(config.DB_PATH)
-        for t in ("notifications", "notify_prefs", "notify_meta", "vod_comments", "vod_likes", "vods", "free_points", "watch_sessions", "chat_bans", "chat_mods", "events", "alert_rules", "assets", "chat_settings", "commands", "spendings", "upgrades", "upgrade_points", "ledger", "payouts", "donations", "purchases", "wallets", "chat_messages", "avatars", "thumbnails", "signals", "viewers", "follows", "streams", "users"):
+        for t in ("notifications", "notify_prefs", "notify_meta", "vod_comment_likes", "vod_comments", "vod_likes", "vods", "free_points", "watch_sessions", "chat_bans", "chat_mods", "events", "alert_rules", "assets", "chat_settings", "commands", "spendings", "upgrades", "upgrade_points", "ledger", "payouts", "donations", "purchases", "wallets", "chat_messages", "avatars", "thumbnails", "signals", "viewers", "follows", "streams", "users"):
             con.execute(f"DELETE FROM {t}")
         con.commit()
         con.close()
@@ -1118,6 +1119,10 @@ class YeliTests(unittest.TestCase):
         self.assertEqual(post(self.bob, like, {"liked": True}).status_code, 404)
         self.assertEqual(post(self.bob, comments, {"text": "hi"}).status_code, 404)
         post(self.alice, f"/api/vod/{vid}/finish")
+        # ...and neither can a clip: only published videos take likes and comments
+        self.assertEqual(post(self.bob, like, {"liked": True}).status_code, 404)
+        self.assertEqual(post(self.bob, comments, {"text": "hi"}).status_code, 404)
+        post(self.alice, f"/api/vod/{vid}/publish")
 
         # likes: only accounts, idempotent, one per person, counted and reported per viewer
         self.assertEqual(post(self.anon, like, {"liked": True}).status_code, 401)
@@ -1183,6 +1188,189 @@ class YeliTests(unittest.TestCase):
         self.assertEqual(con.execute("SELECT COUNT(*) FROM vod_comments").fetchone()[0], 0)
         con.close()
 
+    def _published_video(self, owner="alice"):
+        """A published video of `owner`, ready for likes and comments."""
+        octet = {"content_type": "application/octet-stream"}
+        client = {"alice": self.alice, "bob": self.bob}[owner]
+        post(client, "/api/stream/start", {"title": "Live", "category": "Music"})
+        vid = post(client, "/api/vod/start", {"mime": "video/webm"}).get_json()["id"]
+        client.post(f"/api/vod/{vid}/chunk?seq=0", data=b"AAAA", **octet)
+        post(client, f"/api/vod/{vid}/finish")
+        post(client, f"/api/vod/{vid}/publish")
+        return vid
+
+    def test_comment_likes_and_replies(self):
+        self.signup(self.alice, "alice")
+        self.signup(self.bob, "bob")
+        self.signup(self.anon, "carol")
+        carol = self.anon
+        vid = self._published_video()
+        base = f"/api/vod/{vid}/comments"
+        guest = app.test_client()
+
+        top = post(self.bob, base, {"text": "first!"}).get_json()["comment"]
+        self.assertEqual((top["parent"], top["reply_to"], top["likes"], top["liked"], top["reply_count"]), (None, None, 0, False, 0))
+
+        # liking a comment: accounts only, idempotent, per person, shown per viewer
+        like = f"{base}/{top['id']}/like"
+        self.assertEqual(post(guest, like, {"liked": True}).status_code, 401)
+        self.assertEqual(post(self.alice, like, {"liked": "yes"}).status_code, 400)
+        self.assertEqual(post(self.alice, f"{base}/9999/like", {"liked": True}).status_code, 404)
+        self.assertEqual(post(self.alice, like, {"liked": True}).get_json()["likes"], 1)
+        self.assertEqual(post(self.alice, like, {"liked": True}).get_json()["likes"], 1)
+        self.assertEqual(post(carol, like, {"liked": True}).get_json()["likes"], 2)
+        mine = self.alice.get(base).get_json()["comments"][0]
+        self.assertEqual((mine["likes"], mine["liked"]), (2, True))
+        seen = guest.get(base).get_json()["comments"][0]
+        self.assertEqual((seen["likes"], seen["liked"]), (2, False))
+        self.assertEqual(post(carol, like, {"liked": False}).get_json()["likes"], 1)
+
+        # replying: the streamer answers bob, bob answers the answer, carol answers bob's reply
+        r1 = post(self.alice, base, {"text": "thanks bob", "parent": top["id"]})
+        self.assertEqual(r1.status_code, 201)
+        r1 = r1.get_json()["comment"]
+        self.assertEqual((r1["parent"], r1["reply_to"]), (top["id"], "bob"))
+        r2 = post(self.bob, base, {"text": "@alice anytime", "parent": r1["id"]}).get_json()["comment"]
+        self.assertEqual((r2["parent"], r2["reply_to"]), (top["id"], "alice"))  # flat: attached to the top comment
+        r3 = post(carol, base, {"text": "@bob agreed", "parent": r2["id"]}).get_json()
+        self.assertEqual((r3["comment"]["parent"], r3["comment"]["reply_to"], r3["total"]), (top["id"], "bob", 4))
+        self.assertEqual(post(self.bob, base, {"text": "x", "parent": 99999}).status_code, 404)
+        self.assertEqual(post(self.bob, base, {"text": "x", "parent": "abc"}).status_code, 404)
+
+        # the list only has top-level comments (with their reply count); the replies come per comment, oldest first
+        listed = guest.get(base).get_json()
+        self.assertEqual(([c["id"] for c in listed["comments"]], listed["total"]), ([top["id"]], 4))
+        self.assertEqual(listed["comments"][0]["reply_count"], 3)
+        self.assertEqual(self.anon.get(f"/api/vod/{vid}").get_json()["video"]["comment_count"], 4)
+        replies = guest.get(f"{base}/{top['id']}/replies").get_json()
+        self.assertEqual([c["text"] for c in replies["comments"]], ["thanks bob", "@alice anytime", "@bob agreed"])
+        self.assertFalse(replies["more"])
+        after = guest.get(f"{base}/{top['id']}/replies?after={r1['id']}").get_json()
+        self.assertEqual([c["text"] for c in after["comments"]], ["@alice anytime", "@bob agreed"])
+        self.assertEqual(post(self.bob, f"{base}/{r1['id']}/like", {"liked": True}).get_json()["likes"], 1)  # replies can be liked too
+
+        # notifications: the one answered is told (once), the streamer hears about the rest as comments
+        def inbox(client):
+            return [(n["kind"], n["actor"]) for n in client.get("/api/notifications").get_json()["notifications"]]
+        self.assertIn(("reply", "alice"), inbox(self.bob))
+        self.assertIn(("reply", "bob"), inbox(self.alice))
+        self.assertEqual(inbox(self.alice).count(("comment", "carol")), 1)  # carol answered bob, alice owns the video
+        self.assertNotIn(("comment", "alice"), inbox(self.alice))
+        self.assertEqual(inbox(carol).count(("reply", "alice")), 0)
+
+        # deleting: a reply goes alone, a top-level comment takes its replies (and their likes) with it
+        self.assertEqual(post(carol, f"{base}/{r1['id']}/delete").status_code, 403)
+        self.assertEqual(post(self.alice, f"{base}/{r1['id']}/delete").get_json()["total"], 3)
+        self.assertEqual(post(self.bob, f"{base}/{top['id']}/delete").get_json()["total"], 0)
+        con = sqlite3.connect(config.DB_PATH)
+        self.assertEqual(con.execute("SELECT COUNT(*) FROM vod_comments").fetchone()[0], 0)
+        con.close()
+        self.assertEqual(post(self.alice, f"{base}/{top['id']}/like", {"liked": True}).status_code, 404)
+
+        # the channel's rules apply to replies too
+        top = post(self.bob, base, {"text": "again"}).get_json()["comment"]
+        post(self.alice, "/api/mod/alice/ban", {"user": "carol", "minutes": 0})
+        self.assertEqual(post(carol, base, {"text": "hi", "parent": top["id"]}).status_code, 403)
+
+        # deleting the video removes every like and reply
+        post(self.alice, f"{base}/{top['id']}/like", {"liked": True})
+        post(self.bob, base, {"text": "reply", "parent": top["id"]})
+        post(self.alice, f"/api/vod/{vid}/delete")
+        con = sqlite3.connect(config.DB_PATH)
+        self.assertEqual(con.execute("SELECT COUNT(*) FROM vod_comments").fetchone()[0], 0)
+        self.assertEqual(con.execute("SELECT COUNT(*) FROM vod_comment_likes").fetchone()[0], 0)
+        con.close()
+
+    def test_clips_publish_and_editor_upload(self):
+        import base64
+        octet = {"content_type": "application/octet-stream"}
+        jpeg = "data:image/jpeg;base64," + base64.b64encode(b"\xff\xd8\xff" + b"x" * 300).decode()
+        self.signup(self.alice, "alice")
+        self.signup(self.bob, "bob")
+
+        # the editor exports through its own upload: it needs an account, a known format and doesn't need a live stream
+        self.assertEqual(post(self.anon, "/api/vod/new", {"mime": "video/webm"}).status_code, 401)
+        self.assertEqual(post(self.alice, "/api/vod/new", {"mime": "video/x-flv"}).status_code, 400)
+        vid = post(self.alice, "/api/vod/new", {"mime": "video/webm;codecs=vp8,opus", "title": "My edit"}).get_json()["id"]
+        url = f"/api/vod/{vid}/chunk"
+        self.assertEqual(self.alice.post(url + "?seq=0", data=b"EDIT", **octet).status_code, 200)
+        self.assertEqual(self.bob.post(url + "?seq=1", data=b"X", **octet).status_code, 404)
+
+        # finishing: the editor says how long it is and gives a cover; the result is a private clip
+        r = post(self.alice, f"/api/vod/{vid}/finish", {"duration": 93.4, "cover": jpeg}).get_json()
+        v = r["video"]
+        self.assertEqual((v["title"], v["source"], v["visibility"], v["duration"], v["category"]), ("My edit", "edit", "private", 93, "Other"))
+        self.assertIsNotNone(v["cover"])
+        self.assertEqual(self.alice.get(f"/api/vod/{vid}/cover").status_code, 200)
+        self.assertEqual(self.bob.get(f"/api/vod/{vid}/video").status_code, 404)
+        self.assertEqual(self.anon.get("/api/channel/alice/videos").get_json()["videos"], [])
+        # a live recording ignores a duration or a cover sent at the end: only exports may set them
+        post(self.alice, "/api/stream/start", {"title": "Live", "category": "Talk"})
+        live = post(self.alice, "/api/vod/start", {"mime": "video/webm"}).get_json()["id"]
+        self.alice.post(f"/api/vod/{live}/chunk?seq=0", data=b"LIVE", **octet)
+        lv = post(self.alice, f"/api/vod/{live}/finish", {"duration": 5000, "cover": jpeg}).get_json()["video"]
+        self.assertLess(lv["duration"], 60)
+        self.assertEqual(lv["source"], "live")
+
+        # a bad duration is just ignored
+        bad = post(self.alice, "/api/vod/new", {"mime": "video/webm"}).get_json()["id"]
+        self.alice.post(f"/api/vod/{bad}/chunk?seq=0", data=b"BAD", **octet)
+        self.assertGreaterEqual(post(self.alice, f"/api/vod/{bad}/finish", {"duration": "soon"}).get_json()["video"]["duration"], 0)
+
+        # an export that sent nothing disappears
+        nothing = post(self.alice, "/api/vod/new", {"mime": "video/webm"}).get_json()["id"]
+        self.assertFalse(post(self.alice, f"/api/vod/{nothing}/finish", {"duration": 3}).get_json()["saved"])
+
+        # the saved-videos limit covers clips too
+        old_cap = config.VOD_MAX_PER_USER
+        config.VOD_MAX_PER_USER = 1
+        try:
+            r = post(self.alice, "/api/vod/new", {"mime": "video/webm"})
+            self.assertEqual((r.status_code, r.get_json()["limit"]), (409, True))
+        finally:
+            config.VOD_MAX_PER_USER = old_cap
+
+        # publish, then take it back to a clip: comments and likes are kept but nobody can reach them meanwhile
+        pub = post(self.alice, f"/api/vod/{vid}/publish", {"title": "Final cut"}).get_json()["video"]
+        self.assertEqual((pub["visibility"], pub["title"]), ("public", "Final cut"))
+        self.assertEqual(post(self.alice, f"/api/vod/{vid}/publish").status_code, 200)  # again: harmless
+        self.assertEqual([x["id"] for x in self.anon.get("/api/channel/alice/videos").get_json()["videos"]], [vid])
+        self.assertEqual(post(self.bob, f"/api/vod/{vid}/comments", {"text": "nice"}).status_code, 201)
+        self.assertEqual(post(self.bob, f"/api/vod/{vid}/unpublish").status_code, 404)
+        self.assertEqual(post(self.alice, f"/api/vod/{vid}/unpublish").get_json()["video"]["visibility"], "private")
+        self.assertEqual(self.anon.get("/api/channel/alice/videos").get_json()["videos"], [])
+        self.assertEqual(post(self.bob, f"/api/vod/{vid}/comments", {"text": "still there?"}).status_code, 404)
+        post(self.alice, f"/api/vod/{vid}/publish")
+        self.assertEqual(self.anon.get(f"/api/vod/{vid}/comments").get_json()["total"], 1)
+        # published: the one change applies again
+        self.assertEqual(post(self.alice, f"/api/vod/{vid}/edit", {"title": "Final cut 2"}).status_code, 200)
+        self.assertEqual(post(self.alice, f"/api/vod/{vid}/edit", {"title": "Final cut 3"}).status_code, 403)
+
+    def test_old_databases_get_clip_columns(self):
+        """A database made before clips and replies keeps its videos published and gets the new columns."""
+        import tempfile
+        path = Path(tempfile.mkdtemp()) / "old.db"
+        con = sqlite3.connect(path)
+        con.executescript("""
+            CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT);
+            CREATE TABLE vods (id TEXT PRIMARY KEY, user_id INTEGER, title TEXT NOT NULL DEFAULT '', mime TEXT NOT NULL,
+                               status TEXT NOT NULL DEFAULT 'recording', started_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);
+            CREATE TABLE vod_comments (id INTEGER PRIMARY KEY AUTOINCREMENT, vod_id TEXT NOT NULL, user_id INTEGER NOT NULL,
+                                       text TEXT NOT NULL, created_at INTEGER NOT NULL);
+            INSERT INTO vods (id, user_id, mime, status, started_at, updated_at) VALUES ('old', 1, 'video/webm', 'ready', 1, 1);
+            INSERT INTO vod_comments (vod_id, user_id, text, created_at) VALUES ('old', 1, 'hi', 1);
+        """)
+        con.commit()
+        con.close()
+        from yeli import db as dbmod
+        dbmod.init_db(str(path))
+        dbmod.init_db(str(path))  # and a second start changes nothing
+        con = sqlite3.connect(path)
+        self.assertEqual(con.execute("SELECT visibility, source FROM vods WHERE id = 'old'").fetchone(), ("public", "live"))
+        self.assertEqual(con.execute("SELECT parent_id, reply_to FROM vod_comments").fetchone(), (None, None))
+        self.assertEqual(con.execute("SELECT COUNT(*) FROM vod_comment_likes").fetchone()[0], 0)
+        con.close()
+
     def test_voice_in_the_stream(self):
         import stat
         fake = Path(_tmp) / "fake-espeak"
@@ -1230,6 +1418,180 @@ class YeliTests(unittest.TestCase):
             __import__("shutil").which = orig_which
             config.TTS_BIN = ""
 
+    def test_send_the_stream_to_other_platforms(self):
+        import stat
+        from yeli import restream
+        log = Path(_tmp) / "ffmpeg-calls.txt"
+        log.unlink(missing_ok=True)
+        fake = Path(_tmp) / "fake-ffmpeg"
+        fake.write_text(f"#!/usr/bin/env python3\nimport sys, time\nopen({str(log)!r}, 'a').write(' '.join(sys.argv[1:]) + '\\n')\n"
+                        "first = len(open(" + repr(str(log)) + ").read().splitlines()) == 1\n"
+                        "if first:\n    sys.stderr.write('Connection to rtmp://live.twitch.tv/app/live_secret_key failed\\n'); sys.stderr.flush(); time.sleep(0.3); sys.exit(1)\n"
+                        "time.sleep(60)\n")
+        fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
+        saved = (config.FFMPEG_BIN, config.MEDIA_URL, config.MEDIA_RTSP)
+        config.FFMPEG_BIN, config.MEDIA_URL, config.MEDIA_RTSP = str(fake), "http://media.test:8889", "rtsp://127.0.0.1:8554"
+        status = lambda c: [d["status"] for d in c.get("/api/restream").get_json()["destinations"]]
+        wait_for = lambda cond: next((True for _ in range(60) if cond() or time.sleep(0.1)), False)
+        try:
+            self.signup(self.alice, "alice")
+            self.signup(self.bob, "bob")
+            state = self.alice.get("/api/restream").get_json()
+            self.assertTrue(state["available"])
+            self.assertIn("twitch", [p["id"] for p in state["platforms"]])
+
+            good = {"platform": "twitch", "name": "My Twitch", "url": "rtmp://live.twitch.tv/app", "key": "live_secret_key"}
+            for bad in ({**good, "platform": "nope"}, {**good, "url": "http://example.com/x"}, {**good, "url": "rtmp://a b/x"},
+                        {**good, "key": ""}, {**good, "key": "a b"}, {**good, "key": "x;rm -rf"}, {**good, "fmt": "wide"}):
+                self.assertEqual(post(self.alice, "/api/restream", bad).status_code, 400, bad)
+            self.assertEqual(post(self.anon, "/api/restream", good).status_code, 401)
+            created = post(self.alice, "/api/restream", good)
+            self.assertEqual(created.status_code, 201)
+            dest = created.get_json()["destination"]
+            self.assertNotIn("live_secret_key", created.get_data(as_text=True))     # the key never goes back to the browser
+            self.assertNotIn("live_secret_key", self.alice.get("/api/restream").get_data(as_text=True))
+            self.assertTrue(dest["key_hint"].endswith("_key"))
+            self.assertEqual(status(self.alice), ["off"])                            # not live yet: nothing runs
+
+            # peer-to-peer: there is no server-side video to send
+            post(self.alice, "/api/stream/start", {"title": "p2p", "category": "Music", "mode": "p2p"})
+            self.assertEqual(status(self.alice), ["off"])
+            post(self.alice, "/api/stream/stop")
+
+            # media-server mode: ffmpeg starts, reads the stream from the media server and writes to the platform
+            post(self.alice, "/api/stream/start", {"title": "sfu", "category": "Music", "mode": "sfu"})
+            self.assertTrue(wait_for(lambda: log.exists() and status(self.alice) != ["off"]))
+            call = log.read_text().splitlines()[0]
+            self.assertIn("rtsp://127.0.0.1:8554/alice", call)
+            self.assertIn("rtmp://live.twitch.tv/app/live_secret_key", call)
+            self.assertIn("libx264", call)
+            self.assertNotIn("crop=", call)
+            # errors never reveal the key
+            self.assertTrue(wait_for(lambda: self.alice.get("/api/restream").get_json()["destinations"][0]["status"] == "retrying"))
+            shown = self.alice.get("/api/restream").get_data(as_text=True)
+            self.assertNotIn("live_secret_key", shown)
+
+            # a second stream key, vertical for TikTok; others can't touch it
+            tk = post(self.alice, "/api/restream", {"platform": "tiktok", "url": "rtmp://push.tiktokcdn.com/live/", "key": "abc123?x=1", "fmt": "vertical"}).get_json()["destination"]
+            self.assertTrue(wait_for(lambda: "crop=" in log.read_text() and "9/16" in log.read_text()))
+            self.assertEqual(post(self.bob, f"/api/restream/{tk['id']}", {"enabled": False}).status_code, 404)
+            self.assertEqual(post(self.bob, f"/api/restream/{tk['id']}/delete").status_code, 404)
+
+            # switching one off stops only it; editing needs no key again; deleting stops it
+            off = post(self.alice, f"/api/restream/{dest['id']}", {"enabled": False}).get_json()["destination"]
+            self.assertEqual((off["enabled"], off["status"]), (False, "off"))
+            self.assertEqual(post(self.alice, f"/api/restream/{tk['id']}", {"name": "Mi TikTok"}).get_json()["destination"]["name"], "Mi TikTok")
+            self.assertEqual(post(self.alice, f"/api/restream/{tk['id']}/delete").status_code, 200)
+            self.assertEqual([d["id"] for d in self.alice.get("/api/restream").get_json()["destinations"]], [dest["id"]])
+
+            # going offline stops everything
+            post(self.alice, f"/api/restream/{dest['id']}", {"enabled": True})
+            self.assertTrue(wait_for(lambda: status(self.alice) != ["off"]))
+            post(self.alice, "/api/stream/stop")
+            self.assertEqual(status(self.alice), ["off"])
+        finally:
+            restream.stop_all()
+            config.FFMPEG_BIN, config.MEDIA_URL, config.MEDIA_RTSP = saved
+
+        # without ffmpeg or a media server the feature says so
+        self.assertEqual(self.alice.get("/api/restream").get_json()["why"], "media_server")
+
+    def test_chats_from_other_platforms(self):
+        import socket as _socket
+        import threading as _threading
+        from yeli import bridge
+        self.signup(self.alice, "alice")
+        self.signup(self.bob, "bob")
+        info = self.alice.get("/api/bridge").get_json()
+        hook = "/api/bridge/" + info["token"]
+        self.assertTrue(info["url"].endswith(hook))
+        self.assertEqual(self.anon.get("/api/bridge").status_code, 401)
+        self.assertEqual(post(self.anon, "/api/bridge/not-a-token", {"platform": "kick", "user": "x", "text": "hi"}).status_code, 404)
+        poll = lambda: self.anon.get("/api/chat/alice?after=0").get_json()["messages"]
+
+        # a message from TikTok shows with its tag, as nobody's account
+        r = post(self.anon, hook, {"platform": "TikTok", "user": "  ana<b>  ", "text": "hola   a todos"})
+        self.assertEqual((r.status_code, r.get_json()["ok"]), (200, True))
+        m = poll()[-1]
+        self.assertEqual((m["platform"], m["user"], m["text"], m["kind"]), ("tiktok", "anab", "hola a todos", "msg"))
+        self.assertEqual((m["owner"], m["mod"], m["badge"], m["color"]), (False, False, 0, ""))
+        self.assertEqual(post(self.anon, hook, {"user": "x", "text": "   "}).status_code, 202)   # empty: dropped
+        self.assertEqual(poll()[-1]["platform"], "tiktok")
+
+        # the bot answers commands, in the chat and in the webhook's reply
+        r = post(self.anon, hook, {"platform": "kick", "user": "luis", "text": "!dice 6"}).get_json()
+        self.assertIn("luis rolled", r["reply"])
+        self.assertEqual(poll()[-1]["kind"], "bot")
+        post(self.alice, "/api/bot/commands", {"name": "hola", "response": "Hola {user}, bienvenido a {channel}", "perm": "everyone", "cooldown": 0})
+        self.assertEqual(post(self.anon, hook, {"platform": "kick", "user": "luis", "text": "!hola"}).get_json()["reply"], "Hola luis, bienvenido a alice")
+        self.assertEqual(post(self.anon, hook, {"platform": "kick", "user": "luis", "text": "!so alice"}).get_json()["reply"], "")  # owner-only commands stay owner-only
+
+        # the voice: a message to read aloud, tagged with where it came from
+        post(self.alice, "/api/bot/settings", {"tts_enabled": True, "tts_command": "say", "tts_perm": "everyone", "tts_name": True,
+                                                "tts_template": "{user} dice: {text}", "tts_cooldown": 0})
+        post(self.anon, hook, {"platform": "tiktok", "user": "ana", "text": "!say buenas noches"})
+        tts = [x for x in poll() if x["kind"] == "tts"][-1]
+        self.assertEqual((tts["text"], tts["platform"], tts["user"]), ("ana dice: buenas noches", "tiktok", "ana"))
+
+        # the chat rules apply; the streamer can remove these messages like any other
+        db = sqlite3.connect(config.DB_PATH)
+        alice_id = db.execute("SELECT id FROM users WHERE username = 'alice'").fetchone()[0]
+        db.execute("INSERT INTO chat_settings (channel_id, banned_words) VALUES (?, 'spoiler') ON CONFLICT(channel_id) DO UPDATE SET banned_words = 'spoiler'", (alice_id,))
+        db.commit(); db.close()
+        self.assertEqual(post(self.anon, hook, {"platform": "kick", "user": "luis", "text": "SPOILER!"}).status_code, 202)
+        gone = poll()[-1]["id"]
+        self.assertEqual(post(self.alice, "/api/chat/alice/delete", {"id": gone}).status_code, 200)
+        self.assertNotIn(gone, [x["id"] for x in poll()])
+
+        # a new link makes the old one stop working
+        new = post(self.alice, "/api/bridge/token/reset").get_json()
+        self.assertNotEqual(new["token"], info["token"])
+        self.assertEqual(post(self.anon, hook, {"platform": "kick", "user": "luis", "text": "hi"}).status_code, 404)
+
+        # Twitch is read directly: an anonymous IRC connection while the streamer is live
+        lines = []
+        server = _socket.socket(); server.bind(("127.0.0.1", 0)); server.listen(1)
+        def fake_twitch():
+            conn, _ = server.accept()
+            conn.settimeout(10)
+            seen = b""
+            while b"JOIN" not in seen:
+                seen += conn.recv(1024)
+            lines.extend(seen.decode().split("\r\n"))
+            conn.sendall(b":tmi.twitch.tv 001 justinfan1 :Welcome\r\nPING :tmi.twitch.tv\r\n")
+            conn.sendall(b":gamer99!gamer99@gamer99.tmi.twitch.tv PRIVMSG #somechannel :hello from twitch\r\n")
+            conn.sendall(b":gamer99!gamer99@gamer99.tmi.twitch.tv PRIVMSG #somechannel :\x01ACTION waves\x01\r\n")
+            try:
+                lines.append(conn.recv(100).decode())  # the PONG
+            except OSError:
+                pass
+            time.sleep(3)
+            conn.close()
+        _threading.Thread(target=fake_twitch, daemon=True).start()
+        saved = (config.TWITCH_IRC, config.TWITCH_TLS)
+        config.TWITCH_IRC, config.TWITCH_TLS = f"127.0.0.1:{server.getsockname()[1]}", False
+        try:
+            self.assertEqual(post(self.alice, "/api/bridge/twitch", {"channel": "bad name!", "enabled": True}).status_code, 400)
+            self.assertEqual(post(self.alice, "/api/bridge/twitch", {"channel": "", "enabled": True}).status_code, 400)
+            post(self.alice, "/api/stream/start", {"title": "x", "category": "Music"})
+            self.assertEqual(post(self.alice, "/api/bridge/twitch", {"channel": "https://www.twitch.tv/SomeChannel", "enabled": True}).get_json()["twitch"]["channel"], "somechannel")
+            for _ in range(60):
+                got = [x for x in poll() if x["platform"] == "twitch"]
+                if len(got) >= 2:
+                    break
+                time.sleep(0.1)
+            self.assertEqual([(x["user"], x["text"]) for x in got], [("gamer99", "hello from twitch"), ("gamer99", "waves")])
+            self.assertTrue(any(l.startswith("NICK justinfan") for l in lines))
+            self.assertTrue(any(l == "JOIN #somechannel" for l in lines))
+            self.assertEqual(self.alice.get("/api/bridge").get_json()["twitch"]["status"], "connected")
+            self.assertTrue(any("PONG" in l for l in lines))
+            post(self.alice, "/api/stream/stop")                                     # offline: the reader stops
+            self.assertEqual(self.alice.get("/api/bridge").get_json()["twitch"]["status"], "off")
+        finally:
+            bridge.stop_all()
+            config.TWITCH_IRC, config.TWITCH_TLS = saved
+            server.close()
+
     def test_saved_streams(self):
         import base64
         jpeg = "data:image/jpeg;base64," + base64.b64encode(b"\xff\xd8\xff" + b"x" * 500).decode()
@@ -1264,13 +1626,38 @@ class YeliTests(unittest.TestCase):
         self.assertEqual(post(self.alice, f"/api/vod/{vid}/edit", {"title": "x"}).status_code, 409)
         post(self.alice, "/api/stream/thumbnail", {"image": jpeg})
 
-        # end of the stream: the recording becomes a public video
+        # end of the stream: the recording is kept as a PRIVATE clip, it is not published
         r = post(self.alice, f"/api/vod/{vid}/finish").get_json()
         self.assertTrue(r["saved"])
         v = r["video"]
         self.assertEqual((v["title"], v["category"], v["status"]), ("My first live", "Music", "ready"))
+        self.assertEqual((v["visibility"], v["is_clip"], v["source"]), ("private", True, "live"))
         self.assertTrue(v["can_edit"])
         self.assertIsNotNone(v["cover"])
+        self.assertEqual(self.anon.get("/api/channel/alice/videos").get_json()["videos"], [])
+        self.assertEqual(self.alice.get("/api/channel/alice/videos").get_json()["videos"], [])  # not even on her own channel
+        for who in (self.anon, self.bob):
+            for tail in ("", "/video", "/cover"):
+                self.assertEqual(who.get(f"/api/vod/{vid}{tail}").status_code, 404, tail)
+        self.assertEqual(self.alice.get(f"/api/vod/{vid}/video").status_code, 200)
+        self.assertEqual(self.alice.get(f"/api/vod/{vid}/cover").status_code, 200)
+        self.assertEqual([x["id"] for x in self.alice.get("/api/me/videos").get_json()["videos"]], [vid])
+        self.assertEqual(self.anon.get("/api/me/videos").status_code, 401)
+        self.assertEqual(self.bob.get("/api/me/videos").get_json()["videos"], [])
+
+        # a clip can be changed as often as wanted: it never uses up the one change
+        for title in ("Draft", "My first live"):
+            r = post(self.alice, f"/api/vod/{vid}/edit", {"title": title})
+            self.assertEqual((r.status_code, r.get_json()["video"]["edited"], r.get_json()["video"]["can_edit"]), (200, False, True))
+        self.assertEqual(post(self.alice, f"/api/vod/{vid}/edit", {"title": "My first live"}).status_code, 400)  # nothing changed
+
+        # publishing: only the owner, a title is required, then it is public
+        self.assertEqual(post(self.bob, f"/api/vod/{vid}/publish").status_code, 404)
+        self.assertEqual(post(self.anon, f"/api/vod/{vid}/publish").status_code, 401)
+        self.assertEqual(post(self.alice, f"/api/vod/{vid}/publish", {"title": " "}).status_code, 400)
+        r = post(self.alice, f"/api/vod/{vid}/publish", {"description": "Hello"}).get_json()["video"]
+        self.assertEqual((r["visibility"], r["description"], r["can_edit"]), ("public", "Hello", True))
+        self.assertFalse(r["edited"])  # publishing did not use up the one change either
         listed = self.anon.get("/api/channel/alice/videos").get_json()["videos"]
         self.assertEqual([x["id"] for x in listed], [vid])
         self.assertFalse(listed[0]["can_edit"])  # guests can't edit
@@ -1314,9 +1701,9 @@ class YeliTests(unittest.TestCase):
         con.execute("UPDATE vods SET updated_at = updated_at - 1000, started_at = started_at - 1060 WHERE id = ?", (gone,))
         con.commit()
         con.close()
-        ids = [x["id"] for x in self.anon.get("/api/channel/alice/videos").get_json()["videos"]]
+        ids = [x["id"] for x in self.alice.get("/api/me/videos").get_json()["videos"]]
         self.assertIn(gone, ids)
-        self.assertGreater(self.anon.get(f"/api/vod/{gone}").get_json()["video"]["duration"], 0)
+        self.assertGreater(self.alice.get(f"/api/vod/{gone}").get_json()["video"]["duration"], 0)
 
         # size limit: the video is kept as it is and the browser is told to stop
         old_max = config.VOD_MAX_BYTES
@@ -1326,7 +1713,7 @@ class YeliTests(unittest.TestCase):
             self.assertEqual(self.alice.post(f"/api/vod/{big}/chunk?seq=0", data=b"123456", **octet).status_code, 200)
             r = self.alice.post(f"/api/vod/{big}/chunk?seq=1", data=b"123456", **octet)
             self.assertEqual((r.status_code, r.get_json()["closed"]), (413, True))
-            self.assertEqual(self.anon.get(f"/api/vod/{big}").get_json()["video"]["status"], "ready")
+            self.assertEqual(self.alice.get(f"/api/vod/{big}").get_json()["video"]["status"], "ready")
         finally:
             config.VOD_MAX_BYTES = old_max
 
@@ -1389,6 +1776,7 @@ class YeliTests(unittest.TestCase):
         vid = post(self.alice, "/api/vod/start", {"mime": "video/webm"}).get_json()["id"]
         self.alice.post(f"/api/vod/{vid}/chunk?seq=0", data=b"AAAA", content_type="application/octet-stream")
         post(self.alice, f"/api/vod/{vid}/finish")
+        post(self.alice, f"/api/vod/{vid}/publish")
         post(self.bob, f"/api/vod/{vid}/like", {"liked": True})
         post(self.bob, f"/api/vod/{vid}/like", {"liked": True})
         post(self.bob, f"/api/vod/{vid}/comments", {"text": "nice one"})

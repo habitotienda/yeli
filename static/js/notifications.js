@@ -12,7 +12,7 @@ const BELL_IC = (size = 20) => `<svg viewBox="0 0 24 24" width="${size}" height=
 
 /** Where each kind of notification leads when you click it. */
 function notifHref(n) {
-    if (n.kind === 'like' || n.kind === 'comment') return `#/video/${encodeURIComponent(n.ref)}`;
+    if (n.kind === 'like' || n.kind === 'comment' || n.kind === 'reply') return `#/video/${encodeURIComponent(n.ref)}`;
     if (n.kind === 'donation') return '#/wallet';
     return channelHref(n.actor);
 }
@@ -25,6 +25,7 @@ function notifText(n) {
         case 'follow': return `${who} <span>started following you</span>`;
         case 'donation': return `${who} <span>sent you</span> <b class="notif-amt">${coinImg(14)} ${num(n.amount)}</b> <span>Yelis</span>`;
         case 'comment': return `${who} <span>commented on</span>${title}`;
+        case 'reply': return `${who} <span>replied to your comment on</span>${title}`;
         case 'like': return `${who} <span>liked</span>${title}`;
         case 'live': return `${who} <span>is live now</span>${title ? ` <span class="notif-sub" translate="no">${esc(n.title)}</span>` : ''}`;
         default: return who;
@@ -34,6 +35,7 @@ function notifText(n) {
 const NOTIF_ICON = {
     follow: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/>',
     donation: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5h4a1.8 1.8 0 0 1 0 3.6h-3a1.8 1.8 0 0 0 0 3.6h4.2M12 7v2M12 17v2"/>',
+    reply: '<path d="M9 14L4 9l5-5"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/>',
     comment: '<path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.5 8.5 0 0 1-3.7-.9L3 21l1.9-5.3A8.4 8.4 0 0 1 3 11.5 8.5 8.5 0 0 1 12 3a8.5 8.5 0 0 1 9 8.5z"/>',
     like: '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21.2l7.8-7.7 1-1.1a5.5 5.5 0 0 0 0-7.8z"/>',
     live: '<circle cx="12" cy="12" r="2"/><path d="M16.2 7.8a6 6 0 0 1 0 8.4M7.8 16.2a6 6 0 0 1 0-8.4M19 5a10 10 0 0 1 0 14M5 19A10 10 0 0 1 5 5"/>',
@@ -151,6 +153,7 @@ function notifPlain(n, count) {
         case 'follow': return `${n.actor} started following you`;
         case 'donation': return `${n.actor} sent you ${num(n.amount)} Yelis`;
         case 'comment': return `${n.actor} commented on ${n.title}`;
+        case 'reply': return `${n.actor} replied to your comment on ${n.title}`;
         case 'like': return `${n.actor} liked ${n.title}`;
         case 'live': return `${n.actor} is live now`;
         default: return n.actor;
@@ -214,6 +217,7 @@ const NOTIF_KINDS = [
     ['follow', 'New followers', 'Someone follows your channel.'],
     ['donation', 'Yelis and stickers', 'Someone sends you Yelis or a paid sticker.'],
     ['comment', 'Comments', 'Someone comments on one of your videos.'],
+    ['reply', 'Replies', 'Someone replies to one of your comments.'],
     ['like', 'Likes', 'Someone likes one of your videos.'],
     ['live', 'Live streams', 'A channel you follow goes live.'],
 ];

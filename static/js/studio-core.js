@@ -637,11 +637,12 @@ function addChatSource() {
 
 function chatSegments(m) {
     const who = m.color || `hsl(${Number(m.hue) || 0} 75% 70%)`;
+    const tag = m.platform ? [{ text: `[${platformLabel(m.platform)}] `, color: platformColor(m.platform) }] : []; // came from another platform
     if (m.kind === 'donation') return [{ text: `${m.user} sent ${Number(m.amount).toLocaleString(window.YELI_LANG)} Yelis`, color: '#ffd24d' }, ...(m.text ? [{ text: ` ${m.text}`, color: '#fff' }] : [])];
     if (m.kind === 'bot') return [{ text: `${m.user}: `, color: '#74c0fc' }, { text: m.text, color: '#fff' }];
     if (m.kind === 'tts') return [{ text: '\u266a ', color: '#ffd24d' }, { text: m.text, color: '#fff' }];
     if (m.kind === 'sticker') return [{ text: `${m.user}: `, color: who }, { text: `[${stickerName(m.sticker)}]`, color: '#ffd24d' }];
-    return [{ text: `${m.user}: `, color: who }, { text: m.text, color: '#fff' }];
+    return [...tag, { text: `${m.user}: `, color: who }, { text: m.text, color: '#fff' }];
 }
 
 function wrapSegments(ctx, segs, maxW) {

@@ -1,11 +1,17 @@
-"""Saved streams: when a live ends, the recording becomes a video on the streamer's profile.
+"""Saved streams: when a live ends, the recording is kept as a private CLIP of the streamer.
+
+A clip is only visible to its owner. From there the streamer can open it in the video editor (cut, join, speed,
+filters, text...), and publish it (or the edited result) when it is ready: only published videos show up on the
+channel. Videos saved before clips existed stay published.
 
 How it works
   * the streamer's browser records the program output (MediaRecorder) and uploads it in ~5 s pieces while live
     (POST /api/vod/<id>/chunk), so closing the tab loses almost nothing
-  * when the stream ends the browser calls /finish and the recording becomes a public video of the channel
+  * when the stream ends the browser calls /finish and the recording becomes a private clip of the channel owner
+  * the editor exports its result with POST /api/vod/new + the same /chunk and /finish routes (a clip with source "edit")
+  * POST /api/vod/<id>/publish makes a clip public (and /unpublish takes it back to a private clip)
   * if the browser disappears, a recording that sent nothing for VOD_STALE_SECONDS is closed with what it has
-  * the streamer may change the cover, the title and the description ONE time (POST /api/vod/<id>/edit)
+  * a clip can be changed freely; once published, the streamer may change the cover, title and description ONE time
 
 Streams started from OBS over WHIP don't pass through the streamer's browser, so they are not recorded.
 """
@@ -41,15 +47,15 @@ def _remove_file(row):
         pass
 
 
-def _finalize(db, row, at):
-    """Close a recording: it becomes a video, or disappears when nothing was recorded."""
+def _finalize(db, row, at, duration=None):
+    """Close a recording: it becomes a (private) clip, or disappears when nothing was recorded."""
     if row["size"] <= 0:
         db.execute("DELETE FROM vods WHERE id = ?", (row["id"],))
         _remove_file(row)
         return False
     db.execute(
         "UPDATE vods SET status = 'ready', ended_at = ?, duration = ?, updated_at = ? WHERE id = ?",
-        (at, max(0, at - row["started_at"]), at, row["id"]),
+        (at, max(0, at - row["started_at"]) if duration is None else duration, at, row["id"]),
     )
     return True
 
@@ -83,7 +89,11 @@ def vod_json(row, me_row=None):
         "avatar": avatar_value(row),
         "is_mine": mine,
         "edited": bool(row["edited"]),
-        "can_edit": bool(mine and row["status"] == "ready" and not row["edited"]),
+        "visibility": row["visibility"],
+        "is_clip": row["visibility"] != "public",
+        "source": row["source"],
+        # a clip can be changed freely; a published video only once
+        "can_edit": bool(mine and row["status"] == "ready" and (row["visibility"] != "public" or not row["edited"])),
         "likes": row["likes"],
         "comment_count": row["comment_count"],
         "liked": bool(me_row and get_db().execute(
@@ -94,7 +104,7 @@ def vod_json(row, me_row=None):
 
 VOD_SELECT = """
 SELECT v.id, v.user_id, v.title, v.description, v.category, v.mime, v.status, v.size, v.duration, v.started_at,
-       v.cover_ver, v.edited, (v.cover IS NOT NULL AND LENGTH(v.cover) > 0) AS has_cover,
+       v.cover_ver, v.edited, v.visibility, v.source, (v.cover IS NOT NULL AND LENGTH(v.cover) > 0) AS has_cover,
        (SELECT COUNT(*) FROM vod_likes l WHERE l.vod_id = v.id) AS likes,
        (SELECT COUNT(*) FROM vod_comments c WHERE c.vod_id = v.id) AS comment_count,
        u.username, u.avatar, u.avatar_updated
@@ -109,12 +119,13 @@ def _get(db, vid):
 
 
 def _visible(row, me_row):
-    """Ready videos are public; a recording in progress is only known to its owner."""
+    """Published videos are public; clips and recordings in progress are only known to their owner."""
     if row is None:
         return False
+    mine = bool(me_row and me_row["id"] == row["user_id"])
     if row["status"] == "ready":
-        return vod_path(row).exists()
-    return bool(me_row and me_row["id"] == row["user_id"])
+        return vod_path(row).exists() and (row["visibility"] == "public" or mine)
+    return mine
 
 
 # --------------------------------------------------------------------------
@@ -139,20 +150,50 @@ def vod_start():
     saved = db.execute("SELECT COUNT(*) AS n FROM vods WHERE user_id = ? AND status = 'ready'", (me_row["id"],)).fetchone()["n"]
     if saved >= config.VOD_MAX_PER_USER:
         db.commit()
-        return err(f"You have {saved} saved videos, which is the limit. Delete one to save your next stream.", 409, limit=True)
+        return err(f"You have {saved} saved clips and videos, which is the limit. Delete one to save your next stream.", 409, limit=True)
 
     Path(config.VOD_DIR).mkdir(parents=True, exist_ok=True)
     vid = secrets.token_hex(8)
     t = now()
     db.execute(
-        """INSERT INTO vods (id, user_id, title, category, mime, status, started_at, updated_at, cover, cover_ver)
-           VALUES (?,?,?,?,?,'recording',?,?,(SELECT data FROM thumbnails WHERE user_id = ?),?)""",
+        """INSERT INTO vods (id, user_id, title, category, mime, status, started_at, updated_at, cover, cover_ver, visibility)
+           VALUES (?,?,?,?,?,'recording',?,?,(SELECT data FROM thumbnails WHERE user_id = ?),?,'private')""",
         (vid, me_row["id"], stream["title"] or f"{me_row['username']}'s stream", stream["category"] or "Other", mime, t, t,
          me_row["id"], t),
     )
     db.commit()
     row = db.execute("SELECT id, mime FROM vods WHERE id = ?", (vid,)).fetchone()
     vod_path(row).touch()
+    return jsonify(ok=True, id=vid, max_bytes=config.VOD_MAX_BYTES)
+
+
+@bp.post("/api/vod/new")
+@login_required
+def vod_new():
+    """Start an upload that is not a live stream (the editor's export). The pieces go to /chunk like a recording."""
+    me_row = current_user()
+    data = request.get_json(silent=True) or {}
+    mime = text_field(data, "mime", 80).split(";")[0].strip().lower()
+    if mime not in MIMES:
+        return err("This video format isn't supported.")
+    title = text_field(data, "title", config.VOD_TITLE_MAX) or "Edited video"
+    db = get_db()
+    for old in db.execute("SELECT * FROM vods WHERE user_id = ? AND status = 'recording' AND source = 'edit'", (me_row["id"],)).fetchall():
+        _finalize(db, old, old["updated_at"])  # an export that was abandoned
+    saved = db.execute("SELECT COUNT(*) AS n FROM vods WHERE user_id = ? AND status = 'ready'", (me_row["id"],)).fetchone()["n"]
+    if saved >= config.VOD_MAX_PER_USER:
+        db.commit()
+        return err(f"You have {saved} saved clips and videos, which is the limit. Delete one to save this one.", 409, limit=True)
+    Path(config.VOD_DIR).mkdir(parents=True, exist_ok=True)
+    vid = secrets.token_hex(8)
+    t = now()
+    db.execute(
+        """INSERT INTO vods (id, user_id, title, category, mime, status, started_at, updated_at, visibility, source)
+           VALUES (?,?,?,'Other',?,'recording',?,?,'private','edit')""",
+        (vid, me_row["id"], title, mime, t, t),
+    )
+    db.commit()
+    vod_path(db.execute("SELECT id, mime FROM vods WHERE id = ?", (vid,)).fetchone()).touch()
     return jsonify(ok=True, id=vid, max_bytes=config.VOD_MAX_BYTES)
 
 
@@ -214,7 +255,17 @@ def vod_finish(vid):
     if row is None or row["user_id"] != me_row["id"]:
         return err("Video not found.", 404)
     if row["status"] == "recording":
-        ok = _finalize(db, row_full(db, vid), now())
+        data = request.get_json(silent=True) or {}
+        duration = None
+        if row["source"] == "edit":  # an export is not a live: its length is what the editor says, not the wall clock
+            try:
+                duration = min(max(int(round(float(data.get("duration")))), 0), 24 * 3600)
+            except (TypeError, ValueError):
+                duration = None
+            cover = decode_jpeg(data.get("cover"), config.MAX_COVER_BYTES) if data.get("cover") else None
+            if cover is not None:
+                db.execute("UPDATE vods SET cover = ?, cover_ver = ? WHERE id = ?", (cover, now(), vid))
+        ok = _finalize(db, row_full(db, vid), now(), duration)
         db.commit()
         if not ok:
             return jsonify(ok=True, saved=False)
@@ -233,9 +284,23 @@ def channel_videos(username):
     close_stale(db, owner["id"])
     me_row = current_user()
     rows = db.execute(
-        f"{VOD_SELECT} WHERE v.user_id = ? AND v.status = 'ready' ORDER BY v.started_at DESC LIMIT 48", (owner["id"],)
+        f"{VOD_SELECT} WHERE v.user_id = ? AND v.status = 'ready' AND v.visibility = 'public' ORDER BY v.started_at DESC LIMIT 48",
+        (owner["id"],)
     ).fetchall()
     return jsonify(videos=[vod_json(r, me_row) for r in rows if vod_path(r).exists()])
+
+
+@bp.get("/api/me/videos")
+@login_required
+def my_videos():
+    """Everything I have saved, clips and published videos, newest first. This is what the editor and the Clips page use."""
+    me_row = current_user()
+    db = get_db()
+    close_stale(db, me_row["id"])
+    rows = db.execute(
+        f"{VOD_SELECT} WHERE v.user_id = ? AND v.status = 'ready' ORDER BY v.started_at DESC LIMIT 200", (me_row["id"],)
+    ).fetchall()
+    return jsonify(videos=[vod_json(r, me_row) for r in rows if vod_path(r).exists()], limit=config.VOD_MAX_PER_USER)
 
 
 @bp.get("/api/vod/<vid>")
@@ -254,10 +319,10 @@ def vod_info(vid):
 @bp.get("/api/vod/<vid>/video")
 def vod_file(vid):
     row = _get(get_db(), vid)
-    if row is None or row["status"] != "ready" or not vod_path(row).exists():
+    if row is None or row["status"] != "ready" or not _visible(row, current_user()):
         return err("Video not found.", 404)
     resp = send_file(vod_path(row), mimetype=row["mime"], conditional=True, max_age=3600)  # supports Range (seeking)
-    resp.headers["Cache-Control"] = "public, max-age=3600"
+    resp.headers["Cache-Control"] = ("public" if row["visibility"] == "public" else "private") + ", max-age=3600"
     return resp
 
 
@@ -265,18 +330,22 @@ def vod_file(vid):
 def vod_cover(vid):
     if not VOD_ID.match(vid):
         return err("No cover.", 404)
-    row = get_db().execute("SELECT cover, status FROM vods WHERE id = ?", (vid,)).fetchone()
+    row = get_db().execute("SELECT cover, status, visibility, user_id FROM vods WHERE id = ?", (vid,)).fetchone()
     if row is None or not row["cover"] or row["status"] != "ready":
         return err("No cover.", 404)
+    me_row = current_user()
+    public = row["visibility"] == "public"
+    if not public and not (me_row and me_row["id"] == row["user_id"]):
+        return err("No cover.", 404)
     resp = Response(row["cover"], mimetype="image/jpeg")
-    resp.headers["Cache-Control"] = "public, max-age=86400"
+    resp.headers["Cache-Control"] = ("public" if public else "private") + ", max-age=86400"
     return resp
 
 
 @bp.post("/api/vod/<vid>/edit")
 @login_required
 def vod_edit(vid):
-    """Change the title, the description and/or the cover. This works ONE time per video."""
+    """Change the title, the description and/or the cover: freely on a clip, ONE time once the video is published."""
     me_row = current_user()
     db = get_db()
     row = _get(db, vid)
@@ -284,7 +353,8 @@ def vod_edit(vid):
         return err("Video not found.", 404)
     if row["status"] != "ready":
         return err("You can edit the video once the stream has ended and it has been saved.", 409)
-    if row["edited"]:
+    published = row["visibility"] == "public"
+    if published and row["edited"]:
         return err("You already used your one change for this video.", 403, locked=True)
 
     data = request.get_json(silent=True) or {}
@@ -300,21 +370,61 @@ def vod_edit(vid):
         if cover is None:
             return err("That cover image isn't valid or is too big.", field="cover")
     if title == row["title"] and description == row["description"] and cover is None:
-        return err("Nothing to change. Your one change is still available.")
+        return err("Nothing to change." + (" Your one change is still available." if published else ""))
 
     # The `edited = 0` condition makes the one-time rule safe even if two requests arrive together.
+    # A clip (not published) never uses it up.
+    lock = ", edited = 1" if published else ""
+    guard = " AND edited = 0" if published else ""
     if cover is not None:
         n = db.execute(
-            "UPDATE vods SET title = ?, description = ?, cover = ?, cover_ver = ?, edited = 1 WHERE id = ? AND edited = 0",
+            f"UPDATE vods SET title = ?, description = ?, cover = ?, cover_ver = ?{lock} WHERE id = ?{guard}",
             (title, description, cover, now(), vid),
         ).rowcount
     else:
-        n = db.execute(
-            "UPDATE vods SET title = ?, description = ?, edited = 1 WHERE id = ? AND edited = 0", (title, description, vid)
-        ).rowcount
+        n = db.execute(f"UPDATE vods SET title = ?, description = ?{lock} WHERE id = ?{guard}", (title, description, vid)).rowcount
     db.commit()
     if not n:
         return err("You already used your one change for this video.", 403, locked=True)
+    return jsonify(ok=True, video=vod_json(_get(db, vid), me_row))
+
+
+@bp.post("/api/vod/<vid>/publish")
+@login_required
+def vod_publish(vid):
+    """Make a clip public on the channel. A title and a description can be set in the same step."""
+    me_row = current_user()
+    db = get_db()
+    row = _get(db, vid)
+    if row is None or row["user_id"] != me_row["id"]:
+        return err("Video not found.", 404)
+    if row["status"] != "ready":
+        return err("This recording is still being saved.", 409)
+    data = request.get_json(silent=True) or {}
+    if row["visibility"] != "public":
+        title, description = row["title"], row["description"]
+        if "title" in data:
+            title = text_field(data, "title", config.VOD_TITLE_MAX)
+            if not title:
+                return err("Give your video a title.", field="title")
+        if "description" in data:
+            description = text_field(data, "description", config.VOD_DESC_MAX)
+        db.execute("UPDATE vods SET visibility = 'public', title = ?, description = ? WHERE id = ?", (title, description, vid))
+        db.commit()
+    return jsonify(ok=True, video=vod_json(_get(db, vid), me_row))
+
+
+@bp.post("/api/vod/<vid>/unpublish")
+@login_required
+def vod_unpublish(vid):
+    """Take a published video back to a private clip. Its likes and comments are kept for when it is published again."""
+    me_row = current_user()
+    db = get_db()
+    row = _get(db, vid)
+    if row is None or row["user_id"] != me_row["id"]:
+        return err("Video not found.", 404)
+    db.execute("UPDATE vods SET visibility = 'private' WHERE id = ?", (vid,))
+    db.commit()
     return jsonify(ok=True, video=vod_json(_get(db, vid), me_row))
 
 
@@ -327,6 +437,7 @@ def vod_delete(vid):
     if row is None or row["user_id"] != me_row["id"]:
         return err("Video not found.", 404)
     db.execute("DELETE FROM vod_likes WHERE vod_id = ?", (vid,))
+    db.execute("DELETE FROM vod_comment_likes WHERE comment_id IN (SELECT id FROM vod_comments WHERE vod_id = ?)", (vid,))
     db.execute("DELETE FROM vod_comments WHERE vod_id = ?", (vid,))
     db.execute("DELETE FROM vods WHERE id = ?", (vid,))
     db.commit()
@@ -341,9 +452,9 @@ COMMENTS_PAGE = 20
 
 
 def _watchable(db, vid):
-    """The video row if it is saved and public, else None."""
+    """The video row if it is saved and published, else None. Clips (private) take no likes or comments."""
     row = _get(db, vid)
-    return row if row is not None and row["status"] == "ready" and vod_path(row).exists() else None
+    return row if row is not None and row["status"] == "ready" and row["visibility"] == "public" and vod_path(row).exists() else None
 
 
 @bp.post("/api/vod/<vid>/like")
@@ -380,18 +491,36 @@ def _comment_json(r, me_row, can_mod):
         "avatar": avatar_value(r),
         "is_mine": mine,
         "can_delete": mine or can_mod,
+        "likes": r["likes"],
+        "liked": bool(r["liked"]),
+        "parent": r["parent_id"],              # None for a top-level comment
+        "reply_to": r["reply_to_name"],        # the username being answered (replies only)
+        "reply_count": r["reply_count"],
     }
 
 
 COMMENT_SELECT = """
-SELECT c.id, c.user_id, c.text, c.created_at, u.username, u.avatar, u.avatar_updated
-FROM vod_comments c JOIN users u ON u.id = c.user_id
+SELECT c.id, c.user_id, c.text, c.created_at, c.parent_id, u.username, u.avatar, u.avatar_updated, ru.username AS reply_to_name,
+       (SELECT COUNT(*) FROM vod_comment_likes cl WHERE cl.comment_id = c.id) AS likes,
+       EXISTS(SELECT 1 FROM vod_comment_likes cl WHERE cl.comment_id = c.id AND cl.user_id = :me) AS liked,
+       (SELECT COUNT(*) FROM vod_comments x WHERE x.parent_id = c.id) AS reply_count
+FROM vod_comments c JOIN users u ON u.id = c.user_id LEFT JOIN users ru ON ru.id = c.reply_to
 """
+
+
+def _me_id(me_row):
+    return me_row["id"] if me_row else 0
+
+
+def _comment_total(db, vid):
+    """Every comment, replies included."""
+    return db.execute("SELECT COUNT(*) AS n FROM vod_comments WHERE vod_id = ?", (vid,)).fetchone()["n"]
 
 
 @bp.get("/api/vod/<vid>/comments")
 def vod_comments(vid):
-    """Newest first, COMMENTS_PAGE at a time. `before` is the id of the oldest comment already shown."""
+    """Top-level comments, newest first, COMMENTS_PAGE at a time. `before` is the id of the oldest one already shown.
+    Replies are fetched per comment (see vod_replies)."""
     db = get_db()
     row = _watchable(db, vid)
     if row is None:
@@ -399,15 +528,31 @@ def vod_comments(vid):
     me_row = current_user()
     can_mod = bool(me_row and can_moderate(db, row["user_id"], me_row["id"]))
     before = int_arg("before", 0)
-    sql = f"{COMMENT_SELECT} WHERE c.vod_id = ?"
-    args = [vid]
+    sql = f"{COMMENT_SELECT} WHERE c.vod_id = :vid AND c.parent_id IS NULL"
+    args = {"me": _me_id(me_row), "vid": vid, "limit": COMMENTS_PAGE + 1}
     if before:
-        sql += " AND c.id < ?"
-        args.append(before)
-    rows = db.execute(sql + " ORDER BY c.id DESC LIMIT ?", args + [COMMENTS_PAGE + 1]).fetchall()
-    total = db.execute("SELECT COUNT(*) AS n FROM vod_comments WHERE vod_id = ?", (vid,)).fetchone()["n"]
+        sql += " AND c.id < :before"
+        args["before"] = before
+    rows = db.execute(sql + " ORDER BY c.id DESC LIMIT :limit", args).fetchall()
     return jsonify(comments=[_comment_json(r, me_row, can_mod) for r in rows[:COMMENTS_PAGE]],
-                   more=len(rows) > COMMENTS_PAGE, total=total)
+                   more=len(rows) > COMMENTS_PAGE, total=_comment_total(db, vid))
+
+
+@bp.get("/api/vod/<vid>/comments/<int:cid>/replies")
+def vod_replies(vid, cid):
+    """The replies to one comment, oldest first (a conversation reads top to bottom). `after` is the last id already shown."""
+    db = get_db()
+    row = _watchable(db, vid)
+    if row is None:
+        return err("Video not found.", 404)
+    me_row = current_user()
+    can_mod = bool(me_row and can_moderate(db, row["user_id"], me_row["id"]))
+    after = int_arg("after", 0)
+    rows = db.execute(
+        f"{COMMENT_SELECT} WHERE c.vod_id = :vid AND c.parent_id = :cid AND c.id > :after ORDER BY c.id ASC LIMIT :limit",
+        {"me": _me_id(me_row), "vid": vid, "cid": cid, "after": after, "limit": COMMENTS_PAGE + 1},
+    ).fetchall()
+    return jsonify(comments=[_comment_json(r, me_row, can_mod) for r in rows[:COMMENTS_PAGE]], more=len(rows) > COMMENTS_PAGE)
 
 
 def _comment_blocked(db, channel_id, user_id, text):
@@ -432,6 +577,8 @@ def _comment_blocked(db, channel_id, user_id, text):
 @bp.post("/api/vod/<vid>/comments")
 @login_required
 def vod_comment_add(vid):
+    """Add a comment, or a reply when `parent` (a comment id) is given. A reply to a reply is attached to the top-level
+    comment of that conversation and remembers who it answers."""
     me_row = current_user()
     db = get_db()
     row = _watchable(db, vid)
@@ -441,6 +588,18 @@ def vod_comment_add(vid):
     text = " ".join(text_field(data, "text", config.VOD_COMMENT_MAX * 2).split())[: config.VOD_COMMENT_MAX]
     if not text:
         return err("Write a comment first.")
+    parent_id = reply_to = None
+    answered = None
+    if data.get("parent") not in (None, ""):
+        try:
+            asked = int(data["parent"])
+        except (TypeError, ValueError):
+            return err("That comment doesn't exist.", 404)
+        answered = db.execute("SELECT id, user_id, parent_id FROM vod_comments WHERE id = ? AND vod_id = ?", (asked, vid)).fetchone()
+        if answered is None:
+            return err("That comment doesn't exist anymore.", 404)
+        parent_id = answered["parent_id"] or answered["id"]
+        reply_to = answered["user_id"]
     t = now()
     recent = db.execute("SELECT COUNT(*) AS n FROM vod_comments WHERE user_id = ? AND created_at >= ?", (me_row["id"], t - 60)).fetchone()["n"]
     if recent >= 5:
@@ -448,13 +607,41 @@ def vod_comment_add(vid):
     blocked = _comment_blocked(db, row["user_id"], me_row["id"], text)
     if blocked:
         return err(blocked[0], blocked[1])
-    cur = db.execute("INSERT INTO vod_comments (vod_id, user_id, text, created_at) VALUES (?,?,?,?)", (vid, me_row["id"], text, t))
-    if row["user_id"] != me_row["id"]:
+    cur = db.execute(
+        "INSERT INTO vod_comments (vod_id, user_id, text, created_at, parent_id, reply_to) VALUES (?,?,?,?,?,?)",
+        (vid, me_row["id"], text, t, parent_id, reply_to),
+    )
+    told = {me_row["id"]}
+    if answered is not None and answered["user_id"] not in told:
+        notify(db, answered["user_id"], "reply", actor=me_row["username"], ref=vid, title=row["title"], body=text)
+        told.add(answered["user_id"])
+    if row["user_id"] not in told:
         notify(db, row["user_id"], "comment", actor=me_row["username"], ref=vid, title=row["title"], body=text)
     db.commit()
-    created = db.execute(f"{COMMENT_SELECT} WHERE c.id = ?", (cur.lastrowid,)).fetchone()
-    total = db.execute("SELECT COUNT(*) AS n FROM vod_comments WHERE vod_id = ?", (vid,)).fetchone()["n"]
-    return jsonify(comment=_comment_json(created, me_row, can_moderate(db, row["user_id"], me_row["id"])), total=total), 201
+    created = db.execute(f"{COMMENT_SELECT} WHERE c.id = :id", {"me": me_row["id"], "id": cur.lastrowid}).fetchone()
+    return jsonify(comment=_comment_json(created, me_row, can_moderate(db, row["user_id"], me_row["id"])), total=_comment_total(db, vid)), 201
+
+
+@bp.post("/api/vod/<vid>/comments/<int:cid>/like")
+@login_required
+def vod_comment_like(vid, cid):
+    """Set (or remove) my like on a comment or a reply. Sending the same value twice is harmless."""
+    me_row = current_user()
+    db = get_db()
+    if _watchable(db, vid) is None:
+        return err("Video not found.", 404)
+    if db.execute("SELECT 1 FROM vod_comments WHERE id = ? AND vod_id = ?", (cid, vid)).fetchone() is None:
+        return err("Comment not found.", 404)
+    liked = (request.get_json(silent=True) or {}).get("liked")
+    if not isinstance(liked, bool):
+        return err("Say whether you like it.")
+    if liked:
+        db.execute("INSERT OR IGNORE INTO vod_comment_likes (comment_id, user_id, created_at) VALUES (?,?,?)", (cid, me_row["id"], now()))
+    else:
+        db.execute("DELETE FROM vod_comment_likes WHERE comment_id = ? AND user_id = ?", (cid, me_row["id"]))
+    db.commit()
+    n = db.execute("SELECT COUNT(*) AS n FROM vod_comment_likes WHERE comment_id = ?", (cid,)).fetchone()["n"]
+    return jsonify(ok=True, liked=liked, likes=n)
 
 
 @bp.post("/api/vod/<vid>/comments/<int:cid>/delete")
@@ -471,7 +658,7 @@ def vod_comment_delete(vid, cid):
         return err("Comment not found.", 404)
     if c["user_id"] != me_row["id"] and not can_moderate(db, row["user_id"], me_row["id"]):
         return err("You can't remove that comment.", 403)
+    db.execute("DELETE FROM vod_comments WHERE parent_id = ?", (cid,))  # its replies go with it
     db.execute("DELETE FROM vod_comments WHERE id = ?", (cid,))
     db.commit()
-    total = db.execute("SELECT COUNT(*) AS n FROM vod_comments WHERE vod_id = ?", (vid,)).fetchone()["n"]
-    return jsonify(ok=True, total=total)
+    return jsonify(ok=True, total=_comment_total(db, vid))

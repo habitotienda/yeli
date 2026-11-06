@@ -18,17 +18,22 @@ bp = Blueprint("chat", __name__)
 
 def chat_json(row, channel_id):
     bot = row["kind"] == "bot"
+    keys = row.keys()
+    platform = row["platform"] if "platform" in keys else ""  # a message that came from Kick, TikTok, Twitch...
+    ext = row["ext_name"] if "ext_name" in keys and platform else ""
+    name = BOT_NAME if bot else (ext or row["username"])
     return {
         "id": row["id"],
-        "user": BOT_NAME if bot else row["username"],
-        "hue": 200 if bot else avatar_hue(row["username"]),
+        "user": name,
+        "platform": platform,
+        "hue": 200 if bot else avatar_hue(name),
         "text": row["text"],
         "ts": row["created_at"],
-        "owner": row["user_id"] == channel_id and not bot,
-        "badge": 0 if bot or "badge" not in row.keys() else economy.level_value("badge", row["badge"]),
-        "color": "" if bot or "name_color" not in row.keys() else row["name_color"],
-        "mod": bool("is_mod" in row.keys() and row["is_mod"]) and not bot,
-        "kind": row["kind"],
+        "owner": row["user_id"] == channel_id and not bot and not platform,
+        "badge": 0 if bot or platform or "badge" not in keys else economy.level_value("badge", row["badge"]),
+        "color": "" if bot or platform or "name_color" not in keys else row["name_color"],
+        "mod": bool("is_mod" in keys and row["is_mod"]) and not bot and not platform,
+        "kind": "msg" if row["kind"] == "ext" else row["kind"],
         "sticker": row["sticker"],
         "amount": row["amount"],
     }
@@ -38,7 +43,7 @@ def channel_row(username):
     return get_db().execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
 
 
-CHAT_BASE = """SELECT m.id, m.text, m.created_at, m.user_id, m.kind, m.sticker, m.amount, u.username,
+CHAT_BASE = """SELECT m.id, m.text, m.created_at, m.user_id, m.kind, m.sticker, m.amount, m.platform, m.ext_name, u.username,
                u.name_color,
                EXISTS(SELECT 1 FROM chat_mods cm WHERE cm.channel_id = m.channel_id AND cm.user_id = m.user_id) AS is_mod,
                COALESCE((SELECT level FROM upgrades up WHERE up.user_id = m.user_id AND up.track = 'badge'), 0) AS badge

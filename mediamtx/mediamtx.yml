@@ -20,7 +20,8 @@ authHTTPExclude:
   - action: pprof
 
 # --- only WebRTC is needed ------------------------------------------------------------------------
-rtsp: no
+rtsp: yes                     # only so Yeli's ffmpeg can read the stream to send it to Kick, TikTok, Twitch... Keep it private (see README)
+rtspAddress: 127.0.0.1:8554   # with Docker the compose file overrides this (MTX_RTSPADDRESS) and publishes the port on 127.0.0.1 only
 rtmp: no
 hls: no
 srt: no

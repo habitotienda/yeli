@@ -18,10 +18,10 @@ from .db import get_db
 
 bp = Blueprint("notifications", __name__)
 
-KINDS = ("follow", "donation", "comment", "like", "live")
+KINDS = ("follow", "donation", "comment", "reply", "like", "live")
 # (shown in the app, sent by email) when the person never touched the setting.
 # Emails default to the things that deserve one; "like" and "live" can be frequent, so they start app-only.
-DEFAULTS = {"follow": (1, 1), "donation": (1, 1), "comment": (1, 1), "like": (1, 0), "live": (1, 0)}
+DEFAULTS = {"follow": (1, 1), "donation": (1, 1), "comment": (1, 1), "reply": (1, 1), "like": (1, 0), "live": (1, 0)}
 DEDUPE_SECONDS = {"follow": 86400, "like": 86400}  # follow/unfollow or like/unlike spam doesn't ring twice
 LIVE_COOLDOWN = 1800  # a streamer who restarts within 30 minutes doesn't notify everybody again
 MAX_FOLLOWERS_NOTIFIED = 5000
@@ -67,6 +67,7 @@ T = {
         "follow": ("{actor} started following you", "{actor} is now following your channel.", "View their channel", "channel"),
         "donation": ("{actor} sent you {amount} Yelis", "{actor} sent you {amount} Yelis.", "Open my wallet", "wallet"),
         "comment": ("{actor} commented on “{title}”", "{actor} commented on your video “{title}”.", "Read the comment", "video"),
+        "reply": ("{actor} replied to your comment", "{actor} replied to your comment on “{title}”.", "Read the reply", "video"),
         "like": ("{actor} liked “{title}”", "{actor} liked your video “{title}”.", "View my video", "video"),
         "live": ("{actor} is live now", "{actor} just went live: {title}", "Watch now", "channel"),
         "test": ("Yeli test email", "This is a test: your notification emails work.", "Open Yeli", "home"),
@@ -78,6 +79,7 @@ T = {
         "follow": ("{actor} empezó a seguirte", "{actor} ahora sigue tu canal.", "Ver su canal", "channel"),
         "donation": ("{actor} te envió {amount} Yelis", "{actor} te envió {amount} Yelis.", "Abrir mi billetera", "wallet"),
         "comment": ("{actor} comentó en «{title}»", "{actor} comentó en tu video «{title}».", "Leer el comentario", "video"),
+        "reply": ("{actor} respondió a tu comentario", "{actor} respondió a tu comentario en «{title}».", "Leer la respuesta", "video"),
         "like": ("A {actor} le gustó «{title}»", "A {actor} le gustó tu video «{title}».", "Ver mi video", "video"),
         "live": ("{actor} está en directo", "{actor} acaba de empezar un directo: {title}", "Ver ahora", "channel"),
         "test": ("Correo de prueba de Yeli", "Esto es una prueba: tus correos de notificaciones funcionan.", "Abrir Yeli", "home"),
@@ -106,7 +108,7 @@ def compose(kind, lang, base, unsub, actor="", title="", body="", amount=0, ref=
     subject = subject_t.format(**vals)
     line = line_t.format(**vals)
     url = _link(target, base, actor, ref)
-    quote = body if kind in ("comment", "donation") else ""
+    quote = body if kind in ("comment", "reply", "donation") else ""
     manage = f"{base}/#/settings"
     text = "\n".join(filter(None, [line, f"“{quote}”" if quote else "", "", f"{cta}: {url}", "", "--", tr["foot"], f"{tr['manage']}: {manage}", f"{tr['unsub']}: {unsub}"]))
     e = htmllib.escape

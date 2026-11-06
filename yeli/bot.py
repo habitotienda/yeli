@@ -113,6 +113,11 @@ def moderate(db, channel_id, user_id, text):
         wait = st["slow_seconds"] - (now() - last)
         if wait > 0:
             return f"Slow mode is on. Wait {wait}s.", 429
+    return text_rules(st, text)
+
+
+def text_rules(st, text):
+    """The chat rules that look only at the text (links, blocked words, capitals): (message, status) or None."""
     if st["block_links"] and LINK_RE.search(text):
         return "Links aren't allowed in this chat.", 400
     low = text.lower()

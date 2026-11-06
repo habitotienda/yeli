@@ -33,7 +33,9 @@ CREATE TABLE IF NOT EXISTS chat_messages (
     deleted_at INTEGER,
     kind       TEXT NOT NULL DEFAULT 'msg',
     sticker    TEXT NOT NULL DEFAULT '',
-    amount     INTEGER NOT NULL DEFAULT 0
+    amount     INTEGER NOT NULL DEFAULT 0,
+    platform   TEXT NOT NULL DEFAULT '',
+    ext_name   TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_chat_channel ON chat_messages(channel_id, id);
 CREATE TABLE IF NOT EXISTS follows (
@@ -53,6 +55,25 @@ CREATE TABLE IF NOT EXISTS streams (
     mode       TEXT NOT NULL DEFAULT 'p2p',
     ip         TEXT NOT NULL DEFAULT ''
 );
+CREATE TABLE IF NOT EXISTS destinations (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    platform   TEXT NOT NULL,
+    name       TEXT NOT NULL DEFAULT '',
+    url        TEXT NOT NULL,
+    stream_key TEXT NOT NULL,
+    enabled    INTEGER NOT NULL DEFAULT 1,
+    fmt        TEXT NOT NULL DEFAULT 'original',
+    created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_destinations_user ON destinations(user_id);
+CREATE TABLE IF NOT EXISTS bridges (
+    user_id        INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    token          TEXT NOT NULL,
+    twitch_channel TEXT NOT NULL DEFAULT '',
+    twitch_enabled INTEGER NOT NULL DEFAULT 0
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_bridges_token ON bridges(token);
 CREATE TABLE IF NOT EXISTS thumbnails (
     user_id    INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     data       BLOB NOT NULL,
@@ -295,7 +316,11 @@ CREATE TABLE IF NOT EXISTS vods (
     updated_at  INTEGER NOT NULL,
     cover       BLOB,
     cover_ver   INTEGER NOT NULL DEFAULT 0,
-    edited      INTEGER NOT NULL DEFAULT 0
+    edited      INTEGER NOT NULL DEFAULT 0,
+    -- 'private' = a clip only its owner can see; 'public' = published on the channel. Older rows were public.
+    visibility  TEXT NOT NULL DEFAULT 'public',
+    -- 'live' = recorded from a stream, 'edit' = exported from the video editor
+    source      TEXT NOT NULL DEFAULT 'live'
 );
 CREATE INDEX IF NOT EXISTS idx_vods_user ON vods(user_id, started_at);
 
@@ -311,9 +336,19 @@ CREATE TABLE IF NOT EXISTS vod_comments (
     vod_id     TEXT NOT NULL REFERENCES vods(id) ON DELETE CASCADE,
     user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     text       TEXT NOT NULL,
-    created_at INTEGER NOT NULL
+    created_at INTEGER NOT NULL,
+    -- replies: parent_id is always a top-level comment (one level, like YouTube); reply_to is who is being answered
+    parent_id  INTEGER REFERENCES vod_comments(id) ON DELETE CASCADE,
+    reply_to   INTEGER REFERENCES users(id) ON DELETE SET NULL
 );
 CREATE INDEX IF NOT EXISTS idx_vod_comments ON vod_comments(vod_id, id);
+
+CREATE TABLE IF NOT EXISTS vod_comment_likes (
+    comment_id INTEGER NOT NULL REFERENCES vod_comments(id) ON DELETE CASCADE,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY (comment_id, user_id)
+);
 
 -- Notifications: one row per event per person. `shown` = appears in the bell; `emailed` = an email went out for it.
 CREATE TABLE IF NOT EXISTS notifications (
@@ -371,13 +406,19 @@ def init_db(path=None):
                           ("tts_perm", "TEXT NOT NULL DEFAULT 'everyone'"), ("tts_cooldown", "INTEGER NOT NULL DEFAULT 30"),
                           ("tts_max", "INTEGER NOT NULL DEFAULT 120"), ("tts_lang", "TEXT NOT NULL DEFAULT ''"),
                           ("tts_output", "TEXT NOT NULL DEFAULT 'stream'")],
-        "chat_messages": [("kind", "TEXT NOT NULL DEFAULT 'msg'"), ("sticker", "TEXT NOT NULL DEFAULT ''"), ("amount", "INTEGER NOT NULL DEFAULT 0")],
+        "chat_messages": [("kind", "TEXT NOT NULL DEFAULT 'msg'"), ("sticker", "TEXT NOT NULL DEFAULT ''"), ("amount", "INTEGER NOT NULL DEFAULT 0"),
+                          ("platform", "TEXT NOT NULL DEFAULT ''"), ("ext_name", "TEXT NOT NULL DEFAULT ''")],
+        "vods": [("visibility", "TEXT NOT NULL DEFAULT 'public'"), ("source", "TEXT NOT NULL DEFAULT 'live'")],
+        "vod_comments": [("parent_id", "INTEGER REFERENCES vod_comments(id) ON DELETE CASCADE"),
+                         ("reply_to", "INTEGER REFERENCES users(id) ON DELETE SET NULL")],
         "viewers": [("viewer_key", "TEXT NOT NULL DEFAULT ''"), ("user_id", "INTEGER"), ("superseded", "INTEGER NOT NULL DEFAULT 0"), ("ip", "TEXT NOT NULL DEFAULT ''")],
     }.items():
         have = {r[1] for r in con.execute(f"PRAGMA table_info({table})")}
         for name, ddl in columns:
             if name not in have:
                 con.execute(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}")
+    # Created here (not in SCHEMA) because older databases only get the column from the loop above.
+    con.execute("CREATE INDEX IF NOT EXISTS idx_vod_replies ON vod_comments(parent_id, id)")
     con.commit()
     con.close()
 

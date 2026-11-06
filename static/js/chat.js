@@ -14,6 +14,11 @@ const SMILE = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true
    Voice: reads the !say messages aloud with the browser's own speech engine.
    Shared by every chat (viewers, the studio, the pop-out) and by the "Test voice" button.
    ========================================================================= */
+const PLATFORM_LABELS = { kick: 'Kick', tiktok: 'TikTok', twitch: 'Twitch', youtube: 'YouTube', facebook: 'Facebook', instagram: 'Instagram' };
+const PLATFORM_COLORS = { kick: '#53fc18', tiktok: '#fe2c55', twitch: '#9146ff', youtube: '#ff0000', facebook: '#1877f2', instagram: '#e1306c' };
+const platformLabel = (p) => PLATFORM_LABELS[p] || String(p || '').slice(0, 10);
+const platformColor = (p) => PLATFORM_COLORS[p] || '#9aa0a6';
+
 const Voice = (() => {
     const synth = () => ('speechSynthesis' in window ? window.speechSynthesis : null);
     let unlocked = false;
@@ -159,6 +164,18 @@ function createChat(container, channel, { isOwner = false, canMod = isOwner, onV
     }
 
     function nameLink(m) {
+        if (m.platform) { // someone from another platform: no profile to link to, so show where they come from
+            const wrap = document.createElement('span');
+            wrap.className = 'chat-user chat-ext';
+            const tag = document.createElement('span');
+            tag.className = `plat-tag plat-${m.platform}`;
+            tag.textContent = platformLabel(m.platform);
+            const who = document.createElement('span');
+            who.style.color = `hsl(${Number(m.hue) || 0} 75% 70%)`;
+            who.textContent = m.user;
+            wrap.append(tag, who);
+            return wrap;
+        }
         const name = document.createElement('a');
         name.className = 'chat-user';
         name.href = channelHref(m.user);
@@ -248,7 +265,7 @@ function createChat(container, channel, { isOwner = false, canMod = isOwner, onV
             });
             row.append(del);
         }
-        if (canMod && m.kind !== 'bot' && !m.owner && state.me && state.me.username !== m.user) {
+        if (canMod && m.kind !== 'bot' && !m.owner && !m.platform && state.me && state.me.username !== m.user) {
             const tools = document.createElement('span');
             tools.className = 'chat-modtools';
             for (const [label, minutes, purge, title] of [['10m', 10, false, 'Time out for 10 minutes'], ['Ban', 0, true, 'Ban and delete their messages']]) {

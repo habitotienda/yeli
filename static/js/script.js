@@ -122,7 +122,7 @@ function setActiveNav(path) {
 }
 
 /* The order of the main sections decides which way a page bounces in: forward comes from the right, back from the left. */
-const SECTION_RANK = [['/', 0], ['/explore', 1], ['/following', 2], ['/search', 3], ['/c/', 4], ['/video/', 4], ['/studio', 5], ['/wallet', 6], ['/chest', 6], ['/bot', 7], ['/moderation', 7], ['/settings', 8], ['/admin', 9]];
+const SECTION_RANK = [['/', 0], ['/explore', 1], ['/following', 2], ['/search', 3], ['/c/', 4], ['/video/', 4], ['/studio', 5], ['/clips', 5], ['/editor', 5], ['/wallet', 6], ['/chest', 6], ['/bot', 7], ['/moderation', 7], ['/settings', 8], ['/admin', 9]];
 const rankOf = (path) => (SECTION_RANK.find(([p]) => (p.endsWith('/') && p.length > 1 ? path.startsWith(p) : path === p)) || [0, 3.5])[1];
 let lastRank = 0;
 let enterTimer = null;
@@ -166,6 +166,8 @@ async function route(focus = false) {
         else if (path === '/settings') await pageSettings(root, alive, params);
         else if (path === '/wallet') await pageWallet(root, alive, params);
         else if (path === '/chest') await pageChest(root, alive);
+        else if (path === '/clips') await pageClips(root, alive);
+        else if (path === '/editor' || path.startsWith('/editor/')) await pageEditor(root, decodeURIComponent(path.slice(8)), alive);
         else if (path === '/bot') await pageBot(root, alive);
         else if (path === '/moderation') await pageModeration(root, alive);
         else if (path.startsWith('/popout/')) await pagePopout(root, decodeURIComponent(path.slice(8)), params);
@@ -776,6 +778,7 @@ const MI = {
     up: mi('<path d="M12 19V6M6 11l6-6 6 6"/>'),
     lock: mi('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'),
     sliders: mi('<path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h9M19 18h1"/><circle cx="15" cy="6" r="2.5"/><circle cx="9" cy="12" r="2.5"/><circle cx="16" cy="18" r="2.5"/>'),
+    film: mi('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/>'),
     logout: mi('<path d="M9 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4M15 8l4 4-4 4M19 12H9"/>'),
 };
 
@@ -812,6 +815,7 @@ function renderAuth() {
                 <div class="um-sep" role="separator"></div>
                 <div class="um-group" role="group" aria-label="Creator tools">
                     <a role="menuitem" href="#/studio">${MI.studio}<span>Stream manager</span></a>
+                    <a role="menuitem" href="#/clips">${MI.film}<span>Clips &amp; editor</span></a>
                     <a role="menuitem" href="#/bot">${MI.bot}<span>Bot &amp; chat</span></a>
                     <a role="menuitem" href="#/moderation">${MI.shield}<span>Moderation</span></a>
                 </div>

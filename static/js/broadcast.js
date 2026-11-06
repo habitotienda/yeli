@@ -42,7 +42,7 @@ async function startStreaming({ external = false } = {}) {
 
 /* =========================================================================
    Saved stream: the program output is recorded here and uploaded in ~5 s pieces while live.
-   When the stream ends it becomes a video on the streamer's profile (see yeli/vods.py).
+   When the stream ends it is kept as a private clip of the streamer (see yeli/vods.py); nothing is published.
    Streams that come from OBS over WHIP never pass through this browser, so they are not recorded.
    ========================================================================= */
 const VOD_MIMES = ['video/webm;codecs=vp8,opus', 'video/webm;codecs=vp9,opus', 'video/webm', 'video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4'];
@@ -125,14 +125,14 @@ function stopRecording(b) {
         r.addEventListener('stop', () => resolve(), { once: true });
         try { r.stop(); } catch { resolve(); }
     });
-    toast('Saving your stream as a video\u2026 keep this tab open a few seconds.');
+    toast('Saving your stream as a clip\u2026 keep this tab open a few seconds.');
     return (async () => {
         try {
             await stopped; // the last piece is queued just before 'stop'
             await Promise.race([rec.queue, new Promise((r) => setTimeout(r, 30000))]);
             const r = await api(`/vod/${rec.id}/finish`, { method: 'POST' });
             if (r.saved) {
-                toast('Your stream was saved as a video on your profile.');
+                toast('Saved as a private clip. Find it in Clips to edit it or publish it.');
                 window.dispatchEvent(new CustomEvent('yeli:vod-saved', { detail: r.video }));
             }
         } catch { /* the server closes the recording by itself shortly after */ }

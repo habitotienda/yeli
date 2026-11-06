@@ -125,6 +125,7 @@ function buildWorkspace(root) {
                     <select id="obsCat" class="obs-input">${optionList(state.config.categories.map((c) => [c, c]), cfg.category)}</select>
                     <button type="button" class="btn-start" id="obsStart" data-act="toggle-stream">Start Streaming</button>
                     <button type="button" class="obs-btn" id="obsFromObs" data-act="go-obs" ${state.config.media.enabled ? '' : 'hidden'}>Go live from OBS</button>
+                    <button type="button" class="obs-btn" data-act="platforms">Platforms</button>
                     <div class="row">
                         <button type="button" class="obs-btn" data-act="settings">Settings</button>
                         <a class="obs-btn" href="${channelHref(state.me.username)}">My channel</a>
@@ -137,6 +138,7 @@ function buildWorkspace(root) {
 
         <dialog class="dialog obs-dialog" id="propsDialog" aria-label="Source properties"></dialog>
         <dialog class="dialog obs-dialog" id="settingsDialog" aria-label="Settings"></dialog>
+        <dialog class="dialog obs-dialog" id="platformsDialog" aria-label="Platforms"></dialog>
         <input type="file" id="imgInput" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
     </div>`;
 
@@ -383,6 +385,7 @@ function wireDocks() {
             case 'enable-mic': guarded(enableMic); break;
             case 'flip': guarded(async () => { if (!(await flipCamera())) toast('Add a camera first.'); }); break;
             case 'settings': openSettings(); break;
+            case 'platforms': openPlatforms(); break;
             case 'toggle-stream': guarded(() => toggleStreaming(false)); break;
             case 'go-obs': guarded(() => toggleStreaming(true)); break;
             default: break;

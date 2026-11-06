@@ -43,7 +43,7 @@ Cosas que debes saber (Render, plan gratis):
 
 ## Notificaciones (en la app y por correo)
 
-La campana de la barra superior avisa de: nuevos seguidores, Yelis/stickers recibidos, comentarios y me gusta en tus videos, y
+La campana de la barra superior avisa de: nuevos seguidores, Yelis/stickers recibidos, comentarios, respuestas a tus comentarios y me gusta en tus videos, y
 cuando un canal que sigues empieza un directo. En **Editar perfil → Notificaciones** cada persona elige, por tipo, si quiere
 el aviso en la app y/o por correo (por defecto: todo en la app; correo solo para seguidores, Yelis y comentarios).
 
@@ -167,24 +167,43 @@ Como Yeli usa WHIP/WHEP estándar, otro servidor compatible puede reemplazar a M
 > Lo que **no** se pudo comprobar: que la voz suene de verdad (se verificó que el navegador recibe el texto a leer, no el audio),
 > el punto gratis por una hora real (el backend se probó adelantando el reloj) y el despliegue en Render.
 
-## Directos guardados como video
+## Clips: el directo se guarda en privado
 
-Cuando terminas un directo, se guarda solo como **video en tu perfil** (sección *Videos* de tu canal, `#/c/tunombre`).
+Cuando terminas un directo **no se publica**: se guarda como **clip privado**, que solo ve su dueño. Los clips viven en `#/clips`
+(menú de tu foto → *Clips & editor*). Desde ahí puedes **publicarlo**, abrirlo en el **editor**, volverlo privado otra vez o borrarlo.
+Solo los videos publicados salen en tu canal (`#/c/tunombre`). Los videos guardados antes de esta versión siguen publicados.
 
-- **Cómo:** el navegador del streamer graba lo que sale al aire (`MediaRecorder`) y lo sube por trozos de ~5 s mientras transmite
-  (`POST /api/vod/<id>/chunk`). Al parar, el video aparece en el canal en unos segundos. Si se cierra la pestaña de golpe, a los 2 minutos
-  el servidor cierra la grabación con lo que ya llegó.
-- **Una sola edición:** el streamer puede cambiar la **portada, el título y la descripción una vez** (botón *Edit (one time)* en la página
-  del video, `#/video/<id>`). Los tres se cambian en el mismo guardado; después quedan bloqueados (el servidor lo impone, no solo la interfaz).
-  Si el guardado no cambia nada, no se gasta la edición. Por defecto el título es el del directo y la portada es la última miniatura.
-- **Eliminar:** el dueño puede borrar un video (`Delete`). Los videos son públicos como el canal.
-- **Límites** (variables de entorno): `YELI_VOD_MAX_MB` (1024 por video), `YELI_VOD_MAX_PER_USER` (30 videos por canal) y `YELI_VOD_DIR`
-  (carpeta de los archivos; por defecto `vods/` junto a la base de datos). Al llegar al tamaño máximo el video se guarda tal cual está.
+- **Cómo se graba:** el navegador del streamer graba lo que sale al aire (`MediaRecorder`) y lo sube por trozos de ~5 s mientras
+  transmite (`POST /api/vod/<id>/chunk`). Si se cierra la pestaña de golpe, a los 2 minutos el servidor cierra la grabación con lo que
+  ya llegó.
+- **Privado de verdad:** el servidor no entrega ni el archivo ni la portada de un clip a nadie más que a su dueño, y un clip no
+  admite me gusta ni comentarios hasta que se publica. Al volver a hacerlo privado se conservan sus me gusta y comentarios.
+- **Editar título, descripción y portada:** mientras es clip se cambian **las veces que quieras**; una vez publicado hay **una sola
+  edición** (botón *Edit (one time)*), que el servidor impone. Publicar no gasta esa edición.
+- **Límites** (variables de entorno): `YELI_VOD_MAX_MB` (1024 por video), `YELI_VOD_MAX_PER_USER` (30 entre clips y videos publicados)
+  y `YELI_VOD_DIR`. Al llegar al tamaño máximo el video se guarda tal cual está.
 - **No se graba** un directo que viene de **OBS por WHIP**, porque ese video no pasa por el navegador (con la cámara virtual de OBS sí).
-  También hace falta que el navegador soporte `MediaRecorder` (todos los actuales).
-- **Render gratis:** el disco es efímero; los videos se pierden igual que la base de datos. Con disco persistente
-  (`YELI_DB=/var/data/yeli.db`) los videos quedan en `/var/data/vods` y se conservan.
-- Requiere **Flask 3.1 o superior** (el trozo de video usa un límite de tamaño propio solo en esa ruta; el resto de la API sigue en 128 KB).
+- **Render gratis:** el disco es efímero; los clips se pierden igual que la base de datos. Con disco persistente
+  (`YELI_DB=/var/data/yeli.db`) quedan en `/var/data/vods`.
+- Requiere **Flask 3.1 o superior** (el trozo de video usa un límite de tamaño propio solo en esa ruta).
+- API: `GET /api/me/videos` (todos los míos), `POST /api/vod/<id>/publish`, `/unpublish`, `/edit`, `/delete`, y `POST /api/vod/new`
+  (subida que no es un directo, la usa el editor).
+
+## Editor de video
+
+`#/editor` (o `#/editor/<id>` para abrir un clip directamente). Todo ocurre **en el navegador**: los videos se reproducen sobre un
+`<canvas>` (con filtros y textos encima) y el sonido pasa por Web Audio.
+
+- **Entradas:** tus clips y directos (privados o publicados) y videos de tu dispositivo.
+- **Funciones:** línea de tiempo con zoom, **dividir** en el cursor, recortar arrastrando los bordes (o con números), **unir** varios
+  videos en el orden que quieras, **velocidad** de 0,25× a 4×, **volumen** (hasta 200 %) y silencio, **8 filtros**, aparecer y
+  desvanecer, **ajustar o recortar** al encuadre, formatos **16:9, 9:16 y 1:1**, **textos** con inicio, duración, tamaño, color,
+  posición y caja de fondo, y **deshacer / rehacer**. Atajos: Espacio, `S` dividir, `Supr` borrar, `[` `]` mover, flechas, Ctrl+Z.
+- **Exportar:** *Save as a private clip* (se sube como un clip nuevo; el original no se toca) o *Download a file*. La calidad es
+  720p, 480p o 360p. **Se graba en tiempo real**: un video de 2 minutos tarda unos 2 minutos, y la pestaña debe seguir abierta y visible.
+- **Límites que conviene saber:** el proyecto vive en la memoria de la pestaña (si recargas la página se pierde, y el navegador avisa
+  si hay trabajo sin exportar); los filtros necesitan un navegador con `ctx.filter` (Chrome, Edge, Firefox; Safari no); el resultado es
+  WebM (o MP4 en Safari); los clips grabados por el navegador no tienen índice, así que al saltar a un punto el fotograma puede tardar un instante.
 
 ## Cofre diario
 
@@ -329,10 +348,14 @@ Tampoco había Waitress instalado en ese entorno (las pruebas corrieron con el s
 
 ## Videos: me gusta y comentarios
 
-Cada video guardado tiene un botón de *me gusta* (uno por cuenta, se puede quitar) y comentarios de hasta 300 caracteres,
-del más nuevo al más antiguo y de 20 en 20. Pueden borrarlos su autor, el streamer y los moderadores del canal. Los
-comentarios respetan las reglas del canal (bloqueos, palabras bloqueadas, enlaces y mayúsculas) y se limitan a 5 por minuto.
-API: `POST /api/vod/<id>/like`, `GET|POST /api/vod/<id>/comments`, `POST /api/vod/<id>/comments/<n>/delete`.
+Cada video **publicado** tiene un botón de *me gusta* (uno por cuenta, se puede quitar) y comentarios de hasta 300 caracteres, del
+más nuevo al más antiguo y de 20 en 20. **Cada comentario se puede likear y responder.** Las respuestas cuelgan del comentario
+principal (un nivel, como YouTube), muestran a quién responden (`@usuario`), se ven con *View N replies* y se cargan de 20 en 20, de
+la más antigua a la más nueva. Pueden borrarlos su autor, el streamer y los moderadores (al borrar un comentario se van sus
+respuestas). Los comentarios y respuestas respetan las reglas del canal (bloqueos, palabras bloqueadas, enlaces y mayúsculas) y se
+limitan a 5 por minuto. Quien recibe una respuesta a su comentario recibe una notificación (`reply`; en la app y por correo por defecto).
+API: `POST /api/vod/<id>/like`, `GET|POST /api/vod/<id>/comments` (con `parent` para responder),
+`GET /api/vod/<id>/comments/<n>/replies`, `POST /api/vod/<id>/comments/<n>/like` y `/delete`.
 
 En la página de un directo, el botón de la cabecera del chat lo oculta (el video ocupa todo el ancho) y el botón *Chat* sobre el video lo
 vuelve a mostrar; la elección se recuerda en el dispositivo.
@@ -349,3 +372,42 @@ lo escuchan todos los que ven el directo, y queda guardado en el video. Los nave
 - El estudio tiene que estar abierto mientras transmites. Si transmites con OBS, elige la opción de los dispositivos de los espectadores.
 - El idioma sale de *Voz > idioma* o, si está vacío, del idioma del navegador del streamer.
 - Solo el streamer puede pedir ese audio: `GET /api/tts/<canal>/<id del mensaje>`.
+
+---
+
+## Conectar otras plataformas (TikTok Live, Kick, Twitch, YouTube...)
+
+En el estudio, el botón **Plataformas** hace dos cosas, y el bot (comandos y voz) funciona en las dos:
+
+**1. Enviar tu directo a otras plataformas a la vez.** Añade cada plataforma con su dirección de servidor RTMP y su clave de
+transmisión (Twitch, YouTube y Facebook ya traen la dirección; en Kick y TikTok la copias de tu panel). Mientras estás en directo,
+el servidor lanza un `ffmpeg` por plataforma que lee tu directo del servidor de medios y lo envía. Lo que sale es lo mismo que
+ven tus espectadores: la imagen y el sonido ya mezclados en el estudio, con el chat, las alertas, los mensajes del bot y **la voz del bot**.
+Cada plataforma tiene su estado (Enviando, Reintentando, Falló), se apaga y se enciende sin borrarla, y puede enviarse en **vertical 9:16**
+(recortando el centro) para TikTok. Las claves se guardan en la base de datos (hacen falta para enviar), nunca vuelven al navegador y
+se quitan de los mensajes de error.
+
+Para que funcione necesitas:
+
+- el **modo servidor de medios** (MediaMTX): en P2P no hay video en el servidor que reenviar;
+- `ffmpeg` instalado donde corre Yeli (`apt install ffmpeg`, o usa el `Dockerfile`, que ya lo incluye);
+- `YELI_MEDIA_RTSP=rtsp://127.0.0.1:8554` (la dirección RTSP de MediaMTX; el `mediamtx.yml` y el `docker-compose.yml` ya lo activan,
+  solo en `127.0.0.1`: **no abras ese puerto a internet**). Si MediaMTX está en otra máquina, ffmpeg tiene que alcanzar ese puerto.
+
+Sin eso, el diálogo lo explica y todo lo demás sigue funcionando. Ten en cuenta: reenviar **recodifica** a H.264 + AAC (la imagen sale del
+navegador en VP8/H.264 con Opus), lo que usa CPU del servidor (aprox. un núcleo por plataforma a 720p). TikTok da una dirección y una clave
+nuevas en cada directo y solo a cuentas con acceso a LIVE (suelen pedir 1.000 seguidores y 18 años); su exigencia puede cambiar.
+
+**2. Traer el chat de otras plataformas al tuyo.** Los mensajes aparecen en el chat de Yeli y en el chat del directo con la etiqueta de
+su plataforma, siguen las reglas de tu chat (palabras bloqueadas, enlaces, mayúsculas), puedes borrarlos y el bot responde a sus
+comandos (`!dado`, tus comandos personalizados, `!say`, etc.; los comandos solo para el streamer o los moderadores no aplican a gente de fuera).
+
+- **Twitch** se lee directamente (conexión IRC anónima y de solo lectura al canal que escribas, mientras estás en directo).
+- **TikTok, Kick, YouTube y el resto** entran por un **enlace privado** (`POST /api/bridge/<clave>` con
+  `{"platform": "tiktok", "user": "ana", "text": "hola"}`): se lo das a cualquier herramienta que escuche ese chat y pueda llamar a un
+  enlace. La respuesta trae `reply` con lo que contesta el bot, para que la herramienta pueda decirlo en ese chat. Kick y TikTok no ofrecen una
+  forma pública de leer su chat sin iniciar sesión como el streamer, por eso la conexión la hace una herramienta que ya uses. Puedes
+  crear un enlace nuevo cuando quieras (el anterior deja de funcionar).
+
+Lo que **no** hace: escribir de vuelta en esas plataformas por sí solo (haría falta iniciar sesión en cada una; con el enlace puedes hacerlo
+desde tu herramienta usando `reply`), ni reenviar *desde el navegador* sin servidor de medios.

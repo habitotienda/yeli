@@ -6,7 +6,7 @@ from . import config, economy
 from .config import *
 from .core import *
 from .db import get_db
-from . import chest, rewards
+from . import bridge, chest, restream, rewards
 from .bot import run_timers
 from .notifications import notify_followers_live
 from .queries import *
@@ -43,6 +43,8 @@ def stream_start():
     db.execute("DELETE FROM thumbnails WHERE user_id = ?", (me_row["id"],))
     notify_followers_live(db, me_row["id"], me_row["username"], title)
     db.commit()
+    restream.sync(db, me_row["id"])  # send the stream to the platforms the streamer switched on
+    bridge.sync(db, me_row["id"])    # and listen to their chats
     return jsonify(ok=True, title=title, category=category, started_at=t, mode=mode)
 
 
@@ -56,6 +58,8 @@ def stream_stop():
     db.execute("DELETE FROM signals WHERE to_key = ?", (f"u:{uid}",))
     db.execute("DELETE FROM thumbnails WHERE user_id = ?", (uid,))
     db.commit()
+    restream.sync(db, uid)
+    bridge.sync(db, uid)
     return jsonify(ok=True)
 
 
@@ -87,6 +91,8 @@ def stream_poll():
     signals = read_signals(key, int_arg("after"))
     viewers = count_viewers(db, uid, t - VIEWER_TIMEOUT)
     db.commit()
+    restream.sync(db, uid)  # also restarts them after the server restarted
+    bridge.sync(db, uid)
     return jsonify(live=True, signals=signals, viewers=viewers, free_points=fresh_points, free_eta=free_eta,
                    free_today=free_today, free_cap=config.FREE_POINTS_PER_DAY)
 

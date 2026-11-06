@@ -44,6 +44,10 @@ LIST_CACHE_SECONDS = float(os.environ.get("YELI_LIST_CACHE", "2"))
 # Media server (SFU), see README. Empty = peer-to-peer mode.
 # MEDIA_URL is the address the *browser* uses to reach MediaMTX's WebRTC (WHIP/WHEP) port.
 MEDIA_URL = os.environ.get("YELI_MEDIA_URL", "").rstrip("/")
+MEDIA_RTSP = os.environ.get("YELI_MEDIA_RTSP", "").rstrip("/")  # where ffmpeg reads the stream to send it to other platforms (rtsp://127.0.0.1:8554)
+FFMPEG_BIN = os.environ.get("YELI_FFMPEG", "")  # empty = look for ffmpeg on the PATH
+TWITCH_IRC = os.environ.get("YELI_TWITCH_IRC", "irc.chat.twitch.tv:6697")  # host:port; only changed in tests
+TWITCH_TLS = os.environ.get("YELI_TWITCH_TLS", "1") != "0"
 MEDIA_RTMP = os.environ.get("YELI_MEDIA_RTMP", "").rstrip("/")  # only shown to streamers who use OBS over RTMP
 
 

@@ -1,5 +1,6 @@
 # Optional: runs MediaMTX (the media server) in Docker.   docker compose up -d
-# Then start Yeli with:  YELI_MEDIA_URL=http://localhost:8889 python app.py
+# Then start Yeli with:  YELI_MEDIA_URL=http://localhost:8889 YELI_MEDIA_RTSP=rtsp://127.0.0.1:8554 python app.py
+# (ffmpeg must be installed on the machine that runs Yeli to send the stream to other platforms: apt install ffmpeg)
 services:
   mediamtx:
     image: bluenviron/mediamtx:latest
@@ -8,6 +9,9 @@ services:
       - "8889:8889"        # WHIP / WHEP (HTTP)
       - "8189:8189/udp"    # WebRTC media
       - "8189:8189/tcp"    # WebRTC media (TCP fallback)
+      - "127.0.0.1:8554:8554"  # RTSP, only for Yeli's ffmpeg on this machine (sending the stream to other platforms). Never open it to the internet.
+    environment:
+      MTX_RTSPADDRESS: ":8554"
     volumes:
       - ./mediamtx/mediamtx.yml:/mediamtx.yml:ro
     extra_hosts:

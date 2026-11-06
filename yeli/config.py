@@ -86,6 +86,13 @@ VOD_STALE_SECONDS = 120  # a recording that stops sending data this long is clos
 VOD_TITLE_MAX = 80
 VOD_DESC_MAX = 500
 VOD_COMMENT_MAX = 300
+
+# Editor drafts ("projects"): the timeline is stored as JSON, the video files stay where they are.
+PROJECT_MAX_PER_USER = int(os.environ.get("YELI_PROJECT_MAX_PER_USER", "20"))
+PROJECT_STATE_MAX = 96 * 1024  # serialized timeline; the JSON request limit is 128 KB
+PROJECT_MAX_CLIPS = 300
+PROJECT_MAX_TEXTS = 100
+PROJECT_NAME_MAX = 80
 TTS_BIN = os.environ.get("YELI_TTS_BIN", "")  # speech program (espeak-ng); empty = look for espeak-ng / espeak on the PATH
 
 

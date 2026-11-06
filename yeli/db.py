@@ -385,6 +385,48 @@ CREATE TABLE IF NOT EXISTS notify_meta (
     user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     lang    TEXT NOT NULL DEFAULT 'en'
 );
+-- Editor drafts. `state` is the timeline as JSON (see yeli/projects.py for its shape), `rev` goes up on every save so two
+-- tabs can't overwrite each other. title/description/category/visibility are the publication details typed so far.
+-- total_seconds/live_seconds are derived from `state` on every save (live_seconds = timeline time that comes from recorded streams).
+CREATE TABLE IF NOT EXISTS edit_projects (
+    id            TEXT PRIMARY KEY,
+    user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name          TEXT NOT NULL DEFAULT '',
+    state         TEXT NOT NULL DEFAULT '{}',
+    state_version INTEGER NOT NULL DEFAULT 1,
+    rev           INTEGER NOT NULL DEFAULT 1,
+    aspect        TEXT NOT NULL DEFAULT '16:9',
+    clip_count    INTEGER NOT NULL DEFAULT 0,
+    total_seconds REAL NOT NULL DEFAULT 0,
+    live_seconds  REAL NOT NULL DEFAULT 0,
+    title         TEXT NOT NULL DEFAULT '',
+    description   TEXT NOT NULL DEFAULT '',
+    category      TEXT NOT NULL DEFAULT 'Other',
+    visibility    TEXT NOT NULL DEFAULT 'public',
+    -- 'draft' = still being edited; 'exported' = rendered into the clip `vod_id`
+    status        TEXT NOT NULL DEFAULT 'draft',
+    vod_id        TEXT REFERENCES vods(id) ON DELETE SET NULL,
+    created_at    INTEGER NOT NULL,
+    updated_at    INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_edit_projects_user ON edit_projects(user_id, updated_at);
+-- The custom cover lives apart so that listing drafts never reads image bytes.
+CREATE TABLE IF NOT EXISTS edit_project_covers (
+    project_id TEXT PRIMARY KEY REFERENCES edit_projects(id) ON DELETE CASCADE,
+    data       BLOB NOT NULL,
+    -- 'upload' = an image from the device, 'frame' = a frame picked from the video
+    source     TEXT NOT NULL DEFAULT 'upload',
+    updated_at INTEGER NOT NULL
+);
+-- Which saved videos a draft uses and how many timeline seconds each one gives. No foreign key on vod_id on purpose:
+-- if a source is deleted the draft keeps working and tells the editor which clips are missing.
+CREATE TABLE IF NOT EXISTS edit_project_sources (
+    project_id TEXT NOT NULL REFERENCES edit_projects(id) ON DELETE CASCADE,
+    vod_id     TEXT NOT NULL,
+    seconds    REAL NOT NULL DEFAULT 0,
+    PRIMARY KEY (project_id, vod_id)
+);
+CREATE INDEX IF NOT EXISTS idx_edit_sources_vod ON edit_project_sources(vod_id);
 CREATE TABLE IF NOT EXISTS assets (
     id         TEXT PRIMARY KEY,
     user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

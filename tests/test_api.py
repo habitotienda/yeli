@@ -31,7 +31,7 @@ class YeliTests(unittest.TestCase):
         _bot._cooldowns.clear()
         core._failed_logins.clear()
         con = sqlite3.connect(config.DB_PATH)
-        for t in ("notifications", "notify_prefs", "notify_meta", "vod_comment_likes", "vod_comments", "vod_likes", "vods", "free_points", "watch_sessions", "chat_bans", "chat_mods", "events", "alert_rules", "assets", "chat_settings", "commands", "spendings", "upgrades", "upgrade_points", "ledger", "payouts", "donations", "purchases", "wallets", "chat_messages", "avatars", "thumbnails", "signals", "viewers", "live_likes", "follows", "streams", "users"):
+        for t in ("edit_project_covers", "edit_project_sources", "edit_projects", "notifications", "notify_prefs", "notify_meta", "vod_comment_likes", "vod_comments", "vod_likes", "vods", "free_points", "watch_sessions", "chat_bans", "chat_mods", "events", "alert_rules", "assets", "chat_settings", "commands", "spendings", "upgrades", "upgrade_points", "ledger", "payouts", "donations", "purchases", "wallets", "chat_messages", "avatars", "thumbnails", "signals", "viewers", "live_likes", "follows", "streams", "users"):
             con.execute(f"DELETE FROM {t}")
         con.commit()
         con.close()
@@ -1396,6 +1396,119 @@ class YeliTests(unittest.TestCase):
         # published: the one change applies again
         self.assertEqual(post(self.alice, f"/api/vod/{vid}/edit", {"title": "Final cut 2"}).status_code, 200)
         self.assertEqual(post(self.alice, f"/api/vod/{vid}/edit", {"title": "Final cut 3"}).status_code, 403)
+
+    def test_editor_projects_drafts(self):
+        import base64
+        octet = {"content_type": "application/octet-stream"}
+        jpeg = "data:image/jpeg;base64," + base64.b64encode(b"\xff\xd8\xff" + b"x" * 300).decode()
+        self.signup(self.alice, "alice")
+        self.signup(self.bob, "bob")
+
+        def make_vod(client, source_stream):
+            if source_stream:
+                post(client, "/api/stream/start", {"title": "Live", "category": "Talk"})
+                vid = post(client, "/api/vod/start", {"mime": "video/webm"}).get_json()["id"]
+            else:
+                vid = post(client, "/api/vod/new", {"mime": "video/webm"}).get_json()["id"]
+            client.post(f"/api/vod/{vid}/chunk?seq=0", data=b"X", **octet)
+            post(client, f"/api/vod/{vid}/finish", {"duration": 100})
+            return vid
+
+        live, edit, bobs = make_vod(self.alice, True), make_vod(self.alice, False), make_vod(self.bob, False)
+        clip = lambda uid, asset, a=0, b=10, **kw: {"uid": uid, "asset": asset, "in": a, "out": b, **kw}  # noqa: E731
+
+        # needs an account
+        self.assertEqual(self.anon.get("/api/me/projects").status_code, 401)
+        self.assertEqual(post(self.anon, "/api/projects", {}).status_code, 401)
+
+        # create empty, then save a timeline: 20 s of the live (10 s at 2x = 5 s + 10 s) and 5 s of an edit
+        p = post(self.alice, "/api/projects", {"name": "Highlights"}).get_json()["project"]
+        self.assertEqual((p["name"], p["rev"], p["clip_count"], p["status"], p["live_ratio"]), ("Highlights", 1, 0, "draft", 0))
+        state = {"aspect": "9:16", "clips": [clip("e1", f"vod:{live}", 0, 10, speed=2), clip("e2", f"vod:{live}", 20, 30),
+                                             clip("e3", f"vod:{edit}", 0, 5, speed=1, beautify=0.5, nested={"x": 1}), clip("e4", "file:a.mp4:1:2", 0, 5)],
+                 "texts": [{"uid": "e5", "text": "hi", "start": 1, "dur": 2}]}
+        r = post(self.alice, f"/api/projects/{p['id']}/save", {"rev": 1, "state": state, "title": "My title", "description": "d", "category": "Gaming", "visibility": "followers"})
+        self.assertEqual(r.status_code, 200, r.get_json())
+        p = r.get_json()["project"]
+        self.assertEqual((p["rev"], p["clip_count"], p["aspect"], p["duration"], p["live_seconds"]), (2, 4, "9:16", 25.0, 15.0))
+        self.assertEqual((p["live_ratio"], p["title"], p["category"], p["visibility"]), (0.6, "My title", "Gaming", "followers"))
+
+        # reading it back: canonical state, unknown scalar fields kept, nested ones dropped, nothing missing
+        got = self.alice.get(f"/api/projects/{p['id']}").get_json()["project"]
+        self.assertEqual(got["missing_sources"], [])
+        self.assertEqual(got["state"]["clips"][2]["beautify"], 0.5)
+        self.assertNotIn("nested", got["state"]["clips"][2])
+        self.assertEqual(got["state"]["clips"][0]["speed"], 2)
+        self.assertEqual(got["state"]["texts"][0]["pos"], "bottom")
+        self.assertNotIn("state", self.alice.get("/api/me/projects").get_json()["projects"][0])
+
+        # two tabs: a save based on an old version is refused and writes nothing
+        r = post(self.alice, f"/api/projects/{p['id']}/save", {"rev": 1, "title": "stale"})
+        self.assertEqual((r.status_code, r.get_json()["rev"], r.get_json()["conflict"]), (409, 2, True))
+        self.assertEqual(self.alice.get(f"/api/projects/{p['id']}").get_json()["project"]["title"], "My title")
+        self.assertEqual(post(self.alice, f"/api/projects/{p['id']}/save", {"title": "x"}).status_code, 400)  # rev is required
+        self.assertEqual(post(self.alice, f"/api/projects/{p['id']}/save", {"rev": 2}).status_code, 400)  # nothing to save
+
+        # validation: the timeline, the details, other people's videos
+        bad = lambda st: post(self.alice, f"/api/projects/{p['id']}/save", {"rev": 2, "state": st})  # noqa: E731
+        self.assertEqual(bad({"aspect": "4:3"}).status_code, 400)
+        self.assertEqual(bad({"clips": [clip("a", "vod:zz")]}).status_code, 400)
+        self.assertEqual(bad({"clips": [clip("a", f"vod:{live}", 5, 5)]}).status_code, 400)
+        self.assertEqual(bad({"clips": [clip("a", f"vod:{live}", speed=9)]}).status_code, 400)
+        self.assertEqual(bad({"clips": [clip("a", f"vod:{live}", **{"in": float("nan")})]}).status_code, 400)
+        self.assertEqual(bad({"clips": [clip("a", f"vod:{live}")] * (config.PROJECT_MAX_CLIPS + 1)}).status_code, 400)
+        self.assertEqual(bad({"clips": [clip("a", f"vod:{bobs}")]}).status_code, 403)
+        self.assertEqual(post(self.alice, f"/api/projects/{p['id']}/save", {"rev": 2, "category": "Nope"}).status_code, 400)
+        self.assertEqual(post(self.alice, f"/api/projects/{p['id']}/save", {"rev": 2, "visibility": "me"}).status_code, 400)
+        self.assertEqual(post(self.alice, f"/api/projects/{p['id']}/save", {"rev": 2, "name": " "}).status_code, 400)
+        self.assertEqual(post(self.alice, "/api/projects", {"state": {"clips": [clip("a", f"vod:{bobs}")]}}).status_code, 403)
+        self.assertEqual(self.alice.get(f"/api/projects/{p['id']}").get_json()["project"]["rev"], 2)  # none of that changed anything
+        self.assertEqual(len(self.alice.get("/api/me/projects").get_json()["projects"]), 1)  # a refused create leaves no row
+
+        # custom cover: owner only, JPEG only, doesn't use up a rev
+        url = f"/api/projects/{p['id']}/cover"
+        self.assertEqual(self.alice.get(url).status_code, 404)
+        self.assertEqual(post(self.alice, url, {"cover": "data:image/png;base64,AAAA"}).status_code, 400)
+        self.assertEqual(post(self.alice, url, {"cover": jpeg, "source": "x"}).status_code, 400)
+        cp = post(self.alice, url, {"cover": jpeg, "source": "frame"}).get_json()["project"]
+        self.assertEqual((cp["cover_source"], cp["rev"]), ("frame", 2))
+        self.assertIsNotNone(cp["cover"])
+        self.assertEqual((self.alice.get(url).status_code, self.alice.get(url).mimetype), (200, "image/jpeg"))
+        self.assertEqual(self.bob.get(url).status_code, 404)
+        self.assertEqual(self.anon.get(url).status_code, 401)
+        self.assertEqual(post(self.bob, url, {"cover": jpeg}).status_code, 404)
+        self.assertIsNone(post(self.alice, url + "/delete").get_json()["project"]["cover"])
+        self.assertEqual(self.alice.get(url).status_code, 404)
+
+        # nobody else can see, change or delete it
+        self.assertEqual(self.bob.get(f"/api/projects/{p['id']}").status_code, 404)
+        self.assertEqual(post(self.bob, f"/api/projects/{p['id']}/save", {"rev": 2, "title": "hax"}).status_code, 404)
+        self.assertEqual(post(self.bob, f"/api/projects/{p['id']}/delete").status_code, 404)
+        self.assertEqual(self.bob.get("/api/me/projects").get_json()["projects"], [])
+
+        # a source that was deleted is reported, the draft still opens
+        post(self.alice, f"/api/vod/{edit}/delete")
+        self.assertEqual(self.alice.get(f"/api/projects/{p['id']}").get_json()["project"]["missing_sources"], [edit])
+
+        # an exported draft goes back to draft when its timeline changes, but not when only the details change
+        con = sqlite3.connect(config.DB_PATH)
+        con.execute("UPDATE edit_projects SET status = 'exported', vod_id = ? WHERE id = ?", (live, p["id"]))
+        con.commit()
+        con.close()
+        self.assertEqual(post(self.alice, f"/api/projects/{p['id']}/save", {"rev": 2, "title": "t2"}).get_json()["project"]["status"], "exported")
+        self.assertEqual(post(self.alice, f"/api/projects/{p['id']}/save", {"rev": 3, "state": {"clips": []}}).get_json()["project"]["status"], "draft")
+
+        # the per-account limit, then delete: the exported clip is not touched
+        old_cap = config.PROJECT_MAX_PER_USER
+        config.PROJECT_MAX_PER_USER = 1
+        try:
+            r = post(self.alice, "/api/projects", {})
+            self.assertEqual((r.status_code, r.get_json()["limit"]), (409, True))
+        finally:
+            config.PROJECT_MAX_PER_USER = old_cap
+        self.assertEqual(post(self.alice, f"/api/projects/{p['id']}/delete").status_code, 200)
+        self.assertEqual(self.alice.get(f"/api/projects/{p['id']}").status_code, 404)
+        self.assertEqual(self.alice.get(f"/api/vod/{live}").status_code, 200)
 
     def test_old_databases_get_clip_columns(self):
         """A database made before clips and replies keeps its videos published and gets the new columns."""

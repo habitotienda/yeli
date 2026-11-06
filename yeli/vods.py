@@ -19,6 +19,7 @@ import os
 import re
 import secrets
 from pathlib import Path
+from urllib.parse import urlparse
 
 from flask import Blueprint, Response, jsonify, request, send_file
 
@@ -327,13 +328,33 @@ def vod_info(vid):
     return jsonify(video=vod_json(row, me_row))
 
 
+def _direct_download_attempt():
+    """True when the request looks like the file being opened, saved or fetched by a script, not played by a <video>.
+
+    Browsers that send Fetch Metadata (Chrome, Edge, Firefox, Safari 16.4+) say what the response is for: a <video>
+    element sends `Sec-Fetch-Dest: video`; typing the URL (`document`), "save link as" or fetch()/XHR (`empty`) don't.
+    Older browsers send nothing, so there the page must have been the Referer, which a pasted URL doesn't have.
+    This closes the casual routes. It is not DRM: whatever a browser can play, a determined person with the
+    developer tools or a custom client can still copy, and the signed-URL step (next) narrows that further."""
+    if not config.VOD_BLOCK_DIRECT:
+        return False
+    dest = request.headers.get("Sec-Fetch-Dest")
+    if dest is not None:
+        return dest not in ("video", "audio")
+    return urlparse(request.headers.get("Referer", "")).netloc != request.host
+
+
 @bp.get("/api/vod/<vid>/video")
 def vod_file(vid):
     row = _get(get_db(), vid)
     if row is None or row["status"] != "ready" or not _visible(row, current_user()):
         return err("Video not found.", 404)
+    if _direct_download_attempt():  # after the visibility check, so it tells nobody that a hidden video exists
+        return err("This video can only be watched on Yeli.", 403, protected=True)
     resp = send_file(vod_path(row), mimetype=row["mime"], conditional=True, max_age=3600)  # supports Range (seeking)
     resp.headers["Cache-Control"] = ("public" if row["visibility"] == "public" else "private") + ", max-age=3600"
+    resp.headers["Content-Disposition"] = "inline"
+    resp.headers["Cross-Origin-Resource-Policy"] = "same-origin"  # other sites can't embed or hotlink it
     return resp
 
 

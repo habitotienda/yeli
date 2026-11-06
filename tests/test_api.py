@@ -25,6 +25,9 @@ def post(c, url, body=None):
     return c.post(url, json=body or {})
 
 
+# what a <video> element sends; without it the video file is refused (see vods._direct_download_attempt)
+PLAY = {"Sec-Fetch-Dest": "video"}
+
 class YeliTests(unittest.TestCase):
     def setUp(self):
         from yeli import bot as _bot
@@ -1510,6 +1513,40 @@ class YeliTests(unittest.TestCase):
         self.assertEqual(self.alice.get(f"/api/projects/{p['id']}").status_code, 404)
         self.assertEqual(self.alice.get(f"/api/vod/{live}").status_code, 200)
 
+    def test_video_file_is_not_directly_downloadable(self):
+        octet = {"content_type": "application/octet-stream"}
+        self.signup(self.alice, "alice")
+        post(self.alice, "/api/stream/start", {"title": "Live", "category": "Talk"})
+        vid = post(self.alice, "/api/vod/start", {"mime": "video/webm"}).get_json()["id"]
+        self.alice.post(f"/api/vod/{vid}/chunk?seq=0", data=b"0123456789", **octet)
+        post(self.alice, f"/api/vod/{vid}/finish")
+        post(self.alice, f"/api/vod/{vid}/publish")
+        url = f"/api/vod/{vid}/video"
+
+        # a <video> element (any viewer, with seeking) plays it, and other sites can't embed it
+        for client in (self.alice, self.anon):
+            r = client.get(url, headers={**PLAY, "Range": "bytes=2-5"})
+            self.assertEqual((r.status_code, r.data), (206, b"2345"))
+            self.assertEqual((r.headers["Content-Disposition"], r.headers["Cross-Origin-Resource-Policy"]), ("inline", "same-origin"))
+        # opening the URL, "save link as", fetch()/XHR, <iframe>, <a download>: refused, even for the owner
+        for dest in ("document", "empty", "iframe", "embed", "image"):
+            r = self.alice.get(url, headers={"Sec-Fetch-Dest": dest})
+            self.assertEqual((r.status_code, r.get_json()["protected"]), (403, True), dest)
+        self.assertEqual(self.anon.get(url, headers={"Sec-Fetch-Dest": "document"}).status_code, 403)
+        # browsers without Fetch Metadata: only a request that comes from a Yeli page (Referer) plays
+        self.assertEqual(self.anon.get(url).status_code, 403)
+        self.assertEqual(self.anon.get(url, headers={"Referer": "https://evil.example/page"}).status_code, 403)
+        self.assertEqual(self.anon.get(url, headers={"Referer": "http://localhost/#/video/x"}).status_code, 200)
+        # a hidden video still looks like it doesn't exist, not like it's protected
+        post(self.alice, f"/api/vod/{vid}/unpublish")
+        self.assertEqual(self.anon.get(url, headers={"Sec-Fetch-Dest": "document"}).status_code, 404)
+        # the switch
+        config.VOD_BLOCK_DIRECT = False
+        try:
+            self.assertEqual(self.alice.get(url, headers={"Sec-Fetch-Dest": "document"}).status_code, 200)
+        finally:
+            config.VOD_BLOCK_DIRECT = True
+
     def test_old_databases_get_clip_columns(self):
         """A database made before clips and replies keeps its videos published and gets the new columns."""
         import tempfile
@@ -1803,7 +1840,7 @@ class YeliTests(unittest.TestCase):
         for who in (self.anon, self.bob):
             for tail in ("", "/video", "/cover"):
                 self.assertEqual(who.get(f"/api/vod/{vid}{tail}").status_code, 404, tail)
-        self.assertEqual(self.alice.get(f"/api/vod/{vid}/video").status_code, 200)
+        self.assertEqual(self.alice.get(f"/api/vod/{vid}/video", headers=PLAY).status_code, 200)
         self.assertEqual(self.alice.get(f"/api/vod/{vid}/cover").status_code, 200)
         self.assertEqual([x["id"] for x in self.alice.get("/api/me/videos").get_json()["videos"]], [vid])
         self.assertEqual(self.anon.get("/api/me/videos").status_code, 401)
@@ -1830,10 +1867,10 @@ class YeliTests(unittest.TestCase):
         self.assertEqual(self.alice.post(url + "?seq=3", data=b"late", **octet).status_code, 409)
 
         # the video file can be played and seeked (Range)
-        full = self.anon.get(f"/api/vod/{vid}/video")
+        full = self.anon.get(f"/api/vod/{vid}/video", headers=PLAY)
         self.assertEqual((full.status_code, full.mimetype), (200, "video/webm"))
         self.assertTrue(full.data.startswith(b"AAAABBBB"))
-        part = self.anon.get(f"/api/vod/{vid}/video", headers={"Range": "bytes=4-7"})
+        part = self.anon.get(f"/api/vod/{vid}/video", headers={**PLAY, "Range": "bytes=4-7"})
         self.assertEqual((part.status_code, part.data), (206, b"BBBB"))
 
         # one change only: title + description + cover together, then it is locked

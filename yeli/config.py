@@ -86,6 +86,8 @@ VOD_STALE_SECONDS = 120  # a recording that stops sending data this long is clos
 VOD_TITLE_MAX = 80
 VOD_DESC_MAX = 500
 VOD_COMMENT_MAX = 300
+# The video file is only served to a <video> player, never to a direct open / "save as" / fetch (see vods.vod_file).
+VOD_BLOCK_DIRECT = os.environ.get("YELI_VOD_BLOCK_DIRECT", "1") != "0"
 
 # Editor drafts ("projects"): the timeline is stored as JSON, the video files stay where they are.
 PROJECT_MAX_PER_USER = int(os.environ.get("YELI_PROJECT_MAX_PER_USER", "20"))

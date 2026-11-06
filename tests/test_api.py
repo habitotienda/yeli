@@ -1547,6 +1547,102 @@ class YeliTests(unittest.TestCase):
         finally:
             config.VOD_BLOCK_DIRECT = True
 
+    def test_publish_flow_from_a_draft(self):
+        import base64
+        octet = {"content_type": "application/octet-stream"}
+        jpeg = lambda n: "data:image/jpeg;base64," + base64.b64encode(b"\xff\xd8\xff" + bytes([n]) * 300).decode()  # noqa: E731
+        self.signup(self.alice, "alice")
+        self.signup(self.bob, "bob")
+        post(self.alice, "/api/stream/start", {"title": "Live", "category": "Talk"})
+        live = post(self.alice, "/api/vod/start", {"mime": "video/webm"}).get_json()["id"]
+        self.alice.post(f"/api/vod/{live}/chunk?seq=0", data=b"L", **octet)
+        post(self.alice, f"/api/vod/{live}/finish")
+
+        p = post(self.alice, "/api/projects", {"name": "Cut", "state": {"clips": [{"uid": "e1", "asset": f"vod:{live}", "in": 0, "out": 5}]}}).get_json()["project"]
+        pid = p["id"]
+        self.assertEqual(p["publish_problems"], ["title", "export"])
+
+        def export(rev, extra=None, cover=None):
+            vid = post(self.alice, "/api/vod/new", {"mime": "video/webm", **(extra or {})}).get_json()["id"]
+            self.alice.post(f"/api/vod/{vid}/chunk?seq=0", data=b"EXPORT", **octet)
+            return vid, post(self.alice, f"/api/vod/{vid}/finish", {"duration": 5, "cover": jpeg(1), "state_rev": rev}).get_json()
+
+        # the export can only link to my own project
+        self.assertEqual(post(self.bob, "/api/vod/new", {"mime": "video/webm", "project": pid}).status_code, 404)
+        self.assertEqual(post(self.alice, "/api/vod/new", {"mime": "video/webm", "project": "nope"}).status_code, 404)
+        # publishing before exporting or without a title is refused
+        r = post(self.alice, f"/api/projects/{pid}/publish")
+        self.assertEqual((r.status_code, r.get_json()["needs_export"]), (409, True))
+
+        # details typed in the publish sheet are kept on the draft, with a custom cover
+        r = post(self.alice, f"/api/projects/{pid}/save", {"rev": p["rev"], "title": "Best of", "description": "Highlights", "category": "Gaming", "visibility": "followers"}).get_json()["project"]
+        post(self.alice, f"/api/projects/{pid}/cover", {"cover": jpeg(9), "source": "upload"})
+        self.assertEqual((r["publish_problems"], r["state_rev"]), (["export"], 1))
+
+        # export: the clip is linked, takes the draft's title, and the draft becomes 'exported'
+        vid, fin = export(1, {"project": pid})
+        self.assertEqual((fin["video"]["title"], fin["video"]["visibility"], fin["video"]["is_clip"]), ("Best of", "private", True))
+        got = self.alice.get(f"/api/projects/{pid}").get_json()["project"]
+        self.assertEqual((got["status"], got["vod_id"], got["publish_problems"]), ("exported", vid, []))
+
+        # publish from the draft: details and the CUSTOM cover (not the automatic one) reach the video
+        r = post(self.alice, f"/api/projects/{pid}/publish")
+        self.assertEqual(r.status_code, 200, r.get_json())
+        v = r.get_json()["video"]
+        self.assertEqual((v["visibility"], v["title"], v["description"], v["category"]), ("followers", "Best of", "Highlights", "Gaming"))
+        self.assertTrue(self.alice.get(f"/api/vod/{vid}/cover").data.endswith(bytes([9]) * 300))
+        self.assertEqual(post(self.alice, f"/api/projects/{pid}/publish").status_code, 409)  # already published
+        self.assertEqual(self.anon.get("/api/channel/alice/videos").get_json()["videos"], [])  # followers only
+        self.assertEqual(post(self.bob, f"/api/projects/{pid}/publish").status_code, 404)
+
+        # changing the timeline makes the export stale; an export that finishes with an old state_rev stays a draft
+        post(self.alice, f"/api/vod/{vid}/unpublish")
+        got = post(self.alice, f"/api/projects/{pid}/save", {"rev": got["rev"], "state": {"clips": [{"uid": "e1", "asset": f"vod:{live}", "in": 0, "out": 8}]}}).get_json()["project"]
+        self.assertEqual((got["status"], got["state_rev"], "export" in got["publish_problems"]), ("draft", 2, True))
+        self.assertEqual(post(self.alice, f"/api/projects/{pid}/publish").status_code, 409)
+        vid2, _ = export(1, {"project": pid})  # rendered from the old timeline
+        self.assertEqual(self.alice.get(f"/api/projects/{pid}").get_json()["project"]["status"], "draft")
+        vid3, _ = export(2, {"project": pid})
+        self.assertEqual(self.alice.get(f"/api/projects/{pid}").get_json()["project"]["vod_id"], vid3)
+        r = post(self.alice, f"/api/projects/{pid}/publish", {"visibility": "private"})
+        self.assertEqual((r.status_code, r.get_json()["field"]), (400, "visibility"))
+        self.assertEqual(post(self.alice, f"/api/projects/{pid}/publish", {"visibility": "public"}).get_json()["video"]["visibility"], "public")
+        self.assertEqual({x["id"] for x in self.anon.get("/api/channel/alice/videos").get_json()["videos"]}, {vid3})
+
+        # deleting the exported clip: the draft is a draft again and says so
+        post(self.alice, f"/api/vod/{vid3}/delete")
+        got = self.alice.get(f"/api/projects/{pid}").get_json()["project"]
+        self.assertEqual((got["status"], got["vod_id"]), ("draft", None))
+
+        # publishing a clip directly now takes the whole set of details too
+        vid4, _ = export(0)
+        self.assertEqual(post(self.alice, f"/api/vod/{vid4}/publish", {"category": "Nope"}).status_code, 400)
+        self.assertEqual(post(self.alice, f"/api/vod/{vid4}/publish", {"cover": "data:image/png;base64,AAAA"}).status_code, 400)
+        v = post(self.alice, f"/api/vod/{vid4}/publish", {"title": "Direct", "description": "D", "category": "Art", "cover": jpeg(7)}).get_json()["video"]
+        self.assertEqual((v["title"], v["description"], v["category"], v["visibility"]), ("Direct", "D", "Art", "public"))
+        self.assertTrue(self.anon.get(f"/api/vod/{vid4}/cover").data.endswith(bytes([7]) * 300))
+
+    def test_projects_table_migrates_from_step_one(self):
+        import tempfile, os
+        path = os.path.join(tempfile.mkdtemp(), "old.db")
+        con = sqlite3.connect(path)
+        con.executescript("CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, email TEXT, password_hash TEXT, created_at INTEGER);"
+                          "CREATE TABLE vods (id TEXT PRIMARY KEY, user_id INTEGER, title TEXT NOT NULL DEFAULT '', mime TEXT, started_at INTEGER, updated_at INTEGER);"
+                          "CREATE TABLE edit_projects (id TEXT PRIMARY KEY, user_id INTEGER, name TEXT NOT NULL DEFAULT '', rev INTEGER NOT NULL DEFAULT 1, created_at INTEGER, updated_at INTEGER);")
+        con.commit()
+        con.close()
+        saved = config.DB_PATH
+        config.DB_PATH = path
+        try:
+            database.init_db()
+            database.init_db()
+            con = sqlite3.connect(path)
+            self.assertIn("state_rev", {r[1] for r in con.execute("PRAGMA table_info(edit_projects)")})
+            self.assertIn("project_id", {r[1] for r in con.execute("PRAGMA table_info(vods)")})
+            con.close()
+        finally:
+            config.DB_PATH = saved
+
     def test_old_databases_get_clip_columns(self):
         """A database made before clips and replies keeps its videos published and gets the new columns."""
         import tempfile

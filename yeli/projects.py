@@ -14,6 +14,9 @@ Routes (all need an account and only ever touch the caller's own projects)
   POST /api/projects/<id>/cover/delete   go back to the automatic cover
   GET  /api/projects/<id>/cover          the cover image
   POST /api/projects/<id>/delete         delete the draft (an exported clip is not touched)
+  POST /api/projects/<id>/publish        publish the clip exported from this draft with the draft's title, description,
+                                         category and cover (the export itself goes through POST /api/vod/new with
+                                         {"project": id}, and /finish with {"state_rev": ...}, see vods.py)
 
 Concurrency: every save must carry the `rev` it was based on. If another tab saved in between, the answer is 409 with
 the current `rev` and nothing is written, so autosave from two tabs can't silently overwrite each other.
@@ -25,7 +28,7 @@ import secrets
 
 from flask import Blueprint, Response, jsonify, request
 
-from . import config
+from . import config, vods
 from .core import *
 from .db import get_db
 
@@ -47,7 +50,7 @@ MAX_SECONDS = 24 * 3600
 MAX_EXTRA_KEYS = 24
 
 PROJECT_SELECT = """
-SELECT p.id, p.user_id, p.name, p.rev, p.aspect, p.clip_count, p.total_seconds, p.live_seconds, p.title, p.description,
+SELECT p.id, p.user_id, p.name, p.rev, p.state_rev, p.aspect, p.clip_count, p.total_seconds, p.live_seconds, p.title, p.description,
        p.category, p.visibility, p.status, p.vod_id, p.state_version, p.created_at, p.updated_at,
        c.updated_at AS cover_ver, c.source AS cover_source
 FROM edit_projects p LEFT JOIN edit_project_covers c ON c.project_id = p.id
@@ -205,8 +208,23 @@ def _write_sources(db, pid, per_vod):
 # --------------------------------------------------------------------------
 # Helpers
 # --------------------------------------------------------------------------
+def publish_problems(row):
+    """What is still missing before this draft can be published, as codes the editor can turn into messages."""
+    problems = []
+    if row["clip_count"] == 0:
+        problems.append("empty")
+    if not row["title"]:
+        problems.append("title")
+    if row["visibility"] == "private":
+        problems.append("visibility")
+    if not row["vod_id"] or row["status"] != "exported":
+        problems.append("export")  # the clip must be rendered from the current timeline
+    return problems
+
+
 def project_json(row, state=None, missing=None):
     total = row["total_seconds"]
+    status = row["status"] if row["vod_id"] else "draft"  # 'exported' means nothing once its clip is gone
     out = {
         "id": row["id"],
         "name": row["name"],
@@ -220,8 +238,10 @@ def project_json(row, state=None, missing=None):
         "description": row["description"],
         "category": row["category"],
         "visibility": row["visibility"],
-        "status": row["status"],
+        "status": status,
         "vod_id": row["vod_id"],
+        "state_rev": row["state_rev"],
+        "publish_problems": publish_problems(row),
         "cover": row["cover_ver"],              # None = no custom cover; else a version number for cache busting
         "cover_source": row["cover_source"],
         "created_at": row["created_at"],
@@ -373,6 +393,7 @@ def project_save(pid):
     try:
         if state is not None:
             cols.update(_state_columns(db, me_row["id"], pid, state))
+            cols["state_rev"] = row["state_rev"] + 1
             if row["status"] == "exported":
                 cols["status"] = "draft"
     except StateError as e:
@@ -457,3 +478,32 @@ def project_delete(pid):
     db.execute("DELETE FROM edit_projects WHERE id = ?", (pid,))  # covers and sources go with it (ON DELETE CASCADE)
     db.commit()
     return jsonify(ok=True)
+
+
+@bp.post("/api/projects/<pid>/publish")
+@login_required
+def project_publish(pid):
+    """Publish the clip that was exported from this draft, with the draft's details. The draft must have been exported
+    from its current timeline (status 'exported'); `visibility` in the body can override the draft's choice."""
+    me_row = current_user()
+    db = get_db()
+    row = _mine(db, pid, me_row)
+    if row is None:
+        return err("Project not found.", 404)
+    vod = vods._get(db, row["vod_id"]) if row["vod_id"] else None
+    if vod is None or vod["user_id"] != me_row["id"] or vod["status"] != "ready" or row["status"] != "exported":
+        return err("Export the video first: it has changed since the last export.", 409, needs_export=True)
+    if vod["visibility"] != "private":
+        return err("This video is already published.", 409, published=True, video=vods.vod_json(vod, me_row))
+    if row["clip_count"] == 0:
+        return err("The project has no clips.", 400, field="clips")
+    if not row["title"]:
+        return err("Give your video a title.", 400, field="title")
+    target = (request.get_json(silent=True) or {}).get("visibility", row["visibility"])
+    if target not in ("public", "followers"):
+        return err("Choose who can watch it: everyone or your followers.", 400, field="visibility")
+    cover = db.execute("SELECT data FROM edit_project_covers WHERE project_id = ?", (pid,)).fetchone()  # custom cover wins over the automatic one
+    vods.apply_publish(db, vod, target, row["title"], row["description"], row["category"], cover["data"] if cover else None)
+    db.execute("UPDATE edit_projects SET visibility = ?, updated_at = ? WHERE id = ?", (target, now(), pid))
+    db.commit()
+    return jsonify(ok=True, video=vods.vod_json(vods._get(db, vod["id"]), me_row), project=project_json(_mine(db, pid, me_row)))

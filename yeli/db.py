@@ -320,7 +320,9 @@ CREATE TABLE IF NOT EXISTS vods (
     -- 'private' = a clip only its owner can see; 'public' = published on the channel. Older rows were public.
     visibility  TEXT NOT NULL DEFAULT 'public',
     -- 'live' = recorded from a stream, 'edit' = exported from the video editor
-    source      TEXT NOT NULL DEFAULT 'live'
+    source      TEXT NOT NULL DEFAULT 'live',
+    -- the editor draft this clip was exported from (NULL for recordings and uploads)
+    project_id  TEXT REFERENCES edit_projects(id) ON DELETE SET NULL
 );
 CREATE INDEX IF NOT EXISTS idx_vods_user ON vods(user_id, started_at);
 
@@ -395,6 +397,8 @@ CREATE TABLE IF NOT EXISTS edit_projects (
     state         TEXT NOT NULL DEFAULT '{}',
     state_version INTEGER NOT NULL DEFAULT 1,
     rev           INTEGER NOT NULL DEFAULT 1,
+    -- goes up only when the TIMELINE changes (rev also counts detail edits): an export is current while its state_rev still matches
+    state_rev     INTEGER NOT NULL DEFAULT 1,
     aspect        TEXT NOT NULL DEFAULT '16:9',
     clip_count    INTEGER NOT NULL DEFAULT 0,
     total_seconds REAL NOT NULL DEFAULT 0,
@@ -458,7 +462,9 @@ def init_db(path=None):
                           ("tts_output", "TEXT NOT NULL DEFAULT 'stream'")],
         "chat_messages": [("kind", "TEXT NOT NULL DEFAULT 'msg'"), ("sticker", "TEXT NOT NULL DEFAULT ''"), ("amount", "INTEGER NOT NULL DEFAULT 0"),
                           ("platform", "TEXT NOT NULL DEFAULT ''"), ("ext_name", "TEXT NOT NULL DEFAULT ''")],
-        "vods": [("visibility", "TEXT NOT NULL DEFAULT 'public'"), ("source", "TEXT NOT NULL DEFAULT 'live'")],
+        "vods": [("visibility", "TEXT NOT NULL DEFAULT 'public'"), ("source", "TEXT NOT NULL DEFAULT 'live'"),
+                 ("project_id", "TEXT REFERENCES edit_projects(id) ON DELETE SET NULL")],
+        "edit_projects": [("state_rev", "INTEGER NOT NULL DEFAULT 1")],
         "vod_comments": [("parent_id", "INTEGER REFERENCES vod_comments(id) ON DELETE CASCADE"),
                          ("reply_to", "INTEGER REFERENCES users(id) ON DELETE SET NULL")],
         "viewers": [("viewer_key", "TEXT NOT NULL DEFAULT ''"), ("user_id", "INTEGER"), ("superseded", "INTEGER NOT NULL DEFAULT 0"), ("ip", "TEXT NOT NULL DEFAULT ''")],

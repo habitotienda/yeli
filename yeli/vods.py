@@ -186,8 +186,13 @@ def vod_new():
     mime = text_field(data, "mime", 80).split(";")[0].strip().lower()
     if mime not in MIMES:
         return err("This video format isn't supported.")
-    title = text_field(data, "title", config.VOD_TITLE_MAX) or "Edited video"
     db = get_db()
+    project = None
+    if data.get("project") not in (None, ""):  # exporting a draft: the clip remembers where it came from
+        project = db.execute("SELECT id, name, title FROM edit_projects WHERE id = ? AND user_id = ?", (str(data["project"]), me_row["id"])).fetchone()
+        if project is None:
+            return err("Project not found.", 404)
+    title = text_field(data, "title", config.VOD_TITLE_MAX) or (project and (project["title"] or project["name"])) or "Edited video"
     for old in db.execute("SELECT * FROM vods WHERE user_id = ? AND status = 'recording' AND source = 'edit'", (me_row["id"],)).fetchall():
         _finalize(db, old, old["updated_at"])  # an export that was abandoned
     saved = db.execute("SELECT COUNT(*) AS n FROM vods WHERE user_id = ? AND status = 'ready'", (me_row["id"],)).fetchone()["n"]
@@ -198,9 +203,9 @@ def vod_new():
     vid = secrets.token_hex(8)
     t = now()
     db.execute(
-        """INSERT INTO vods (id, user_id, title, category, mime, status, started_at, updated_at, visibility, source)
-           VALUES (?,?,?,'Other',?,'recording',?,?,'private','edit')""",
-        (vid, me_row["id"], title, mime, t, t),
+        """INSERT INTO vods (id, user_id, title, category, mime, status, started_at, updated_at, visibility, source, project_id)
+           VALUES (?,?,?,'Other',?,'recording',?,?,'private','edit',?)""",
+        (vid, me_row["id"], title, mime, t, t, project and project["id"]),
     )
     db.commit()
     vod_path(db.execute("SELECT id, mime FROM vods WHERE id = ?", (vid,)).fetchone()).touch()
@@ -275,11 +280,26 @@ def vod_finish(vid):
             cover = decode_jpeg(data.get("cover"), config.MAX_COVER_BYTES) if data.get("cover") else None
             if cover is not None:
                 db.execute("UPDATE vods SET cover = ?, cover_ver = ? WHERE id = ?", (cover, now(), vid))
-        ok = _finalize(db, row_full(db, vid), now(), duration)
+        full = row_full(db, vid)
+        ok = _finalize(db, full, now(), duration)
+        if ok and full["project_id"]:
+            _link_export(db, full["project_id"], vid, data.get("state_rev"))
         db.commit()
         if not ok:
             return jsonify(ok=True, saved=False)
     return jsonify(ok=True, saved=True, video=vod_json(_get(db, vid), me_row))
+
+
+def _link_export(db, project_id, vid, state_rev):
+    """The draft now points to its newest export. It counts as 'exported' only if its timeline is still the one that was
+    rendered: `state_rev` is what the editor says it exported; if the draft was saved with other edits meanwhile it stays a draft."""
+    try:
+        state_rev = int(state_rev)
+    except (TypeError, ValueError):
+        state_rev = None
+    db.execute(
+        "UPDATE edit_projects SET vod_id = ?, status = CASE WHEN state_rev = ? THEN 'exported' ELSE 'draft' END WHERE id = ?",
+        (vid, state_rev, project_id))
 
 
 # --------------------------------------------------------------------------
@@ -422,10 +442,20 @@ def vod_edit(vid):
     return jsonify(ok=True, video=vod_json(_get(db, vid), me_row))
 
 
+def apply_publish(db, row, target, title, description, category, cover=None):
+    """Make a clip visible ('public' or 'followers') with its final details. `cover` is JPEG bytes or None to keep the current one."""
+    if cover is not None:
+        db.execute("UPDATE vods SET visibility = ?, title = ?, description = ?, category = ?, cover = ?, cover_ver = ? WHERE id = ?",
+                   (target, title, description, category, cover, now(), row["id"]))
+    else:
+        db.execute("UPDATE vods SET visibility = ?, title = ?, description = ?, category = ? WHERE id = ?",
+                   (target, title, description, category, row["id"]))
+
+
 @bp.post("/api/vod/<vid>/publish")
 @login_required
 def vod_publish(vid):
-    """Make a clip public on the channel. A title and a description can be set in the same step."""
+    """Make a clip public on the channel. Title, description, category and cover can be set in the same step."""
     me_row = current_user()
     db = get_db()
     row = _get(db, vid)
@@ -438,14 +468,22 @@ def vod_publish(vid):
         target = data.get("visibility", "public")
         if target not in ("public", "followers"):
             return err("Unknown privacy option.")
-        title, description = row["title"], row["description"]
+        title, description, category, cover = row["title"], row["description"], row["category"], None
         if "title" in data:
             title = text_field(data, "title", config.VOD_TITLE_MAX)
-            if not title:
-                return err("Give your video a title.", field="title")
+        if not title:
+            return err("Give your video a title.", field="title")
         if "description" in data:
             description = text_field(data, "description", config.VOD_DESC_MAX)
-        db.execute("UPDATE vods SET visibility = ?, title = ?, description = ? WHERE id = ?", (target, title, description, vid))
+        if "category" in data:
+            if data["category"] not in config.CATEGORIES:
+                return err("Unknown category.", field="category")
+            category = data["category"]
+        if data.get("cover"):
+            cover = decode_jpeg(data["cover"], config.MAX_COVER_BYTES)
+            if cover is None:
+                return err("That cover image isn't valid or is too big.", field="cover")
+        apply_publish(db, row, target, title, description, category, cover)
         db.commit()
     return jsonify(ok=True, video=vod_json(_get(db, vid), me_row))
 

@@ -17,6 +17,9 @@ const EDIT_PATH = '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>'
 const FILM_PATH = '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/>';
 const GLOBE_PATH = '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>';
 const LOCK_PATH = '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>';
+const DOTS_PATH = '<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>';
+const USERS_PATH = '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.2a6.5 6.5 0 0 1 3.5 5.8"/>';
+const CHECK_PATH = '<path d="M5 12.5l4.5 4.5L19 7.5"/>';
 const TRASH_PATH = '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-12M9 7V4h6v3"/>';
 
 const countText = (n) => Number(n || 0).toLocaleString(window.YELI_LANG);
@@ -44,7 +47,7 @@ function videoCard(v) {
                 <h3 class="stream-title">${esc(v.title)}</h3>
                 <p class="stream-channel">${esc(vodDate(v.started_at))}</p>
                 ${v.is_clip ? '' : `<p class="vod-stats" aria-hidden="true"><span>${IC(HEART_PATH)}${countText(v.likes)}</span><span>${IC(COMMENT_PATH)}${countText(v.comment_count)}</span></p>`}
-                <p class="stream-cat">${v.is_clip ? `<span class="chip-static chip-clip">${IC(LOCK_PATH, 'none', 12)} Private clip</span>` : `<span class="chip-static">${esc(v.category)}</span>${v.can_edit ? ' <span class="chip-static chip-edit">Edit available</span>' : ''}`}${v.source === 'edit' ? ' <span class="chip-static chip-edit">Edited</span>' : ''}</p>
+                <p class="stream-cat">${v.is_clip ? `<span class="chip-static chip-clip">${IC(LOCK_PATH, 'none', 12)} Private clip</span>` : `<span class="chip-static">${esc(v.category)}</span>${v.visibility === 'followers' ? ` <span class="chip-static chip-clip">${IC(USERS_PATH, 'none', 12)} Followers only</span>` : ''}`}${v.source === 'edit' ? ' <span class="chip-static chip-edit">Edited</span>' : ''}</p>
             </div>
         </div>
     </a>`;
@@ -164,8 +167,7 @@ async function pageVideo(root, id, alive) {
         $('#vDesc').textContent = v.description || '';
         $('#vDesc').hidden = !v.description;
         $('#vDescEmpty').hidden = !!v.description || !v.is_mine;
-        $('#vNote').textContent = !v.is_mine ? '' : v.is_clip ? 'Change the cover, the title and the description as often as you like until you publish.'
-            : (v.can_edit ? 'You can change the cover, the title and the description one time.' : 'You already used your one change for this video.');
+        $('#vNote').textContent = v.is_mine && v.visibility === 'followers' ? 'Only people who follow you can watch this video.' : '';
         const bar = $('#vClip');
         bar.hidden = !v.is_clip;
         bar.innerHTML = v.is_clip ? `${IC(LOCK_PATH, 'none', 20)}<div class="clip-bar-text"><strong>Private clip</strong><span>Only you can see this. Cut it in the editor, then publish it to your channel when it is ready.</span></div>
@@ -174,14 +176,53 @@ async function pageVideo(root, id, alive) {
         const pop = popNext; popNext = false;      // the heart bounces only right after you tap it, not on every repaint
         $('#vActions').innerHTML = (v.is_clip ? '' : `<button type="button" class="btn btn-secondary btn-ico like-btn${v.liked ? ' is-liked' : ''}${v.liked && pop ? ' pop' : ''}" data-vod="like" aria-pressed="${v.liked}" aria-label="${v.liked ? 'Unlike' : 'Like'}" title="${v.liked ? 'Unlike' : 'Like'}">${IC(HEART_PATH, v.liked ? 'currentColor' : 'none')}<span class="like-count">${countText(v.likes)}</span></button>`
             + `<button type="button" class="btn btn-secondary btn-ico btn-share" data-vod="share">${IC(SHARE_PATH)}<span>Share</span></button>`)
-            + (v.is_mine ? `${v.can_edit ? `<button type="button" class="btn ${v.is_clip ? 'btn-secondary' : 'btn-primary'} btn-ico btn-edit" data-vod="edit">${IC(EDIT_PATH)}<span>Edit ${v.is_clip ? '' : '<span class="btn-hint">(one time)</span>'}</span></button>` : ''}${v.is_clip ? '' : `<a class="btn btn-secondary btn-ico" href="${editorHref(v.id)}">${IC(FILM_PATH)}<span>Editor</span></a><button type="button" class="btn btn-secondary btn-ico" data-vod="unpublish">${IC(LOCK_PATH)}<span>Make private</span></button>`}<button type="button" class="btn btn-secondary btn-ico btn-trash" data-vod="delete" aria-label="Delete" title="Delete">${IC(TRASH_PATH)}<span>Delete</span></button>` : '');
+            + (v.is_mine ? vodMenuHtml(v) : '');
     }
     paint();
 
+    const vodMenu = () => $('.vod-menu', root);
+    function closeVodMenu() {
+        const m = vodMenu();
+        if (!m || m.hidden) return;
+        m.hidden = true;
+        const t = $('[data-vod="menu"]', root);
+        if (t) t.setAttribute('aria-expanded', 'false');
+    }
+    function toggleVodMenu() {
+        const m = vodMenu();
+        if (!m) return;
+        const open = m.hidden;
+        m.hidden = !open;
+        $('[data-vod="menu"]', root).setAttribute('aria-expanded', String(open));
+        if (open) { const on = $('.vod-menu-item.is-on', m) || $('.vod-menu-item', m); if (on) on.focus(); }
+    }
+    async function setVisibility(target) {
+        if (target === v.visibility) return;
+        if (v.is_clip) {                          // a private clip goes through the publish step (title and description)
+            openPublishDialog(v, (next) => { v = next; route(); }, target);
+            return;
+        }
+        try {
+            v = (await api(`/vod/${encodeURIComponent(v.id)}/visibility`, { method: 'POST', body: { visibility: target } })).video;
+            toast(target === 'private' ? 'Moved back to your clips. Only you can see it now.'
+                : target === 'followers' ? 'Now only your followers can watch this video.' : 'Now everyone can watch this video.');
+            route();
+        } catch (e2) { toast(e2.message); }
+    }
+    const onDocClick = (e) => { if (!e.target.closest('.vod-menu-wrap')) closeVodMenu(); };
+    const onKey = (e) => { if (e.key === 'Escape' && vodMenu() && !vodMenu().hidden) { closeVodMenu(); const t = $('[data-vod="menu"]', root); if (t) t.focus(); } };
+    document.addEventListener('click', onDocClick);
+    document.addEventListener('keydown', onKey);
+    onLeave(() => { document.removeEventListener('click', onDocClick); document.removeEventListener('keydown', onKey); });
+
     if (root._vodClick) root.removeEventListener('click', root._vodClick);
     root._vodClick = async (e) => {
+        const vis = e.target.closest('[data-vis]');
+        if (vis && root.contains(vis)) { closeVodMenu(); await setVisibility(vis.dataset.vis); return; }
         const b = e.target.closest('[data-vod]');
         if (!b || !root.contains(b)) return;
+        if (b.dataset.vod === 'menu') { toggleVodMenu(); return; }
+        closeVodMenu();
         if (b.dataset.vod === 'like') {
             if (!state.me) { openAuth('login', 'Log in to like this video.'); return; }
             if (b.disabled) return;
@@ -222,6 +263,28 @@ async function pageVideo(root, id, alive) {
     onLeave(() => root.removeEventListener('click', root._vodClick));
 
     if (!v.is_clip) mountVideoComments(v, alive);
+}
+
+/** The \u22ef menu of my own video: who can watch it (private / followers only / public) and delete. */
+const VIS_OPTIONS = [
+    ['private', 'Private', 'Only you', LOCK_PATH],
+    ['followers', 'Followers only', 'Only people who follow you', USERS_PATH],
+    ['public', 'Public', 'Anyone', GLOBE_PATH],
+];
+function vodMenuHtml(v) {
+    const items = VIS_OPTIONS.map(([key, label, hint, icon]) => `
+        <button type="button" class="vod-menu-item${v.visibility === key ? ' is-on' : ''}" role="menuitemradio" aria-checked="${v.visibility === key}" data-vis="${key}">
+            ${IC(icon, 'none', 18)}<span class="vod-menu-text"><strong>${label}</strong><small>${hint}</small></span>${v.visibility === key ? IC(CHECK_PATH, 'none', 16) : ''}
+        </button>`).join('');
+    return `<div class="vod-menu-wrap">
+        <button type="button" class="btn btn-secondary btn-more" data-vod="menu" aria-haspopup="menu" aria-expanded="false" aria-label="More options" title="More options">${IC(DOTS_PATH, 'none', 20)}</button>
+        <div class="vod-menu" role="menu" aria-label="Video options" hidden>
+            <p class="vod-menu-title">Privacy</p>
+            ${items}
+            <div class="vod-menu-sep" role="separator"></div>
+            <button type="button" class="vod-menu-item is-danger" role="menuitem" data-vod="delete">${IC(TRASH_PATH, 'none', 18)}<span class="vod-menu-text"><strong>Delete</strong></span></button>
+        </div>
+    </div>`;
 }
 
 /** The comments under a published video: write, reply, like, read (newest first, 20 at a time) and delete.
@@ -536,10 +599,11 @@ function openVideoEdit(v, done) {
 }
 
 /** Publishing a clip: pick the title and the description people will see, then it goes on the channel. */
-function openPublishDialog(v, done) {
+function openPublishDialog(v, done, visibility = 'public') {
+    const onlyFollowers = visibility === 'followers';
     const dlg = dialogShell('Publish this clip', `
         <form id="pubForm" class="props-form" novalidate>
-            <div class="notice" role="note">Anyone will be able to watch it on your channel, like it and comment. You can make it private again later.</div>
+            <div class="notice" role="note">${onlyFollowers ? 'Only people who follow you will be able to watch it, like it and comment. You can change who sees it later.' : 'Anyone will be able to watch it on your channel, like it and comment. You can make it private again later.'}</div>
             <div class="field"><label for="pbTitle">Title</label><input id="pbTitle" maxlength="80" autocomplete="off" required></div>
             <div class="field"><label for="pbDesc">Description</label><textarea id="pbDesc" rows="3" maxlength="500" placeholder="Tell people what this video is about"></textarea></div>
             <p class="form-error" id="pbErr" role="alert" hidden></p>
@@ -554,9 +618,9 @@ function openPublishDialog(v, done) {
         const btn = $('#pbGo', dlg);
         btn.disabled = true;
         try {
-            const r = await api(`/vod/${encodeURIComponent(v.id)}/publish`, { method: 'POST', body: { title: title.value, description: desc.value } });
+            const r = await api(`/vod/${encodeURIComponent(v.id)}/publish`, { method: 'POST', body: { title: title.value, description: desc.value, visibility } });
             dlg.close();
-            toast('Published on your channel.');
+            toast(onlyFollowers ? 'Published for your followers.' : 'Published on your channel.');
             done(r.video);
         } catch (e2) {
             err.textContent = e2.message;

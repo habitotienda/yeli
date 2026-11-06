@@ -1202,3 +1202,67 @@ html.reduce-motion .notif-btn.has-unread svg { animation: none; }
 #platformsDialog .dialog-body { max-height: 88dvh; overflow-y: auto; }
 #platformsDialog [data-plat-add] { display: block; margin-top: 10px; }
 #platformsDialog .panel-section > .hint { display: block; margin-top: 12px; }
+
+
+/* ==========================================================================
+   Video page: Like + Share, and a "..." menu (privacy + delete) for the owner
+   Live page: a like button next to Share
+   ========================================================================== */
+.vod-menu-wrap { position: relative; display: inline-flex; }
+.btn-more { min-width: 46px; padding: 0 12px; }
+.vod-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    z-index: 40;
+    width: min(270px, calc(100vw - 24px));
+    padding: 6px;
+    background: var(--second-color, #252525);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+.vod-menu[hidden] { display: none; }
+.vod-menu-title {
+    margin: 6px 10px 4px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+.vod-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 48px;
+    padding: 8px 10px;
+    background: transparent;
+    border: 0;
+    border-radius: 8px;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+.vod-menu-item:hover, .vod-menu-item:focus-visible { background: rgba(255, 255, 255, 0.07); outline: none; }
+.vod-menu-text { display: flex; flex-direction: column; flex: 1; min-width: 0; line-height: 1.25; }
+.vod-menu-text small { color: var(--text-muted); font-size: 0.78rem; }
+.vod-menu-item.is-on { color: var(--primary-color); }
+.vod-menu-item.is-on small { color: var(--text-muted); }
+.vod-menu-item.is-danger { color: var(--live, #ff2e4d); }
+.vod-menu-sep { height: 1px; margin: 6px 4px; background: var(--border-color); }
+html[data-theme="light"] .vod-menu { box-shadow: 0 12px 32px rgba(20, 24, 40, 0.16); }
+html[data-theme="light"] .vod-menu-item:hover,
+html[data-theme="light"] .vod-menu-item:focus-visible { background: rgba(20, 24, 40, 0.06); }
+
+#liveLikeBtn[disabled] { opacity: 0.85; cursor: default; }
+#liveLikeBtn[disabled]:hover { transform: none; }
+
+@media (max-width: 700px) {
+    .vod-page .channel-actions .vod-menu-wrap { flex: 0 0 46px; }
+    .vod-page .channel-actions .btn-more { width: 46px; padding: 0; }
+    .channel .channel-actions .like-btn { flex: 0 0 auto; padding: 0 14px; }
+}

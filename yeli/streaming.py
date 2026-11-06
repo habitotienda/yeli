@@ -39,6 +39,7 @@ def stream_start():
         (me_row["id"], title, category, t, t, mode, request.remote_addr or ""),
     )
     db.execute("DELETE FROM viewers WHERE streamer_id = ?", (me_row["id"],))
+    db.execute("DELETE FROM live_likes WHERE streamer_id = ?", (me_row["id"],))
     db.execute("DELETE FROM signals WHERE to_key = ?", (f"u:{me_row['id']}",))
     db.execute("DELETE FROM thumbnails WHERE user_id = ?", (me_row["id"],))
     notify_followers_live(db, me_row["id"], me_row["username"], title)
@@ -55,6 +56,7 @@ def stream_stop():
     db = get_db()
     db.execute("UPDATE streams SET is_live = 0 WHERE user_id = ?", (uid,))
     db.execute("DELETE FROM viewers WHERE streamer_id = ?", (uid,))
+    db.execute("DELETE FROM live_likes WHERE streamer_id = ?", (uid,))
     db.execute("DELETE FROM signals WHERE to_key = ?", (f"u:{uid}",))
     db.execute("DELETE FROM thumbnails WHERE user_id = ?", (uid,))
     db.commit()

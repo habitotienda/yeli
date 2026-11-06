@@ -4,6 +4,30 @@
    curly vs straight quotes and extra spaces. "~" at the start or end of a value drops the space
    that was around the original text. Patterns at the bottom handle text with numbers or names in it. */
 window.YELI_ES = {
+    /* ---- Privacy menu and live likes ---- */
+    "Privacy": "Privacidad",
+    "Private": "Privado",
+    "Public": "Público",
+    "More options": "Más opciones",
+    "Video options": "Opciones del video",
+    "Only you": "Solo tú",
+    "Followers only": "Solo seguidores",
+    "Only people who follow you": "Solo las personas que te siguen",
+    "Anyone": "Cualquiera",
+    "Now only your followers can watch this video.": "Ahora solo tus seguidores pueden ver este video.",
+    "Now everyone can watch this video.": "Ahora todos pueden ver este video.",
+    "Only people who follow you can watch this video.": "Solo las personas que te siguen pueden ver este video.",
+    "Only people who follow you will be able to watch it, like it and comment. You can change who sees it later.": "Solo las personas que te siguen podrán verlo, darle me gusta y comentar. Puedes cambiar quién lo ve más tarde.",
+    "Published for your followers.": "Publicado para tus seguidores.",
+    "Unknown privacy option.": "Opción de privacidad desconocida.",
+    "Log in to like this stream.": "Inicia sesión para darle me gusta a este directo.",
+    "Like this stream": "Dar me gusta a este directo",
+    "Unlike this stream": "Quitar me gusta a este directo",
+    "Likes on this stream": "Me gusta de este directo",
+    "Like this stream to help it reach more people while it is live": "Dale me gusta a este directo para que llegue a más gente mientras está en vivo",
+    "Likes help your stream reach more people while you are live": "Los me gusta ayudan a que tu directo llegue a más gente mientras estás en vivo",
+    "You can't like your own stream.": "No puedes darle me gusta a tu propio directo.",
+    "This channel isn't live right now.": "Este canal no está en directo ahora.",
     /* ---- Clips, replies and the video editor ---- */
     "Replies": "Respuestas",
     "Someone replies to one of your comments.": "Alguien responde a uno de tus comentarios.",

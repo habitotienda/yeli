@@ -91,6 +91,12 @@ def channel(username):
     me_row = current_user()
     out["is_me"] = bool(me_row and me_row["id"] == row["id"])
     out["is_mod"] = bool(me_row and is_mod(get_db(), row["id"], me_row["id"]))
+    out["liked_live"] = bool(
+        me_row and out["live"]
+        and get_db().execute(
+            "SELECT 1 FROM live_likes WHERE streamer_id = ? AND user_id = ?", (row["id"], me_row["id"])
+        ).fetchone()
+    )
     out["following"] = bool(
         me_row
         and get_db().execute(
@@ -130,6 +136,30 @@ def follow(username):
     return jsonify(following=want, followers=followers)
 
 
+@bp.post("/api/watch/<username>/like")
+@login_required
+def live_like(username):
+    """Like (or un-like) a stream that is live right now. One like per account; it is wiped when the stream ends."""
+    db = get_db()
+    me_row = current_user()
+    rows = query_channels(f"WHERE u.username = :name AND {LIVE_COND}", {"name": username}, "", 1)
+    if not rows:
+        return err("This channel isn't live right now.", 404)
+    sid = rows[0]["id"]
+    if sid == me_row["id"]:
+        return err("You can't like your own stream.", 400)
+    liked = (request.get_json(silent=True) or {}).get("liked")
+    if not isinstance(liked, bool):
+        return err("Say whether you like it.")
+    if liked:
+        db.execute("INSERT OR IGNORE INTO live_likes (streamer_id, user_id, created_at) VALUES (?,?,?)", (sid, me_row["id"], now()))
+    else:
+        db.execute("DELETE FROM live_likes WHERE streamer_id = ? AND user_id = ?", (sid, me_row["id"]))
+    db.commit()
+    n = db.execute("SELECT COUNT(*) AS n FROM live_likes WHERE streamer_id = ?", (sid,)).fetchone()["n"]
+    return jsonify(ok=True, liked=liked, likes=n)
+
+
 @bp.get("/api/recommended")
 @cached_json
 def recommended():
@@ -141,7 +171,7 @@ def recommended():
         live = bool(r["live"])
         if not live and r["boost"] == 0:
             continue
-        weight = economy.level_value("boost", r["boost"])
+        weight = economy.level_value("boost", r["boost"]) + (economy.live_like_weight(r["live_likes"]) if live else 0)
         score = weight * (0.5 + rng.random()) + ((5 + 2 * math.log(r["viewers"] + 1)) if live else 0)
         scored.append((score, channel_json(r)))
     scored.sort(key=lambda x: -x[0])

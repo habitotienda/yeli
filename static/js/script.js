@@ -708,8 +708,10 @@ async function pageChannel(root, name, alive) {
         $('#chDonate').hidden = ch.is_me;
         $('#chDonateLabel').textContent = `Support ${ch.username} with Yelis, or send a sticker in chat.`;
         const share = `<button type="button" class="btn btn-secondary btn-ico btn-share" id="shareBtn" aria-label="Share" title="Share">${IC(SHARE_PATH)}<span>Share</span></button>`;
+        // Likes on a live stream: free, a bit weaker than the paid Recommendation upgrade, and gone when the stream ends.
+        const liveLike = ch.live ? `<button type="button" class="btn btn-secondary btn-ico like-btn${ch.liked_live ? ' is-liked' : ''}" id="liveLikeBtn" aria-pressed="${!!ch.liked_live}"${ch.is_me ? ' disabled' : ''} aria-label="${ch.is_me ? 'Likes on this stream' : (ch.liked_live ? 'Unlike this stream' : 'Like this stream')}" title="${ch.is_me ? 'Likes help your stream reach more people while you are live' : 'Like this stream to help it reach more people while it is live'}">${IC(HEART_PATH, ch.liked_live ? 'currentColor' : 'none')}<span class="like-count">${countText(ch.live_likes)}</span></button>` : '';
         $('#chActions').classList.toggle('is-owner', !!ch.is_me);
-        $('#chActions').innerHTML = share + (ch.is_me
+        $('#chActions').innerHTML = liveLike + share + (ch.is_me
             ? `<a class="btn btn-secondary btn-ico btn-edit" href="#/settings">${IC(EDIT_PATH)}<span>Edit profile</span></a><a class="btn btn-primary" href="#/studio">${broadcast ? 'Open studio' : 'Go live'}</a>`
             : `<button type="button" class="btn ${ch.following ? 'btn-secondary is-following' : 'btn-primary'}" id="followBtn" aria-pressed="${ch.following}">
                    <img src="static/svg/${ch.following ? 'heart-filled' : 'heart'}.svg" alt="" width="16" height="16">${ch.following ? 'Following' : 'Follow'}
@@ -735,6 +737,27 @@ async function pageChannel(root, name, alive) {
     $('#chActions').addEventListener('click', async (e) => {
         const shareBtn = e.target.closest('#shareBtn');
         if (shareBtn) { openShareDialog({ title: ch.username, text: ch.live ? `${ch.username} is live on Yeli` : `${ch.username} on Yeli` }); return; }
+        const likeBtn = e.target.closest('#liveLikeBtn');
+        if (likeBtn) {
+            if (!state.me) { openAuth('login', 'Log in to like this stream.'); return; }
+            if (likeBtn.disabled) return;
+            likeBtn.disabled = true;
+            const was = { liked_live: ch.liked_live, live_likes: ch.live_likes };
+            ch.liked_live = !ch.liked_live;                 // show it right away, undo if the server says no
+            ch.live_likes = Math.max(0, (ch.live_likes || 0) + (ch.liked_live ? 1 : -1));
+            paintInfo();
+            try {
+                const r = await api(`/watch/${encodeURIComponent(ch.username)}/like`, { method: 'POST', body: { liked: ch.liked_live } });
+                ch.liked_live = r.liked;
+                ch.live_likes = r.likes;
+            } catch (err) {
+                Object.assign(ch, was);
+                toast(err.message);
+            } finally {
+                paintInfo();
+            }
+            return;
+        }
         const btn = e.target.closest('#followBtn');
         if (!btn) return;
         if (!state.me) { openAuth('login', `Log in to follow ${ch.username}.`); return; }

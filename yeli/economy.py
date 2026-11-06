@@ -18,6 +18,7 @@ How the money flows
 The platform margin is the spread between `net` on purchases and the payout value
 of the coins that end up being cashed out. `pack_margin` shows it per pack.
 """
+import math
 import json
 import os
 
@@ -154,6 +155,17 @@ UPGRADES = {
         "costs": [1, 3, 6], "values": [0, 4, 8, 99],
     },
 }
+
+# Likes on a live stream push it up in Recommended, like the paid Recommendation upgrade but weaker (the paid levels
+# add 1x to 16x; likes add at most LIVE_LIKE_MAX) and only while the stream is on.
+LIVE_LIKE_STEP = 1.2
+LIVE_LIKE_MAX = 6.0
+
+
+def live_like_weight(likes):
+    """Extra Recommended weight a live stream gets from its likes (grows like sqrt, so the first likes matter most)."""
+    return min(LIVE_LIKE_MAX, LIVE_LIKE_STEP * math.sqrt(max(0, likes)))
+
 
 NAME_PALETTE = ["#ff6b6b", "#ffa94d", "#ffd43b", "#a9e34b", "#38d9a9", "#4dabf7", "#9775fa", "#f783ac"]
 

@@ -324,6 +324,14 @@ CREATE TABLE IF NOT EXISTS vods (
 );
 CREATE INDEX IF NOT EXISTS idx_vods_user ON vods(user_id, started_at);
 
+-- Likes on a LIVE stream: a free, weaker version of the Recommendation upgrade. They are wiped when the stream starts and when it stops.
+CREATE TABLE IF NOT EXISTS live_likes (
+    streamer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at  INTEGER NOT NULL,
+    PRIMARY KEY (streamer_id, user_id)
+);
+
 CREATE TABLE IF NOT EXISTS vod_likes (
     vod_id     TEXT NOT NULL REFERENCES vods(id) ON DELETE CASCADE,
     user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

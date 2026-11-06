@@ -90,10 +90,10 @@ def vod_json(row, me_row=None):
         "is_mine": mine,
         "edited": bool(row["edited"]),
         "visibility": row["visibility"],
-        "is_clip": row["visibility"] != "public",
+        "is_clip": row["visibility"] == "private",
         "source": row["source"],
         # a clip can be changed freely; a published video only once
-        "can_edit": bool(mine and row["status"] == "ready" and (row["visibility"] != "public" or not row["edited"])),
+        "can_edit": bool(mine and row["status"] == "ready" and (row["visibility"] == "private" or not row["edited"])),
         "likes": row["likes"],
         "comment_count": row["comment_count"],
         "liked": bool(me_row and get_db().execute(
@@ -118,13 +118,22 @@ def _get(db, vid):
     return db.execute(f"{VOD_SELECT} WHERE v.id = ?", (vid,)).fetchone()
 
 
+def _follows(db, me_row, owner_id):
+    return bool(me_row and db.execute(
+        "SELECT 1 FROM follows WHERE follower_id = ? AND followed_id = ?", (me_row["id"], owner_id)).fetchone())
+
+
 def _visible(row, me_row):
-    """Published videos are public; clips and recordings in progress are only known to their owner."""
+    """Public videos are for everyone, 'followers' videos for the owner's followers; clips (private) and recordings in
+    progress are only known to their owner."""
     if row is None:
         return False
     mine = bool(me_row and me_row["id"] == row["user_id"])
     if row["status"] == "ready":
-        return vod_path(row).exists() and (row["visibility"] == "public" or mine)
+        if not vod_path(row).exists():
+            return False
+        return mine or row["visibility"] == "public" or (
+            row["visibility"] == "followers" and _follows(get_db(), me_row, row["user_id"]))
     return mine
 
 
@@ -283,9 +292,11 @@ def channel_videos(username):
         return err("Channel not found.", 404)
     close_stale(db, owner["id"])
     me_row = current_user()
+    see_followers = bool(me_row and (me_row["id"] == owner["id"] or _follows(db, me_row, owner["id"])))
     rows = db.execute(
-        f"{VOD_SELECT} WHERE v.user_id = ? AND v.status = 'ready' AND v.visibility = 'public' ORDER BY v.started_at DESC LIMIT 48",
-        (owner["id"],)
+        f"{VOD_SELECT} WHERE v.user_id = ? AND v.status = 'ready' AND (v.visibility = 'public' OR (v.visibility = 'followers' AND ?)) "
+        "ORDER BY v.started_at DESC LIMIT 48",
+        (owner["id"], 1 if see_followers else 0)
     ).fetchall()
     return jsonify(videos=[vod_json(r, me_row) for r in rows if vod_path(r).exists()])
 
@@ -335,7 +346,8 @@ def vod_cover(vid):
         return err("No cover.", 404)
     me_row = current_user()
     public = row["visibility"] == "public"
-    if not public and not (me_row and me_row["id"] == row["user_id"]):
+    mine = bool(me_row and me_row["id"] == row["user_id"])
+    if not public and not mine and not (row["visibility"] == "followers" and _follows(get_db(), me_row, row["user_id"])):
         return err("No cover.", 404)
     resp = Response(row["cover"], mimetype="image/jpeg")
     resp.headers["Cache-Control"] = ("public" if public else "private") + ", max-age=86400"
@@ -353,7 +365,7 @@ def vod_edit(vid):
         return err("Video not found.", 404)
     if row["status"] != "ready":
         return err("You can edit the video once the stream has ended and it has been saved.", 409)
-    published = row["visibility"] == "public"
+    published = row["visibility"] != "private"
     if published and row["edited"]:
         return err("You already used your one change for this video.", 403, locked=True)
 
@@ -401,7 +413,10 @@ def vod_publish(vid):
     if row["status"] != "ready":
         return err("This recording is still being saved.", 409)
     data = request.get_json(silent=True) or {}
-    if row["visibility"] != "public":
+    if row["visibility"] == "private":
+        target = data.get("visibility", "public")
+        if target not in ("public", "followers"):
+            return err("Unknown privacy option.")
         title, description = row["title"], row["description"]
         if "title" in data:
             title = text_field(data, "title", config.VOD_TITLE_MAX)
@@ -409,7 +424,7 @@ def vod_publish(vid):
                 return err("Give your video a title.", field="title")
         if "description" in data:
             description = text_field(data, "description", config.VOD_DESC_MAX)
-        db.execute("UPDATE vods SET visibility = 'public', title = ?, description = ? WHERE id = ?", (title, description, vid))
+        db.execute("UPDATE vods SET visibility = ?, title = ?, description = ? WHERE id = ?", (target, title, description, vid))
         db.commit()
     return jsonify(ok=True, video=vod_json(_get(db, vid), me_row))
 
@@ -424,6 +439,25 @@ def vod_unpublish(vid):
     if row is None or row["user_id"] != me_row["id"]:
         return err("Video not found.", 404)
     db.execute("UPDATE vods SET visibility = 'private' WHERE id = ?", (vid,))
+    db.commit()
+    return jsonify(ok=True, video=vod_json(_get(db, vid), me_row))
+
+
+@bp.post("/api/vod/<vid>/visibility")
+@login_required
+def vod_visibility(vid):
+    """Set who can watch a video: 'private' (only me), 'followers' or 'public'. Likes and comments are kept when it changes."""
+    me_row = current_user()
+    db = get_db()
+    row = _get(db, vid)
+    if row is None or row["user_id"] != me_row["id"]:
+        return err("Video not found.", 404)
+    if row["status"] != "ready":
+        return err("This recording is still being saved.", 409)
+    target = (request.get_json(silent=True) or {}).get("visibility")
+    if target not in ("private", "followers", "public"):
+        return err("Unknown privacy option.")
+    db.execute("UPDATE vods SET visibility = ? WHERE id = ?", (target, vid))
     db.commit()
     return jsonify(ok=True, video=vod_json(_get(db, vid), me_row))
 
@@ -454,7 +488,9 @@ COMMENTS_PAGE = 20
 def _watchable(db, vid):
     """The video row if it is saved and published, else None. Clips (private) take no likes or comments."""
     row = _get(db, vid)
-    return row if row is not None and row["status"] == "ready" and row["visibility"] == "public" and vod_path(row).exists() else None
+    if row is None or row["status"] != "ready" or row["visibility"] == "private":
+        return None
+    return row if _visible(row, current_user()) else None
 
 
 @bp.post("/api/vod/<vid>/like")

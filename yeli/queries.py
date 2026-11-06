@@ -24,7 +24,8 @@ SELECT u.id, u.username, u.bio, u.created_at, u.avatar, u.avatar_updated,
        (SELECT COUNT(DISTINCT v.viewer_key) FROM viewers v
          WHERE v.streamer_id = u.id AND v.superseded = 0 AND v.last_seen >= :vcut
            AND v.viewer_key != 'u' || u.id) AS viewers,
-       (SELECT t.updated_at FROM thumbnails t WHERE t.user_id = u.id) AS thumb
+       (SELECT t.updated_at FROM thumbnails t WHERE t.user_id = u.id) AS thumb,
+       (SELECT COUNT(*) FROM live_likes ll WHERE ll.streamer_id = u.id) AS live_likes
 FROM users u LEFT JOIN streams s ON s.user_id = u.id
 """
 
@@ -52,6 +53,7 @@ def channel_json(row):
         "started_at": row["started_at"] if live else None,
         "mode": row["mode"] if live else None,
         "thumb": row["thumb"] if live else None,
+        "live_likes": row["live_likes"] if live else 0,
         "joined": row["created_at"],
     }
 

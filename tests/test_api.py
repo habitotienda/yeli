@@ -31,7 +31,7 @@ class YeliTests(unittest.TestCase):
         _bot._cooldowns.clear()
         core._failed_logins.clear()
         con = sqlite3.connect(config.DB_PATH)
-        for t in ("notifications", "notify_prefs", "notify_meta", "vod_comment_likes", "vod_comments", "vod_likes", "vods", "free_points", "watch_sessions", "chat_bans", "chat_mods", "events", "alert_rules", "assets", "chat_settings", "commands", "spendings", "upgrades", "upgrade_points", "ledger", "payouts", "donations", "purchases", "wallets", "chat_messages", "avatars", "thumbnails", "signals", "viewers", "follows", "streams", "users"):
+        for t in ("notifications", "notify_prefs", "notify_meta", "vod_comment_likes", "vod_comments", "vod_likes", "vods", "free_points", "watch_sessions", "chat_bans", "chat_mods", "events", "alert_rules", "assets", "chat_settings", "commands", "spendings", "upgrades", "upgrade_points", "ledger", "payouts", "donations", "purchases", "wallets", "chat_messages", "avatars", "thumbnails", "signals", "viewers", "live_likes", "follows", "streams", "users"):
             con.execute(f"DELETE FROM {t}")
         con.commit()
         con.close()
@@ -67,6 +67,57 @@ class YeliTests(unittest.TestCase):
     def test_csrf_guard(self):
         r = self.alice.post("/api/login", data={"identifier": "a", "password": "b"})
         self.assertEqual(r.status_code, 415)
+
+    def test_video_privacy_followers(self):
+        octet = {"content_type": "application/octet-stream"}
+        self.signup(self.alice, "alice")
+        self.signup(self.bob, "bob")
+        vid = post(self.alice, "/api/vod/new", {"mime": "video/webm", "title": "v"}).get_json()["id"]
+        self.alice.post(f"/api/vod/{vid}/chunk?seq=0", data=b"EDIT", **octet)
+        post(self.alice, f"/api/vod/{vid}/finish", {"duration": 5})
+        vis = lambda who, v: post(who, f"/api/vod/{vid}/visibility", {"visibility": v})
+        self.assertEqual(vis(self.bob, "public").status_code, 404)           # only the owner
+        self.assertEqual(vis(self.alice, "nope").status_code, 400)
+        self.assertEqual(vis(self.alice, "followers").get_json()["video"]["is_clip"], False)
+        # followers only: strangers and guests can't see it, a follower can
+        self.assertEqual(self.anon.get(f"/api/vod/{vid}").status_code, 404)
+        self.assertEqual(self.bob.get(f"/api/vod/{vid}").status_code, 404)
+        self.assertEqual(self.bob.get("/api/channel/alice/videos").get_json()["videos"], [])
+        post(self.bob, "/api/follow/alice", {"follow": True})
+        self.assertEqual(self.bob.get(f"/api/vod/{vid}").status_code, 200)
+        self.assertEqual([x["id"] for x in self.bob.get("/api/channel/alice/videos").get_json()["videos"]], [vid])
+        self.assertEqual(self.anon.get("/api/channel/alice/videos").get_json()["videos"], [])
+        self.assertEqual(post(self.bob, f"/api/vod/{vid}/like", {"liked": True}).status_code, 200)
+        # public, then private again
+        self.assertEqual(vis(self.alice, "public").status_code, 200)
+        self.assertEqual(self.anon.get(f"/api/vod/{vid}").status_code, 200)
+        self.assertEqual(vis(self.alice, "private").get_json()["video"]["is_clip"], True)
+        self.assertEqual(self.bob.get(f"/api/vod/{vid}").status_code, 404)
+
+    def test_live_likes_boost(self):
+        self.signup(self.alice, "alice")
+        self.signup(self.bob, "bob")
+        self.assertEqual(post(self.bob, "/api/watch/alice/like", {"liked": True}).status_code, 404)   # not live
+        post(self.alice, "/api/stream/start", {"title": "t", "category": "Talk"})
+        self.assertEqual(post(self.anon, "/api/watch/alice/like", {"liked": True}).status_code, 401)
+        self.assertEqual(post(self.alice, "/api/watch/alice/like", {"liked": True}).status_code, 400)  # not your own
+        self.assertEqual(post(self.bob, "/api/watch/alice/like", {}).status_code, 400)
+        r = post(self.bob, "/api/watch/alice/like", {"liked": True}).get_json()
+        self.assertEqual((r["liked"], r["likes"]), (True, 1))
+        self.assertEqual(post(self.bob, "/api/watch/alice/like", {"liked": True}).get_json()["likes"], 1)  # one per account
+        ch = self.bob.get("/api/channel/alice").get_json()["channel"]
+        self.assertEqual((ch["live_likes"], ch["liked_live"]), (1, True))
+        self.assertFalse(self.anon.get("/api/channel/alice").get_json()["channel"]["liked_live"])
+        from yeli import economy
+        self.assertLess(economy.live_like_weight(10 ** 6), economy.level_value("boost", 5))     # weaker than the paid one
+        self.assertGreater(economy.live_like_weight(4), economy.live_like_weight(1))
+        # the likes end with the stream
+        post(self.alice, "/api/stream/stop")
+        post(self.alice, "/api/stream/start", {"title": "t", "category": "Talk"})
+        self.assertEqual(self.bob.get("/api/channel/alice").get_json()["channel"]["live_likes"], 0)
+        post(self.bob, "/api/watch/alice/like", {"liked": True})
+        post(self.bob, "/api/watch/alice/like", {"liked": False})
+        self.assertEqual(self.bob.get("/api/channel/alice").get_json()["channel"]["live_likes"], 0)
 
     def test_follow_search_live(self):
         self.signup(self.alice, "alice")

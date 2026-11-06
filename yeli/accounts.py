@@ -102,6 +102,7 @@ def logout():
         db = get_db()
         db.execute("UPDATE streams SET is_live = 0 WHERE user_id = ?", (user["id"],))
         db.execute("DELETE FROM viewers WHERE streamer_id = ?", (user["id"],))
+        db.execute("DELETE FROM live_likes WHERE streamer_id = ?", (user["id"],))
         db.commit()
     session.clear()
     return jsonify(ok=True)

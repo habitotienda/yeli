@@ -127,18 +127,45 @@ const SECTION_RANK = [['/', 0], ['/explore', 1], ['/following', 2], ['/content',
 const rankOf = (path) => (SECTION_RANK.find(([p]) => (p.endsWith('/') && p.length > 1 ? path.startsWith(p) : path === p)) || [0, 3.5])[1];
 let lastRank = 0;
 let enterTimer = null;
+let enterGuard = null;
+let enterObserver = null;
 
+/** Stops a page entrance that was armed but has not started (or is still running). */
+function cancelPageEnter() {
+    if (enterObserver) { enterObserver.disconnect(); enterObserver = null; }
+    clearTimeout(enterGuard);
+    clearTimeout(enterTimer);
+    const root = $('#view');
+    if (root) root.classList.remove('page-enter');
+}
+
+/* The entrance animation must play on the NEW page, never on the one being left.
+   While the new page loads (it waits for its data), #view still holds the old page, so starting the
+   animation on the route change made the section you were leaving replay its intro and only then switch.
+   Now the animation is armed here and starts the first time #view gets its new content. */
 function playPageEnter(path) {
     const root = $('#view');
     const rank = rankOf(path);
     root.dataset.dir = rank > lastRank ? 'forward' : rank < lastRank ? 'back' : 'up';
     lastRank = rank;
-    root.classList.remove('page-enter');
-    void root.offsetWidth; // restart the animation
-    root.classList.add('page-enter');
-    clearTimeout(enterTimer);
-    // Remove the class afterwards so list refreshes (polling) don't replay the animation.
-    enterTimer = setTimeout(() => root.classList.remove('page-enter'), 1100);
+    cancelPageEnter();
+
+    const start = () => {
+        if (enterObserver) { enterObserver.disconnect(); enterObserver = null; }
+        clearTimeout(enterGuard);
+        root.classList.remove('page-enter');
+        void root.offsetWidth; // restart the animation
+        root.classList.add('page-enter');
+        clearTimeout(enterTimer);
+        // Remove the class afterwards so list refreshes (polling) don't replay the animation.
+        enterTimer = setTimeout(() => root.classList.remove('page-enter'), 1100);
+    };
+
+    if (typeof MutationObserver === 'undefined') { start(); return; }
+    enterObserver = new MutationObserver(start);
+    enterObserver.observe(root, { childList: true });
+    // If the page never paints (slow network, error), don't animate old content or a late refresh.
+    enterGuard = setTimeout(() => { if (enterObserver) { enterObserver.disconnect(); enterObserver = null; } }, 8000);
 }
 
 async function route(focus = false) {
@@ -155,7 +182,7 @@ async function route(focus = false) {
     const root = $('#view');
     setActiveNav(path);
     window.scrollTo(0, 0);
-    if (focus) { root.focus({ preventScroll: true }); if (!isPopout) playPageEnter(path); }
+    if (focus) { root.focus({ preventScroll: true }); if (!isPopout) playPageEnter(path); else cancelPageEnter(); }
     closeMobileSearch();
 
     try {

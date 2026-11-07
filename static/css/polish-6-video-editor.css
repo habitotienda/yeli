@@ -1,0 +1,293 @@
+/* ==========================================================================
+   Yeli · Mejora de estilo, parte 6: Video (editor + menús del video)
+   Cargar DESPUÉS de theme-light.css (y de las partes anteriores):
+   <link rel="stylesheet" href="static/css/polish-6-video-editor.css">
+   Solo CSS. Incluye:
+     1. El editor de video a pantalla completa (barra, vista previa, línea de
+        tiempo, MENÚ de herramientas y paneles, hoja "Añadir clip", exportar).
+        El editor es siempre oscuro, igual que ahora.
+     2. El menú "···" del video propio (privacidad y borrar).
+     3. El menú de calidad del reproductor.
+   ========================================================================== */
+
+.ed {
+    --ed-panel: #151519;
+    --ed-line: rgba(255, 255, 255, 0.08);
+    --ed-chip: #24252c;
+    --ed-muted: #9a9ca8;
+    --ed-accent: var(--primary-color, #ffa600);
+    background:
+        radial-gradient(90% 60% at 50% 0%, rgba(255, 166, 0, 0.06), transparent 70%),
+        #0b0b0d;
+}
+
+/* ---------- 1a. Barra superior ---------- */
+.ed-bar { padding: 8px 12px; gap: 8px; background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent); }
+.ed-ib { transition: background 0.15s, transform 0.15s var(--ease-out, ease); }
+.ed-ib:hover { background: rgba(255, 255, 255, 0.1); }
+.ed-ib:active { transform: scale(0.9); }
+.ed-ib:focus-visible, .ed-tool:focus-visible, .ed-chip:focus-visible, .ed-play:focus-visible, .ed-ok:focus-visible, .ed-export-btn:focus-visible {
+    outline: 2px solid var(--ed-accent); outline-offset: 2px;
+}
+.ed-title { padding: 4px 10px; border-radius: 12px; transition: background 0.15s; }
+.ed-title span { font-size: 14.5px; }
+.ed-title small { transition: color 0.2s; }
+.ed-live { padding: 6px 12px; transition: transform 0.15s var(--ease-out, ease); }
+.ed-live:hover { transform: translateY(-1px); }
+.ed-export-btn {
+    padding: 10px 22px; border-radius: 999px; letter-spacing: 0.02em;
+    background: linear-gradient(180deg, #ffb52e, #ff9500);
+    box-shadow: 0 6px 18px rgba(255, 166, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    transition: transform 0.14s var(--ease-out, ease), box-shadow 0.18s;
+}
+.ed-export-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(255, 166, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.4); }
+.ed-export-btn:active:not(:disabled) { transform: scale(0.97); }
+
+/* ---------- 1b. Vista previa y reproducción ---------- */
+.ed-stage { padding: 4px 12px; }
+.ed-screen {
+    border-radius: 14px;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.09), 0 24px 60px rgba(0, 0, 0, 0.65);
+}
+.ed-screen-empty strong { font-size: 17px; }
+.ed-screen-empty {
+    background: radial-gradient(circle at 50% 40%, rgba(255, 166, 0, 0.1), transparent 60%);
+}
+.ed-transport { padding: 8px 14px; }
+.ed-time { padding: 3px 10px; width: max-content; border-radius: 999px; background: rgba(255, 255, 255, 0.06); font-size: 12px; }
+.ed-play {
+    width: 50px; height: 50px;
+    background: linear-gradient(180deg, #ffffff, #e4e4ea);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45), 0 0 0 4px rgba(255, 255, 255, 0.08);
+    transition: transform 0.15s var(--ease-out, ease), box-shadow 0.18s;
+}
+.ed-play:hover:not(:disabled) { transform: scale(1.06); box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5), 0 0 0 6px rgba(255, 255, 255, 0.1); }
+.ed-play:active:not(:disabled) { transform: scale(0.94); }
+
+/* ---------- 1c. Línea de tiempo ---------- */
+.ed-tl { background: #0f0f12; border-top: 1px solid var(--ed-line); box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.3); }
+.ed-tick { border-left-color: rgba(255, 255, 255, 0.14); }
+.ed-clip, .ed-text, .ed-music { border-radius: 10px; transition: border-color 0.14s, box-shadow 0.14s; }
+.ed-clip { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); }
+.ed-clip.is-sel, .ed-text.is-sel {
+    border-color: var(--ed-accent);
+    box-shadow: 0 0 0 2px rgba(255, 166, 0, 0.3), 0 4px 14px rgba(0, 0, 0, 0.5);
+}
+.ed-text { background: linear-gradient(180deg, #ffbf4d, #ff9f1a); }
+.ed-text.is-sticker { background: linear-gradient(180deg, #6bbcff, #339af0); }
+.ed-music { background: linear-gradient(180deg, #38806d, #2a6454); }
+.ed-h { background: var(--ed-accent); width: 16px; }
+.ed-h::after { background: rgba(0, 0, 0, 0.55); }
+.ed-addclip {
+    border-radius: 12px; background: linear-gradient(180deg, #ffffff, #e4e4ea);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    transition: transform 0.15s var(--ease-out, ease);
+}
+.ed-addclip:hover { transform: scale(1.06); }
+.ed-addclip:active { transform: scale(0.94); }
+.ed-playhead {
+    width: 3px; margin-left: -1.5px; border-radius: 3px;
+    background: var(--ed-accent);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4), 0 0 12px rgba(255, 166, 0, 0.55);
+}
+.ed-playhead::before {
+    content: ""; position: absolute; top: -1px; left: 50%; width: 12px; height: 12px; margin-left: -6px;
+    border-radius: 50% 50% 50% 0; transform: rotate(-45deg) scale(0.9); background: var(--ed-accent);
+}
+
+/* ---------- 1d. MENÚ de herramientas (abajo) ---------- */
+.ed-bottom {
+    background: linear-gradient(180deg, #17181d, var(--ed-panel));
+    border-top: 1px solid var(--ed-line);
+    box-shadow: 0 -14px 34px rgba(0, 0, 0, 0.35);
+}
+.ed-tools { gap: 4px; padding: 10px 10px; scroll-snap-type: x proximity; }
+.ed-tool {
+    width: 72px; padding: 9px 2px 7px; gap: 7px; border-radius: 14px; color: #dcdce4; font-weight: 500; letter-spacing: 0.01em;
+    scroll-snap-align: start;
+    transition: background 0.15s, color 0.15s, transform 0.15s var(--ease-out, ease);
+}
+.ed-tool svg {
+    box-sizing: content-box; padding: 9px; border-radius: 12px; background: var(--ed-chip);
+    transition: background 0.15s, color 0.15s, transform 0.18s var(--ease-out, ease);
+}
+.ed-tool:hover, .ed-tool:active { background: transparent; color: #fff; }
+.ed-tool:hover svg { background: #2f3039; transform: translateY(-2px); }
+.ed-tool:active svg { transform: scale(0.92); }
+.ed-tool.is-on svg, .ed-tool[aria-pressed="true"] svg { background: var(--ed-accent); color: #1a1200; }
+.ed-tool-back svg { background: transparent; box-shadow: inset 0 0 0 1px var(--ed-line); }
+.ed-sep { margin: 10px 8px; background: var(--ed-line); }
+
+/* Paneles de cada herramienta */
+.ed-panel { padding: 12px 16px 16px; animation: p6-panel 0.2s var(--ease-out, ease) both; }
+.ed-panel-head { margin-bottom: 12px; }
+.ed-panel-head strong { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; letter-spacing: 0.01em; }
+.ed-panel-head strong::before { content: ""; width: 4px; height: 14px; border-radius: 3px; background: var(--ed-accent); }
+.ed-ok {
+    width: 36px; height: 36px; background: var(--ed-accent); color: #1a1200;
+    box-shadow: 0 4px 12px rgba(255, 166, 0, 0.4);
+    transition: transform 0.15s var(--ease-out, ease);
+}
+.ed-ok:hover { transform: scale(1.08); }
+.ed-ok:active { transform: scale(0.92); }
+
+.ed-chips { gap: 8px; padding: 2px 0 4px; }
+.ed-chip {
+    padding: 10px 16px; font-size: 13.5px; font-weight: 500; background: var(--ed-chip); border: 1px solid transparent;
+    transition: background 0.15s, color 0.15s, transform 0.15s var(--ease-out, ease), border-color 0.15s;
+}
+.ed-chip:hover { background: #2f3039; }
+.ed-chip:active { transform: scale(0.95); }
+.ed-chip.is-on {
+    background: var(--ed-accent); color: #1a1200; font-weight: 700;
+    box-shadow: 0 4px 12px rgba(255, 166, 0, 0.3);
+}
+.ed-lab { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+
+/* Deslizadores */
+.ed-vol input[type="range"], .ed-f input[type="range"] {
+    -webkit-appearance: none; appearance: none; height: 5px; border-radius: 999px; background: #34353d; outline: none; cursor: pointer; accent-color: var(--ed-accent);
+}
+.ed-vol input[type="range"]::-webkit-slider-thumb, .ed-f input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #fff; border: 4px solid var(--ed-accent);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5); transition: transform 0.12s;
+}
+.ed-vol input[type="range"]::-moz-range-thumb, .ed-f input[type="range"]::-moz-range-thumb {
+    width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 4px solid var(--ed-accent); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+.ed-vol input[type="range"]:active::-webkit-slider-thumb, .ed-f input[type="range"]:active::-webkit-slider-thumb { transform: scale(1.2); }
+.ed-f { font-weight: 500; }
+.ed-f output, .ed-vol output { padding: 1px 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.07); color: #fff; font-variant-numeric: tabular-nums; }
+
+/* Filtros */
+.ed-ft { border-radius: 14px; border-width: 3px; transition: border-color 0.15s, transform 0.15s var(--ease-out, ease); }
+.ed-filter:hover .ft, .ed-filter:hover .ed-ft { transform: translateY(-2px); }
+.ed-filter.is-on .ed-ft { border-color: var(--ed-accent); box-shadow: 0 0 0 3px rgba(255, 166, 0, 0.22); }
+.ed-filter.is-on em { color: var(--ed-accent); }
+
+/* Colores y campos */
+.ed-sw { border-width: 2px; border-color: rgba(255, 255, 255, 0.2); transition: transform 0.14s var(--ease-out, ease); }
+.ed-sw:hover { transform: scale(1.12); }
+.ed-sw.is-on { border-color: #fff; box-shadow: 0 0 0 3px var(--ed-accent); }
+.ed-panel textarea, .ed-field-row input {
+    border-radius: 14px; background: #0d0d10; border: 1px solid var(--ed-line);
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.ed-panel textarea:focus, .ed-field-row input:focus { outline: none; border-color: var(--ed-accent); box-shadow: 0 0 0 3px rgba(255, 166, 0, 0.2); }
+.ed-sticker { border-radius: 12px; transition: background 0.14s, transform 0.14s var(--ease-out, ease); }
+.ed-sticker:hover { transform: scale(1.1); }
+
+/* ---------- 1e. Hoja "Añadir un clip" ---------- */
+.ed-sheet { background: rgba(0, 0, 0, 0.62); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); animation: p6-fade 0.2s ease both; }
+.ed-sheet-card {
+    border-radius: 24px 24px 0 0; background: var(--ed-panel); border: 1px solid var(--ed-line); border-bottom: 0;
+    box-shadow: 0 -20px 50px rgba(0, 0, 0, 0.5); animation: p6-sheet 0.28s var(--ease-out, ease) both;
+}
+.ed-sheet-card::before { content: ""; display: block; width: 40px; height: 4px; margin: 0 auto 10px; border-radius: 4px; background: rgba(255, 255, 255, 0.18); }
+.ed-sheet-head strong { font-size: 17px; }
+.ed-device {
+    padding: 18px; border: 1.5px dashed rgba(255, 166, 0, 0.5); border-radius: 16px; background: rgba(255, 166, 0, 0.06);
+    transition: background 0.15s, border-color 0.15s;
+}
+.ed-device:hover { background: rgba(255, 166, 0, 0.12); border-color: var(--ed-accent); }
+.ed-sheet-sub { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.ed-bin-grid { gap: 12px; }
+.ed-tile { transition: transform 0.15s var(--ease-out, ease); }
+.ed-tile:hover { transform: translateY(-2px); }
+.ed-tile-thumb { border-radius: 12px; box-shadow: 0 0 0 1px var(--ed-line); transition: box-shadow 0.15s; }
+.ed-tile:hover .ed-tile-thumb { box-shadow: 0 0 0 2px var(--ed-accent); }
+.ed-tile-thumb em { border-radius: 6px; background: rgba(0, 0, 0, 0.75); font-weight: 600; }
+
+/* ---------- 1f. Diálogo de exportar ---------- */
+.dialog.ed-export { border-radius: 22px; }
+.ed-prog { height: 12px; background: var(--field-bg); }
+.ed-prog > span {
+    background: linear-gradient(90deg, #ff9500, #ffc24d);
+    box-shadow: 0 0 12px rgba(255, 166, 0, 0.5);
+}
+@media (max-width: 700px) {
+    .dialog.ed-export { border-radius: 22px 22px 0 0; }
+}
+
+/* ==========================================================================
+   2. MENÚ "···" DEL VIDEO PROPIO (privacidad y borrar)
+   ========================================================================== */
+.btn-more { border-radius: 12px; transition: background 0.15s, transform 0.15s var(--ease-out, ease); }
+.btn-more[aria-expanded="true"] { background: rgba(255, 166, 0, 0.16); border-color: var(--primary-color); }
+.vod-menu {
+    width: min(290px, calc(100vw - 24px)); padding: 8px; border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    transform-origin: calc(100% - 22px) 0;
+}
+.vod-menu:not([hidden]) { animation: p6-menu 0.2s var(--ease-out, ease) both; }
+html[data-theme="light"] .vod-menu { border-color: rgba(20, 26, 44, 0.1); box-shadow: 0 18px 44px rgba(20, 26, 44, 0.2); }
+.vod-menu-title { margin: 8px 12px 6px; font-size: 11px; letter-spacing: 0.1em; }
+.vod-menu-item { min-height: 52px; padding: 8px 12px; border-radius: 12px; transition: background 0.14s, transform 0.14s var(--ease-out, ease); }
+.vod-menu-item:active { transform: scale(0.985); }
+.vod-menu-item > svg:first-child {
+    box-sizing: content-box; padding: 8px; border-radius: 10px; background: rgba(255, 255, 255, 0.07); flex: none;
+}
+html[data-theme="light"] .vod-menu-item > svg:first-child { background: rgba(20, 26, 44, 0.06); }
+.vod-menu-text strong { font-size: 14.5px; font-weight: 600; }
+.vod-menu-item.is-on { background: rgba(255, 166, 0, 0.12); }
+.vod-menu-item.is-on > svg:first-child { background: var(--primary-color); color: #1a1200; }
+.vod-menu-item.is-danger:hover, .vod-menu-item.is-danger:focus-visible { background: rgba(255, 46, 77, 0.14); }
+.vod-menu-item.is-danger > svg:first-child { background: rgba(255, 46, 77, 0.14); }
+.vod-menu-sep { margin: 8px 6px; }
+@media (max-width: 700px) {
+    .vod-menu {
+        position: fixed; left: 8px; right: 8px; top: auto; bottom: 8px; width: auto; border-radius: 22px;
+        padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)); transform-origin: 50% 100%;
+        box-shadow: 0 -16px 50px rgba(0, 0, 0, 0.6);
+    }
+    .vod-menu:not([hidden]) { animation: p6-sheet 0.26s var(--ease-out, ease) both; }
+}
+
+/* ==========================================================================
+   3. MENÚ DE CALIDAD DEL REPRODUCTOR
+   ========================================================================== */
+.vc-menu {
+    min-width: 190px; padding: 8px; border-radius: 16px;
+    background: rgba(20, 20, 24, 0.94); border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.6);
+    transform-origin: 100% 100%;
+}
+.vc-menu:not([hidden]) { animation: p6-menu-up 0.18s var(--ease-out, ease) both; }
+.vc-menu-title { padding: 6px 12px 8px; font-size: 11px; letter-spacing: 0.1em; }
+.vc-menu button { padding: 10px 12px; border-radius: 10px; font-weight: 500; transition: background 0.14s; }
+.vc-menu button[aria-checked="true"] { background: rgba(255, 166, 0, 0.14); }
+.vc-menu button[aria-checked="true"]::after { width: 8px; height: 8px; box-shadow: 0 0 0 3px rgba(255, 166, 0, 0.25); }
+.vc-menu-note { margin-top: 6px; padding: 10px 12px 4px; font-size: 12px; border-top-color: rgba(255, 255, 255, 0.1); }
+
+/* ==========================================================================
+   Móvil (editor)
+   ========================================================================== */
+@media (max-width: 700px) {
+    .ed-bar { padding: 6px 8px; }
+    .ed-export-btn { padding: 9px 18px; }
+    .ed-tool { width: 66px; }
+    .ed-panel { padding: 10px 14px 14px; }
+}
+@media (max-height: 520px) {
+    .ed-tool svg { padding: 5px; }
+    .ed-tool { width: 60px; padding: 4px 2px; gap: 3px; }
+    .ed-play { width: 42px; height: 42px; }
+}
+
+/* ==========================================================================
+   Animaciones
+   ========================================================================== */
+@keyframes p6-panel   { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes p6-sheet   { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes p6-fade    { from { opacity: 0; } to { opacity: 1; } }
+@keyframes p6-menu    { from { opacity: 0; transform: translateY(-6px) scale(0.96); } to { opacity: 1; transform: none; } }
+@keyframes p6-menu-up { from { opacity: 0; transform: translateY(6px) scale(0.96); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+    .ed-panel, .ed-sheet, .ed-sheet-card, .vod-menu:not([hidden]), .vc-menu:not([hidden]) { animation: none !important; }
+    .ed-tool, .ed-tool svg, .ed-chip, .ed-play, .ed-ok, .ed-ib, .ed-tile, .ed-export-btn { transition: none; }
+}
+html.reduce-motion .ed-panel, html.reduce-motion .ed-sheet, html.reduce-motion .ed-sheet-card,
+html.reduce-motion .vod-menu:not([hidden]), html.reduce-motion .vc-menu:not([hidden]) { animation: none !important; }

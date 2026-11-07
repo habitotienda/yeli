@@ -1,0 +1,324 @@
+/* ==========================================================================
+   Yeli · Mejora de estilo, parte 1: Plataformas (estudio) y Notificaciones
+   Cargar DESPUÉS de theme-light.css:
+   <link rel="stylesheet" href="static/css/polish-1-plataformas-notificaciones.css">
+   Solo CSS: no cambia ningún JS ni HTML.
+   ========================================================================== */
+
+:root {
+    --p1-surface: #1f2026;
+    --p1-surface-2: #272932;
+    --p1-line: rgba(255, 255, 255, 0.08);
+    --p1-hover: rgba(255, 255, 255, 0.055);
+    --p1-shadow: 0 18px 48px rgba(0, 0, 0, 0.55), 0 2px 0 rgba(255, 255, 255, 0.04) inset;
+    --p1-field: #15161b;
+    --p1-ring: 0 0 0 3px rgba(255, 166, 0, 0.22);
+}
+html[data-theme="light"] {
+    --p1-surface: #ffffff;
+    --p1-surface-2: #f4f5f8;
+    --p1-line: rgba(20, 26, 44, 0.09);
+    --p1-hover: rgba(20, 26, 44, 0.05);
+    --p1-shadow: 0 18px 44px rgba(20, 26, 44, 0.2), 0 0 0 1px rgba(20, 26, 44, 0.04);
+    --p1-field: #ffffff;
+    --p1-ring: 0 0 0 3px rgba(245, 154, 0, 0.25);
+}
+
+/* ==========================================================================
+   1. PLATAFORMAS
+   ========================================================================== */
+#platformsDialog {
+    width: min(580px, calc(100vw - 24px));
+    border: 1px solid var(--p1-line);
+    border-radius: 18px;
+    box-shadow: var(--p1-shadow);
+    overflow: hidden;
+}
+#platformsDialog[open] { animation: p1-pop 0.26s var(--ease-out, ease) both; }
+#platformsDialog[open]::backdrop { animation: p1-fade 0.26s ease both; }
+
+#platformsDialog .dialog-body {
+    gap: 18px;
+    padding: 26px 24px 22px;
+    max-height: 88dvh;
+    scrollbar-width: thin;
+}
+/* Cabecera con degradado suave del acento */
+#platformsDialog .dialog-body::before {
+    content: "";
+    position: absolute; inset: 0 0 auto 0; height: 120px;
+    background: radial-gradient(120% 100% at 0% 0%, rgba(255, 166, 0, 0.16), transparent 70%);
+    pointer-events: none;
+}
+#platformsDialog .dialog-body > * { position: relative; }
+#platformsDialog h2 { font-size: 28px; letter-spacing: 0.3px; }
+#platformsDialog .dialog-body > .muted { font-size: 14px; line-height: 1.55; margin-top: -8px; }
+#platformsDialog .dialog-close { border-radius: 10px; transition: background 0.15s, transform 0.15s var(--ease-out, ease); }
+#platformsDialog .dialog-close:hover { transform: rotate(90deg); }
+
+/* Secciones como tarjetas */
+#platformsDialog .panel-section {
+    padding: 16px;
+    border: 1px solid var(--p1-line);
+    border-radius: 14px;
+    background: var(--p1-surface-2);
+}
+#platformsDialog .panel-section > legend {
+    float: left; width: 100%;
+    margin: 0 0 12px; padding: 0;
+    font-size: 11.5px; letter-spacing: 0.09em;
+    color: var(--primary-text, var(--primary-color));
+}
+#platformsDialog .panel-section > legend + * { clear: both; }
+#platformsDialog .panel-section > .hint {
+    font-size: 12.5px; line-height: 1.5; color: var(--text-muted);
+    padding-top: 12px; border-top: 1px dashed var(--p1-line);
+}
+#platformsDialog .muted { color: var(--text-muted); }
+
+/* Aviso */
+#platformsDialog .plat-note {
+    display: flex; gap: 8px;
+    border: 1px solid rgba(245, 165, 36, 0.35);
+    background: rgba(245, 165, 36, 0.12);
+    border-radius: 10px;
+}
+#platformsDialog .plat-note::before { content: "!"; flex: none; display: grid; place-items: center; width: 18px; height: 18px; margin-top: 1px; border-radius: 50%; background: #f5a524; color: #1a1200; font-size: 12px; font-weight: 800; }
+
+/* Tarjeta de destino, con franja del color de la plataforma */
+.plat-card {
+    --plat: #6b7280;
+    position: relative;
+    margin: 10px 0 0;
+    padding: 14px 14px 12px 18px;
+    border: 1px solid var(--p1-line);
+    border-radius: 12px;
+    background: var(--p1-surface);
+    overflow: hidden;
+    transition: border-color 0.18s, transform 0.18s var(--ease-out, ease), box-shadow 0.18s;
+}
+.plat-card::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--plat); }
+.plat-card:hover { border-color: color-mix(in srgb, var(--plat) 55%, transparent); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18); transform: translateY(-1px); }
+.plat-card:has(.plat-kick) { --plat: #53fc18; }
+.plat-card:has(.plat-tiktok) { --plat: #fe2c55; }
+.plat-card:has(.plat-twitch) { --plat: #9146ff; }
+.plat-card:has(.plat-youtube) { --plat: #e62117; }
+.plat-card:has(.plat-facebook) { --plat: #1877f2; }
+.plat-card:has(.plat-instagram) { --plat: #e1306c; }
+
+.plat-tag { padding: 2px 9px; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; }
+.plat-head strong { font-size: 15px; }
+.plat-url {
+    margin-top: 8px; padding: 6px 10px; border-radius: 8px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px;
+    background: var(--p1-hover); color: var(--text-muted);
+}
+.plat-error { padding: 7px 10px; border-radius: 8px; background: rgba(224, 20, 58, 0.1); }
+
+/* Estado como píldora */
+.plat-status {
+    padding: 3px 10px 3px 9px; border-radius: 999px;
+    background: var(--p1-hover); font-weight: 600; font-size: 12px;
+}
+.plat-status.s-live { background: rgba(46, 204, 113, 0.14); }
+.plat-status.s-live::before { animation: p1-pulse 1.6s ease-out infinite; }
+.plat-status.s-error { background: rgba(224, 20, 58, 0.12); }
+.plat-status.s-starting, .plat-status.s-retrying { background: rgba(245, 165, 36, 0.14); }
+
+/* Acciones: interruptor "On" + botones */
+.plat-actions { padding-top: 10px; border-top: 1px solid var(--p1-line); }
+.plat-on input {
+    appearance: none; -webkit-appearance: none;
+    position: relative; width: 36px; height: 21px; margin: 0; border-radius: 999px;
+    background: #4a4d57; cursor: pointer; transition: background 0.2s;
+}
+.plat-on input::after {
+    content: ""; position: absolute; top: 3px; left: 3px; width: 15px; height: 15px; border-radius: 50%;
+    background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35); transition: transform 0.2s var(--ease-out, ease);
+}
+.plat-on input:checked { background: #2fb344; }
+.plat-on input:checked::after { transform: translateX(15px); }
+.plat-on input:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
+html[data-theme="light"] .plat-on input { background: #c3c7d1; }
+html[data-theme="light"] .plat-on input:checked { background: #2fb344; }
+
+/* Botones y campos dentro del diálogo */
+#platformsDialog .obs-btn {
+    min-height: 36px; padding: 0 14px; border-radius: 9px; font-weight: 600;
+    transition: background 0.15s, border-color 0.15s, transform 0.15s var(--ease-out, ease);
+}
+#platformsDialog .obs-btn:active { transform: scale(0.96); }
+#platformsDialog [data-plat-del]:hover { color: #e0143a; border-color: rgba(224, 20, 58, 0.5); }
+#platformsDialog [data-plat-add] {
+    width: 100%; min-height: 42px; margin-top: 12px;
+    border-style: dashed; background: transparent; color: var(--primary-text, var(--primary-color));
+}
+#platformsDialog [data-plat-add]::before { content: "+"; margin-right: 8px; font-size: 18px; line-height: 1; }
+#platformsDialog [data-plat-add]:hover { background: rgba(255, 166, 0, 0.1); border-color: var(--primary-color); }
+
+#platformsDialog .obs-input,
+#platformsDialog .field select {
+    min-height: 40px; padding: 8px 12px; border-radius: 10px; font-size: 14px;
+    background: var(--p1-field); border: 1px solid var(--p1-line);
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+html[data-theme="light"] #platformsDialog .obs-input,
+html[data-theme="light"] #platformsDialog .field select { border-color: #cdd2dc; }
+#platformsDialog .obs-input:focus,
+#platformsDialog .field select:focus { border-color: var(--primary-color); box-shadow: var(--p1-ring); outline: none; }
+#platformsDialog .field { display: grid; gap: 6px; }
+#platformsDialog .field label { font-size: 13px; font-weight: 600; }
+#platformsDialog .field small { font-size: 12px; line-height: 1.45; }
+#platformsDialog .copy-row { display: flex; gap: 8px; }
+#platformsDialog .copy-row .obs-input { flex: 1; min-width: 0; }
+#platformsDialog .plat-form {
+    margin-top: 14px; padding: 14px; gap: 14px;
+    border: 1px solid var(--p1-line); border-radius: 12px; background: var(--p1-surface);
+    animation: p1-rise 0.22s var(--ease-out, ease) both;
+}
+#platformsDialog .plat-form .row { gap: 10px; }
+#platformsDialog .plat-form .row .btn { flex: 1; }
+
+#platformsDialog .check { padding: 10px 12px; border-radius: 10px; background: var(--p1-hover); }
+#platformsDialog .obs-sub { margin-top: 12px; border: 1px solid var(--p1-line); border-radius: 10px; padding: 0 12px; }
+#platformsDialog .obs-sub summary { padding: 10px 0; cursor: pointer; font-weight: 600; font-size: 13.5px; }
+#platformsDialog .obs-sub[open] summary { border-bottom: 1px solid var(--p1-line); margin-bottom: 8px; }
+#platformsDialog .obs-sub ol { padding-left: 18px; display: grid; gap: 6px; font-size: 13px; line-height: 1.5; padding-bottom: 10px; }
+.plat-code { border: 1px solid var(--p1-line); font-family: ui-monospace, Menlo, monospace; }
+
+/* Móvil: el diálogo se vuelve una hoja desde abajo */
+@media (max-width: 600px) {
+    #platformsDialog {
+        width: 100vw; max-width: 100vw; margin: auto 0 0;
+        border-radius: 20px 20px 0 0; border-bottom: 0;
+    }
+    #platformsDialog[open] { animation: p1-sheet 0.3s var(--ease-out, ease) both; }
+    #platformsDialog .dialog-body { padding: 22px 16px calc(18px + env(safe-area-inset-bottom, 0px)); max-height: 92dvh; }
+    #platformsDialog .plat-actions .obs-btn { flex: 1; }
+    #platformsDialog .plat-on { flex-basis: 100%; }
+}
+
+/* ==========================================================================
+   2. NOTIFICACIONES
+   ========================================================================== */
+.notif-btn {
+    width: 40px; height: 40px;
+    border-color: var(--p1-line);
+    background: var(--p1-hover);
+}
+.notif-btn:hover, .notif-btn[aria-expanded="true"] {
+    background: rgba(255, 166, 0, 0.14);
+    border-color: rgba(255, 166, 0, 0.6);
+    color: var(--primary-text, var(--primary-color));
+}
+.notif-badge {
+    top: -5px; right: -5px; min-width: 19px; height: 19px; line-height: 19px;
+    background: linear-gradient(135deg, #ff4d6a, var(--live, #ff2e4d));
+    box-shadow: 0 0 0 2px var(--bg-main, #1e1e1e), 0 3px 8px rgba(255, 46, 77, 0.45);
+}
+.notif-btn.has-unread .notif-badge { animation: p1-badge 2.4s ease-in-out 1s infinite; }
+
+.notif-panel {
+    width: 400px;
+    background: var(--p1-surface);
+    border: 1px solid var(--p1-line);
+    border-radius: 16px;
+    box-shadow: var(--p1-shadow);
+    transform-origin: calc(100% - 20px) 0;
+    animation: p1-pop 0.22s var(--ease-out, ease) both;
+}
+html[data-theme="light"] .notif-panel { background: #fff; border-color: var(--p1-line); box-shadow: var(--p1-shadow); }
+
+.notif-head {
+    padding: 16px 16px 12px;
+    border-bottom: 1px solid var(--p1-line);
+    background: linear-gradient(180deg, rgba(255, 166, 0, 0.09), transparent);
+}
+.notif-head h3 { font-size: 20px; }
+html[data-theme="light"] .notif-head, html[data-theme="light"] .notif-foot { border-color: var(--p1-line); }
+.notif-link { border-radius: 8px; padding: 6px 10px; }
+.notif-link:hover:not(:disabled) { background: rgba(255, 166, 0, 0.14); }
+.notif-gear { width: 34px; height: 34px; border-radius: 10px; transition: background 0.15s, transform 0.3s var(--ease-out, ease); }
+.notif-gear:hover { transform: rotate(60deg); background: var(--p1-hover); }
+
+.notif-list { scrollbar-width: thin; scrollbar-color: rgba(128, 128, 140, 0.35) transparent; padding: 6px; }
+.notif-foot { padding: 8px 10px; border-top: 1px solid var(--p1-line); background: var(--p1-surface); }
+
+.notif-item {
+    position: relative;
+    gap: 12px;
+    padding: 12px 12px 12px 14px;
+    margin-bottom: 2px;
+    border: 0;
+    border-radius: 12px;
+    transition: background 0.15s, transform 0.15s var(--ease-out, ease);
+}
+.notif-item:last-child { margin-bottom: 0; }
+.notif-item:hover, .notif-item:focus-visible { background: var(--p1-hover); }
+.notif-item:active { transform: scale(0.985); }
+.notif-item:focus-visible { box-shadow: inset 0 0 0 2px var(--primary-color); }
+.notif-item.is-unread { background: rgba(255, 166, 0, 0.09); }
+.notif-item.is-unread::before {
+    content: ""; position: absolute; left: 3px; top: 14px; bottom: 14px; width: 3px; border-radius: 3px;
+    background: var(--primary-color);
+}
+.notif-item.is-unread:hover { background: rgba(255, 166, 0, 0.15); }
+html[data-theme="light"] .notif-item.is-unread { background: #fff4de; }
+html[data-theme="light"] .notif-item.is-unread:hover { background: #ffecc8; }
+html[data-theme="light"] .notif-item:hover { background: #f1f2f6; }
+
+.notif-kind { width: 22px; height: 22px; box-shadow: 0 0 0 2.5px var(--p1-surface); }
+html[data-theme="light"] .notif-kind { box-shadow: 0 0 0 2.5px #fff; }
+.notif-kind svg { width: 12px; height: 12px; }
+.notif-line { font-size: 14px; line-height: 1.45; }
+.notif-quote { color: var(--text-color); }
+.notif-msg {
+    margin-top: 2px; padding: 6px 10px; border-radius: 4px 10px 10px 10px;
+    background: var(--p1-hover); font-size: 13px; line-height: 1.4;
+}
+.notif-amt {
+    padding: 1px 8px; border-radius: 999px; background: rgba(255, 210, 77, 0.16);
+    color: #e8a400; font-weight: 700;
+}
+html:not([data-theme="light"]) .notif-amt { color: #ffd24d; }
+.notif-time { font-size: 11.5px; letter-spacing: 0.01em; }
+.notif-dot { margin-top: 8px; box-shadow: 0 0 0 4px rgba(255, 166, 0, 0.18); }
+
+.notif-empty { padding: 48px 28px; gap: 8px; }
+.notif-empty svg {
+    box-sizing: content-box; width: 30px; height: 30px; padding: 18px; margin-bottom: 8px;
+    border-radius: 50%; background: var(--p1-hover); opacity: 0.8;
+}
+.notif-empty strong { font-size: 16px; }
+
+/* Móvil: hoja bajo la cabecera */
+@media (max-width: 700px) {
+    .notif-panel {
+        border-radius: 0 0 20px 20px;
+        box-shadow: 0 24px 40px rgba(0, 0, 0, 0.4);
+        transform-origin: 50% 0;
+        animation: p1-drop 0.24s var(--ease-out, ease) both;
+    }
+    .notif-item { padding: 14px 12px 14px 14px; }
+    .notif-btn { width: 38px; height: 38px; }
+}
+
+/* ==========================================================================
+   Animaciones
+   ========================================================================== */
+@keyframes p1-pop   { from { opacity: 0; transform: translateY(8px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes p1-drop  { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
+@keyframes p1-sheet { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes p1-rise  { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes p1-fade  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes p1-pulse { 0% { box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.5); } 100% { box-shadow: 0 0 0 7px rgba(46, 204, 113, 0); } }
+@keyframes p1-badge { 0%, 88%, 100% { transform: scale(1); } 94% { transform: scale(1.18); } }
+
+@media (prefers-reduced-motion: reduce) {
+    #platformsDialog[open], #platformsDialog[open]::backdrop, .notif-panel, .plat-form,
+    .plat-status.s-live::before, .notif-btn.has-unread .notif-badge { animation: none !important; }
+    .plat-card, .notif-item, .notif-gear, #platformsDialog .dialog-close { transition: none; }
+}
+html.reduce-motion #platformsDialog[open], html.reduce-motion #platformsDialog[open]::backdrop,
+html.reduce-motion .notif-panel, html.reduce-motion .plat-form,
+html.reduce-motion .plat-status.s-live::before, html.reduce-motion .notif-btn.has-unread .notif-badge { animation: none !important; }

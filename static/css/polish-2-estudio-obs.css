@@ -1,0 +1,232 @@
+/* ==========================================================================
+   Yeli · Mejora de estilo, parte 2: el ESTUDIO (tipo OBS) completo
+   Cargar DESPUÉS de theme-light.css (y de la parte 1):
+   <link rel="stylesheet" href="static/css/polish-2-estudio-obs.css">
+   Solo CSS. Usa las variables --o-* del estudio, así que sigue el tema claro/oscuro.
+   ========================================================================== */
+
+.obs {
+    --o-bg: #0f1013;
+    --o-panel: #18191e;
+    --o-head: #1f2127;
+    --o-border: #2a2c35;
+    --o-hover: rgba(255, 255, 255, 0.06);
+    --o-sel: rgba(255, 166, 0, 0.14);
+    --o-field: #121317;
+    --o-text: #e8eaf0;
+    --o-soft: #9aa0b0;
+    border-radius: 16px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+    color: var(--o-text);
+}
+html[data-theme="light"] .obs {
+    --o-bg: #e9ebf1;
+    --o-panel: #ffffff;
+    --o-head: #f5f6fa;
+    --o-border: #dadde6;
+    --o-hover: rgba(20, 26, 44, 0.06);
+    --o-sel: rgba(245, 154, 0, 0.15);
+    --o-field: #ffffff;
+    --o-text: #1c2030;
+    --o-soft: #5f667a;
+    box-shadow: 0 10px 30px rgba(20, 26, 44, 0.12);
+}
+
+/* ---------- Cabeceras de cada panel ---------- */
+.obs .dock-head {
+    height: 36px; padding: 0 14px;
+    background: var(--o-head);
+    border-bottom: 1px solid var(--o-border);
+}
+.obs .dock-title {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--o-soft);
+}
+.obs .dock-title::before {
+    content: ""; width: 3px; height: 12px; border-radius: 3px; background: var(--primary-color);
+}
+.obs .dock-meta { font-size: 11.5px; padding: 2px 8px; border-radius: 999px; background: var(--o-hover); color: var(--o-soft); }
+.obs .dock-meta:empty { display: none; }
+.obs-chat .chat-head { height: 36px; padding: 0 14px; border-bottom: 1px solid var(--o-border); }
+.obs-chat .chat-head h2 { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--o-soft); }
+
+/* ---------- Vista previa ---------- */
+.obs .preview-stage {
+    background:
+        radial-gradient(circle at 50% 50%, #15161b 0, #000 75%);
+}
+.obs .preview-wrap {
+    border-radius: 6px;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 18px 50px rgba(0, 0, 0, 0.7);
+}
+.obs .preview-empty {
+    background: rgba(8, 9, 12, 0.72);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+}
+.sel-box { border-width: 2px; border-radius: 2px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35); }
+.sel-box i { width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5); transition: transform 0.12s; }
+.sel-box i:hover { transform: scale(1.25); }
+
+/* ---------- Paneles inferiores ---------- */
+.obs .obs-docks { border-top: 1px solid var(--o-border); }
+.obs .dock { background: var(--o-panel); }
+.obs .dock-body { padding: 8px; scrollbar-width: thin; scrollbar-color: rgba(128, 132, 146, 0.4) transparent; }
+.obs .dock-foot { padding: 6px 8px; gap: 4px; background: var(--o-head); border-top: 1px solid var(--o-border); }
+
+/* Botones de barra (+, -, subir, bajar...) */
+.obs .tbtn {
+    width: 30px; height: 28px; border-radius: 8px; color: var(--o-soft);
+    transition: background 0.14s, color 0.14s, transform 0.14s var(--ease-out, ease);
+}
+.obs .tbtn:hover { background: var(--o-hover); color: var(--o-text); }
+.obs .tbtn:active { transform: scale(0.9); }
+.obs .tbtn:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 1px; }
+.obs .tbtn[aria-pressed="true"] { color: #ff5d73; background: rgba(255, 93, 115, 0.12); }
+
+/* Filas de escenas y fuentes */
+.obs .list { gap: 3px; }
+.obs .row-item {
+    position: relative; min-height: 34px; padding: 5px 8px 5px 10px; border-radius: 9px;
+    transition: background 0.14s, transform 0.14s var(--ease-out, ease);
+}
+.obs .row-item:hover { background: var(--o-hover); }
+.obs .row-item:active { transform: scale(0.99); }
+.obs .row-item.selected { background: var(--o-sel); box-shadow: none; }
+.obs .row-item.selected::before {
+    content: ""; position: absolute; left: 0; top: 7px; bottom: 7px; width: 3px; border-radius: 3px; background: var(--primary-color);
+}
+.obs .row-item.selected .type-ico { color: var(--primary-color); }
+.obs .row-name { font-size: 13px; font-weight: 500; }
+.obs .type-ico { width: 22px; height: 22px; place-items: center; border-radius: 6px; background: var(--o-hover); color: var(--o-soft); }
+.obs .eye { width: 26px; height: 26px; border-radius: 8px; transition: background 0.14s, color 0.14s; }
+.obs .eye:hover { background: var(--o-hover); }
+.obs .list-empty { padding: 18px 10px; text-align: center; border: 1px dashed var(--o-border); border-radius: 10px; margin: 4px; }
+
+/* Transición bajo las escenas */
+.obs .trans-row { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--o-border); }
+.obs .trans-row label { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--o-soft); }
+
+/* ---------- Campos y botones ---------- */
+.obs .obs-input, .obs-dialog .obs-input {
+    min-height: 36px; padding: 7px 11px; border-radius: 9px; font-size: 13.5px;
+    background: var(--o-field); border: 1px solid var(--o-border); color: var(--o-text);
+    transition: border-color 0.14s, box-shadow 0.14s;
+}
+.obs .obs-input:hover { border-color: color-mix(in srgb, var(--o-soft) 55%, transparent); }
+.obs .obs-input:focus, .obs-dialog .obs-input:focus { border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(255, 166, 0, 0.2); }
+.obs .obs-btn, .obs-dialog .obs-btn {
+    min-height: 36px; padding: 0 14px; border-radius: 9px; font-weight: 600; font-size: 13px;
+    background: var(--o-hover); border: 1px solid var(--o-border); color: var(--o-text);
+    transition: background 0.14s, border-color 0.14s, transform 0.14s var(--ease-out, ease);
+}
+.obs .obs-btn:hover, .obs-dialog .obs-btn:hover { background: color-mix(in srgb, var(--o-soft) 22%, transparent); border-color: color-mix(in srgb, var(--o-soft) 45%, transparent); }
+.obs .obs-btn:active { transform: scale(0.97); }
+.obs .obs-btn:focus-visible, .obs .btn-start:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
+
+/* Menú contextual de "+" */
+.obs .menu {
+    min-width: 230px; padding: 6px; border-radius: 12px;
+    background: var(--o-panel); border: 1px solid var(--o-border);
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.45);
+    animation: p2-menu 0.16s var(--ease-out, ease) both; transform-origin: 0 100%;
+}
+html[data-theme="light"] .obs .menu { box-shadow: 0 16px 36px rgba(20, 26, 44, 0.2); }
+.obs .menu button { padding: 9px 10px; border-radius: 8px; color: var(--o-text); font-weight: 500; }
+.obs .menu button:hover, .obs .menu button:focus-visible { background: var(--o-hover); outline: none; }
+.obs .menu button svg { color: var(--primary-color); }
+.obs .menu-sep { background: var(--o-border); margin: 5px 4px; }
+
+/* ---------- Mezclador de audio ---------- */
+.obs .mix-row {
+    margin-bottom: 8px; padding: 10px 12px 12px;
+    border: 1px solid var(--o-border); border-radius: 12px; background: var(--o-head);
+}
+.obs .mix-top { margin-bottom: 8px; align-items: baseline; }
+.obs .mix-name { font-size: 13px; }
+.obs .mix-db { font-size: 11.5px; padding: 1px 7px; border-radius: 999px; background: var(--o-hover); }
+.obs .mix-meter { height: 8px; border-radius: 999px; background: var(--o-hover); box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25); }
+.obs .mix-meter i { border-radius: 999px; transition: transform 0.06s linear; }
+.obs .mix-vol {
+    -webkit-appearance: none; appearance: none; height: 4px; border-radius: 999px; background: var(--o-border); outline: none; cursor: pointer;
+}
+.obs .mix-vol::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--primary-color); border: 3px solid var(--o-panel); box-shadow: 0 0 0 1px var(--primary-color), 0 2px 6px rgba(0, 0, 0, 0.4); }
+.obs .mix-vol::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: var(--primary-color); border: 3px solid var(--o-panel); box-shadow: 0 0 0 1px var(--primary-color); }
+.obs .mix-vol:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px rgba(255, 166, 0, 0.3); }
+
+/* ---------- Controles / Ir en directo ---------- */
+.obs .controls { gap: 10px; }
+.obs .controls .row { gap: 8px; }
+.obs .btn-start {
+    position: relative; height: 46px; border-radius: 12px; letter-spacing: 0.02em; font-size: 15px;
+    background: linear-gradient(180deg, #38c953, #27a53d);
+    box-shadow: 0 6px 18px rgba(47, 179, 68, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    transition: transform 0.14s var(--ease-out, ease), box-shadow 0.18s, filter 0.18s;
+}
+.obs .btn-start:hover { background: linear-gradient(180deg, #43d65f, #2db047); box-shadow: 0 8px 22px rgba(47, 179, 68, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.3); }
+.obs .btn-start:active { transform: scale(0.98); }
+.obs .btn-start.is-live {
+    background: linear-gradient(180deg, #ee4a4a, #d12f2f);
+    box-shadow: 0 6px 18px rgba(224, 49, 49, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+.obs .btn-start.is-live:hover { background: linear-gradient(180deg, #f35b5b, #db3939); }
+.obs .btn-start.is-live::before {
+    content: ""; display: inline-block; width: 9px; height: 9px; margin-right: 10px; border-radius: 50%;
+    background: #fff; animation: pulse 1.6s ease-in-out infinite;
+}
+
+/* ---------- Barra de estado ---------- */
+.obs .obs-status {
+    height: 34px; gap: 8px; padding: 0 12px;
+    background: var(--o-head); border-top: 1px solid var(--o-border); color: var(--o-soft);
+}
+.obs .st { display: inline-flex; align-items: center; height: 22px; padding: 0 10px; border-radius: 999px; background: var(--o-hover); font-size: 11.5px; }
+.obs .st i { margin-right: 6px; }
+.obs .st-live { background: rgba(255, 46, 77, 0.14); color: #ff6b81; }
+html[data-theme="light"] .obs .st-live { color: #d6204a; }
+.obs .st-free { background: rgba(255, 166, 0, 0.14); color: var(--primary-text, var(--primary-color)); }
+.obs .st-end { margin-left: auto; background: transparent; }
+
+/* ---------- Diálogos dentro del estudio (propiedades de fuente) ---------- */
+.obs-dialog { border-radius: 16px; }
+.obs-dialog .dialog-body h2 { font-size: 24px; }
+.obs-dialog .props-form { gap: 16px; }
+.obs-dialog .field > label, .obs-dialog .field .label { font-size: 13px; font-weight: 600; }
+.obs-dialog .preset-grid { gap: 8px; }
+.obs-dialog .preset-grid .obs-btn { min-height: 38px; padding: 0 4px; }
+.obs-dialog .obs-help { border-radius: 12px; }
+.obs-dialog input[type="range"] { accent-color: var(--primary-color); }
+.obs-dialog input[type="color"] { border-radius: 10px; }
+
+/* ---------- Móvil: pestañas tipo "segmentos" ---------- */
+@media (max-width: 1000px) {
+    .obs { border-radius: 14px; }
+    .obs .obs-tabs {
+        gap: 4px; padding: 8px; border: 0; border-top: 1px solid var(--o-border);
+        border-bottom: 1px solid var(--o-border); background: var(--o-head);
+    }
+    .obs .obs-tabs button {
+        flex: 1 0 auto; min-width: 0; padding: 9px 14px; border: 0; border-radius: 999px;
+        font-size: 13px; color: var(--o-soft); background: transparent;
+        transition: background 0.18s, color 0.18s, box-shadow 0.18s;
+    }
+    .obs .obs-tabs button[aria-selected="true"] {
+        color: #1a1200; background: var(--primary-color); box-shadow: 0 4px 12px rgba(255, 166, 0, 0.35);
+    }
+    .obs .obs-docks .dock, .obs .obs-chat { animation: p2-tab 0.2s var(--ease-out, ease) both; }
+    .obs .btn-start { height: 50px; }
+}
+@media (max-width: 700px) {
+    .obs { border-radius: 0; }
+    .obs .obs-status { padding: 8px 12px; }
+}
+
+@keyframes p2-menu { from { opacity: 0; transform: translateY(6px) scale(0.96); } to { opacity: 1; transform: none; } }
+@keyframes p2-tab  { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+    .obs .menu, .obs .obs-docks .dock, .obs .obs-chat, .obs .btn-start.is-live::before { animation: none !important; }
+    .obs .tbtn, .obs .row-item, .obs .obs-btn, .obs .btn-start { transition: none; }
+}
+html.reduce-motion .obs .menu, html.reduce-motion .obs .obs-docks .dock,
+html.reduce-motion .obs .obs-chat, html.reduce-motion .obs .btn-start.is-live::before { animation: none !important; }

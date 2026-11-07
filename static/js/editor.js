@@ -295,6 +295,13 @@ const edClipOut = (c) => ({
     fadeOut: c.fadeOut, fit: c.fit, rot: c.rot, flipH: c.flipH, flipV: c.flipV, zoom: c.zoom, px: c.px, py: c.py,
     bright: c.bright, contrast: c.contrast, sat: c.sat, blur: c.blur, opacity: c.opacity,
 });
+/** Can the server render this edit (fast export)? Only cuts, joins, speed, volume, fades, frame shape, rotate and mirror, with
+ *  every clip from the streamer's own saved videos. Texts, stickers, watermark, filters, adjustments, zoom and music need the
+ *  real-time export. (The server checks it again.) */
+const edFastOk = (P) => !P.music && !P.texts.length && !P.watermark.on && P.bg !== 'blur' && P.clips.length > 0
+    && P.clips.every((c) => /^vod:/.test(c.asset.id) && c.filter === 'none' && !c.blur && c.opacity === 1 && !c.bright && !c.contrast && !c.sat
+        && c.zoom === 1 && !c.px && !c.py);
+
 const edProjectData = (P) => ({ aspect: P.aspect, bg: P.bg, bgColor: P.bgColor, watermark: P.watermark, clips: P.clips.map(edClipOut), texts: P.texts });
 
 function edMissing() {
@@ -1487,16 +1494,25 @@ async function pageEditor(root, route, alive) {
                     <div class="field"><label for="exTitle">Title</label><input id="exTitle" maxlength="80" autocomplete="off" required></div>
                     <div class="field"><label for="exQ">Quality</label><select id="exQ"><option value="1080">1080p</option><option value="720" selected>720p</option><option value="480">480p</option><option value="360">360p (smaller file)</option></select></div>
                     ${liveNote}
-                    <div class="notice" role="note">It is recorded in real time: this video is ${esc(edFmt(total))} long, so it takes about that long. Keep this tab open and visible until it ends. It is saved to your clips, where you add a cover and publish it. Videos can only be watched on Yeli, they can’t be downloaded.</div>
+                    <div class="notice" role="note" id="exNote">It is recorded in real time: this video is ${esc(edFmt(total))} long, so it takes about that long. Keep this tab open and visible until it ends. It is saved to your clips, where you add a cover and publish it. Videos can only be watched on Yeli, they can’t be downloaded.</div>
                     <p class="form-error" id="exErr" role="alert" hidden></p>
                     <button type="submit" class="btn btn-primary btn-block" id="exClip" ${L.ok ? '' : 'disabled'}>Export to my clips</button>
                 </form>`);
             $('#exTitle', dlg).value = defaultTitle.slice(0, 80);
+            let fast = false;
+            if (edFastOk(P)) {                       // the server can make this one much faster than real time
+                api('/render/available').then((r) => {
+                    const note = $('#exNote', dlg);
+                    if (!r.fast || !note || !dlg.open) return;
+                    fast = true;
+                    note.textContent = 'Fast export: the server makes this video in much less time than it lasts, even for long streams. You can wait here while it works. It is saved to your clips, where you add a cover and publish it. Videos can only be watched on Yeli, they can’t be downloaded.';
+                }).catch(() => {});
+            }
             $('#exForm', dlg).addEventListener('submit', (e) => {
                 e.preventDefault();
                 const title = $('#exTitle', dlg).value.trim();
                 if (!title) { const er = $('#exErr', dlg); er.textContent = 'Give your video a title.'; er.hidden = false; return; }
-                run({ title, short: Number($('#exQ', dlg).value) });
+                run({ title, short: Number($('#exQ', dlg).value), fast });
             });
         }
 
@@ -1517,6 +1533,7 @@ async function pageEditor(root, route, alive) {
             shell('Saving your project…', '<div class="ed-prog"><span style="width:30%"></span></div>');
             try { await edSave(P); } catch (e) { fail(e.message); return; }
             renderBar();
+            if (o.fast && await runFast(o)) return;          // made by the server; if it can't, the real-time export below takes over
             let upload = null;
             try {
                 const info = await api('/vod/new', { method: 'POST', body: { mime, title: o.title, project_id: P.id } });
@@ -1635,6 +1652,59 @@ async function pageEditor(root, route, alive) {
             draw();
             recorder.start(1000);                     // smaller pieces: they upload while it records, so almost nothing is left to send at the end
             play();
+        }
+
+        /** Fast export: the server renders the saved project. Returns true when it handled the export (done or failed),
+         *  false when the real-time export has to be used instead (no ffmpeg, server busy, or an edit it can't make). */
+        async function runFast(o) {
+            let id;
+            try {
+                id = (await api(`/projects/${P.id}/render`, { method: 'POST', body: { title: o.title, short: o.short } })).id;
+            } catch (e) {
+                if (e.field === 'fallback') return false;
+                fail(e.message);
+                return true;
+            }
+            let cancelled = false;
+            shell('Exporting…', `
+                <div class="ed-prog" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div>
+                <p class="muted" id="exInfo">0%</p>
+                <p class="muted">The server is making your video. It usually takes much less than its length.</p>
+                <button type="button" class="btn btn-secondary btn-block" id="exCancel">Cancel</button>`);
+            $('#exCancel', dlg).addEventListener('click', () => {
+                cancelled = true;
+                api(`/render/${id}/cancel`, { method: 'POST' }).catch(() => {});
+                dlg.close();
+            });
+            const started = Date.now();
+            let misses = 0;
+            while (!cancelled && dlg.open) {
+                await new Promise((r) => setTimeout(r, 1000));
+                if (cancelled || !dlg.open) break;
+                let st;
+                try { st = await api(`/render/${id}`); misses = 0; } catch (e) {
+                    if (e.status === 404 || ++misses > 30) { fail('The export stopped. Try again.'); return true; }
+                    continue;
+                }
+                const pct = Math.min(100, st.pct || 0);
+                const bar = $('.ed-prog > span', dlg);
+                if (bar) bar.style.width = `${pct}%`;
+                const p = $('.ed-prog', dlg);
+                if (p) p.setAttribute('aria-valuenow', String(pct));
+                const info = $('#exInfo', dlg);
+                if (info) info.textContent = `${pct}% · ${Math.round((Date.now() - started) / 1000)} s`;
+                if (st.state === 'error') { fail(st.error || 'The video couldn’t be made.'); return true; }
+                if (st.state === 'cancelled') return true;
+                if (st.state === 'done') {
+                    try {
+                        const { video } = await api(`/vod/${id}`);
+                        P.dirty = false;
+                        done(video);
+                        return true;
+                    } catch (e) { fail(e.message); return true; }
+                }
+            }
+            return true;
         }
 
         function done(video) {

@@ -44,3 +44,24 @@
     text-overflow: ellipsis;
 }
 .obs .trans-row input[type="number"] { text-align: center; }
+
+/* Shorts: los botones (like, comentarios, compartir, sonido) y el bloque de autor/título/descripción
+   no tienen fondo. Para que se lean sobre cualquier video se usa una sombra suave en texto e íconos. */
+.short-rail .short-act,
+.short-rail .short-act:hover,
+.short-rail .short-act:active,
+.short-rail .short-act:focus-visible {
+    background: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    box-shadow: none;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+}
+.short-rail .short-act svg { filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.85)); }
+.short-info {
+    background: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+}
+.short-desc { color: #fff; }

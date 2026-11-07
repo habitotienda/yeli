@@ -1630,10 +1630,10 @@ async function pageEditor(root, route, alive) {
             P.t = 0;                                   // the first picture must be on the canvas before recording starts,
             P.active = null;                           // or the video begins with a black frame
             syncMedia();
-            await new Promise((r) => setTimeout(r, 450));
+            await new Promise((r) => setTimeout(r, 200));
             if (finished) return;
             draw();
-            recorder.start(2000);
+            recorder.start(1000);                     // smaller pieces: they upload while it records, so almost nothing is left to send at the end
             play();
         }
 

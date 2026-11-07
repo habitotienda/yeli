@@ -459,12 +459,54 @@ CREATE TABLE IF NOT EXISTS assets (
     data       BLOB NOT NULL,
     created_at INTEGER NOT NULL
 );
+
+-- Footer: social networks the admin adds and removes, and the news (updates) page.
+CREATE TABLE IF NOT EXISTS site_socials (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    platform   TEXT NOT NULL,
+    label      TEXT NOT NULL DEFAULT '',
+    url        TEXT NOT NULL,
+    position   INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS site_updates (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    title      TEXT NOT NULL,
+    body       TEXT NOT NULL,
+    tag        TEXT NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_site_updates ON site_updates(created_at);
+
+-- Support: a person writes to the admin, the admin answers (both get a notification). status: open, answered or closed.
+CREATE TABLE IF NOT EXISTS support_tickets (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    subject    TEXT NOT NULL,
+    category   TEXT NOT NULL DEFAULT 'other',
+    status     TEXT NOT NULL DEFAULT 'open',
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_user ON support_tickets(user_id, updated_at);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_status ON support_tickets(status, updated_at);
+CREATE TABLE IF NOT EXISTS support_messages (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticket_id  INTEGER NOT NULL REFERENCES support_tickets(id) ON DELETE CASCADE,
+    sender_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    from_staff INTEGER NOT NULL DEFAULT 0,
+    body       TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_support_messages ON support_messages(ticket_id, id);
 """
 
 
 # Columns added after the first release. Older SQLite files get them with ALTER TABLE; on Postgres they are added the same way.
 MIGRATIONS = {
-        "users": [("stream_key", "TEXT NOT NULL DEFAULT ''"), ("name_color", "TEXT NOT NULL DEFAULT ''"), ("verified", "INTEGER NOT NULL DEFAULT 0")],
+        # terms_version / terms_at: which version of the Terms and Cookies Policy the person accepted, and when
+        "users": [("stream_key", "TEXT NOT NULL DEFAULT ''"), ("name_color", "TEXT NOT NULL DEFAULT ''"), ("verified", "INTEGER NOT NULL DEFAULT 0"),
+                  ("terms_version", "TEXT NOT NULL DEFAULT ''"), ("terms_at", "INTEGER NOT NULL DEFAULT 0")],
         "streams": [("mode", "TEXT NOT NULL DEFAULT 'p2p'"), ("ip", "TEXT NOT NULL DEFAULT ''"), ("notified_at", "INTEGER NOT NULL DEFAULT 0")],
         "chat_settings": [("tts_enabled", "INTEGER NOT NULL DEFAULT 0"), ("tts_command", "TEXT NOT NULL DEFAULT 'say'"),
                           ("tts_name", "INTEGER NOT NULL DEFAULT 1"), ("tts_template", "TEXT NOT NULL DEFAULT '{user} says: {text}'"),

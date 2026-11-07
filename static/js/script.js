@@ -123,7 +123,7 @@ function setActiveNav(path) {
 }
 
 /* The order of the main sections decides which way a page bounces in: forward comes from the right, back from the left. */
-const SECTION_RANK = [['/', 0], ['/explore', 1], ['/following', 2], ['/content', 2.2], ['/videos', 2.4], ['/shorts', 2.5], ['/gallery', 2.7], ['/search', 3], ['/c/', 4], ['/video/', 4], ['/studio', 5], ['/clips', 5], ['/editor', 5], ['/wallet', 6], ['/chest', 6], ['/bot', 7], ['/moderation', 7], ['/settings', 8], ['/admin', 9]];
+const SECTION_RANK = [['/', 0], ['/explore', 1], ['/following', 2], ['/content', 2.2], ['/videos', 2.4], ['/shorts', 2.5], ['/gallery', 2.7], ['/search', 3], ['/c/', 4], ['/video/', 4], ['/studio', 5], ['/clips', 5], ['/editor', 5], ['/wallet', 6], ['/chest', 6], ['/bot', 7], ['/moderation', 7], ['/settings', 8], ['/admin', 9], ['/support', 9.5], ['/updates', 9.6], ['/about', 9.7], ['/terms', 9.8], ['/cookies', 9.9]];
 const rankOf = (path) => (SECTION_RANK.find(([p]) => (p.endsWith('/') && p.length > 1 ? path.startsWith(p) : path === p)) || [0, 3.5])[1];
 let lastRank = 0;
 let enterTimer = null;
@@ -213,7 +213,10 @@ async function route(focus = false) {
         else if (path === '/bot') await pageBot(root, alive);
         else if (path === '/moderation') await pageModeration(root, alive);
         else if (path.startsWith('/popout/')) await pagePopout(root, decodeURIComponent(path.slice(8)), params);
-        else if (path === '/admin') await pageAdmin(root, alive);
+        else if (path === '/admin') await pageAdminHub(root, alive, params);
+        else if (path === '/about' || path === '/terms' || path === '/cookies') pageLegal(root, path.slice(1));
+        else if (path === '/updates') await pageUpdates(root, alive);
+        else if (path === '/support') await pageSupport(root, alive, params);
         else if (path.startsWith('/video/')) await pageVideo(root, decodeURIComponent(path.slice(7)), alive);
         else if (path.startsWith('/c/')) await pageChannel(root, decodeURIComponent(path.slice(3)), alive);
         else root.innerHTML = emptyState('Page not found', 'That page doesn\u2019t exist.', '<a class="btn btn-primary" href="#/">Back to Home</a>');
@@ -1057,6 +1060,9 @@ searchForm.addEventListener('submit', (e) => {
 const authDialog = $('#authDialog');
 const authForm = $('#authForm');
 
+/** A link to a legal page from inside the login/sign-up dialog. It opens in a new tab so what you typed isn't lost. */
+const legalLink = (page, text) => `<a href="#/${page}" target="_blank" rel="noopener">${text}</a>`;
+
 function openAuth(mode = 'login', note = '') {
     const login = mode === 'login';
     $('#authTitle').textContent = login ? 'Log in to Yeli' : 'Create your account';
@@ -1067,7 +1073,8 @@ function openAuth(mode = 'login', note = '') {
             <div class="field"><label for="auId">Username or email</label>
                 <input id="auId" name="identifier" autocomplete="username" required></div>
             <div class="field"><label for="auPw">Password</label>
-                <input id="auPw" name="password" type="password" autocomplete="current-password" required></div>`
+                <input id="auPw" name="password" type="password" autocomplete="current-password" required></div>
+            <p class="terms-note">By logging in you accept the ${legalLink('terms', 'Terms and Conditions')} and the ${legalLink('cookies', 'Cookies Policy')}.</p>`
         : `
             <div class="field"><label for="auUser">Username</label>
                 <input id="auUser" name="username" autocomplete="username" minlength="3" maxlength="20" pattern="[A-Za-z0-9_]+" required>
@@ -1076,7 +1083,9 @@ function openAuth(mode = 'login', note = '') {
                 <input id="auEmail" name="email" type="email" autocomplete="email" required></div>
             <div class="field"><label for="auPw">Password</label>
                 <input id="auPw" name="password" type="password" autocomplete="new-password" minlength="8" required>
-                <small>At least 8 characters.</small></div>`}
+                <small>At least 8 characters.</small></div>
+            <label class="terms-check"><input type="checkbox" name="accept_terms" required>
+                <span>I have read and accept the ${legalLink('terms', 'Terms and Conditions')} and the ${legalLink('cookies', 'Cookies Policy')}.</span></label>`}
         <p class="form-error" role="alert" hidden></p>
         <button type="submit" class="btn btn-primary btn-block">${login ? 'Log In' : 'Sign Up'}</button>`;
     $('#authSwitch').innerHTML = login
@@ -1090,6 +1099,13 @@ authForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const mode = authForm.dataset.mode;
     const body = Object.fromEntries(new FormData(authForm));
+    if (mode === 'signup' && !body.accept_terms) {
+        const errBox = authForm.querySelector('.form-error');
+        errBox.textContent = 'You must accept the Terms and Conditions and the Cookies Policy to create an account.';
+        errBox.hidden = false;
+        authForm.querySelector('[name="accept_terms"]').focus();
+        return;
+    }
     const errEl = authForm.querySelector('.form-error');
     const btn = authForm.querySelector('button[type="submit"]');
     errEl.hidden = true;
@@ -1196,6 +1212,7 @@ window.addEventListener('pagehide', () => {
     }
     renderAuth();
     startNotifications();
+    initSiteFooter();
     try {
         await refreshSidebar();
         await route();

@@ -1082,6 +1082,8 @@ html.reduce-motion .btn-ico svg { animation: none !important; transition: none; 
 .notif-kind-comment { background: #3b82f6; }
 .notif-kind-like { background: #e64980; }
 .notif-kind-live { background: var(--live, #ff2e4d); }
+.notif-kind-ticket { background: #7c5cff; }
+.notif-kind-support { background: #0ea5a4; }
 .notif-body { display: grid; gap: 3px; min-width: 0; flex: 1; }
 .notif-line { font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; }
 .notif-line strong { font-weight: 700; }

@@ -1,0 +1,249 @@
+/* ==========================================================================
+   Site pages: footer, legal pages (About, Terms, Cookies), What's new, Support, Admin tabs.
+   Same look as the rest of Yeli: flat colours (no gradients), 3-4px corners, thin borders.
+   ========================================================================== */
+
+/* ---------- the column that holds the page and the footer ---------- */
+.main-column {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+.main-column > .main-content { flex: 1 0 auto; width: 100%; }
+body.popout .site-footer,
+body.shorts-open .site-footer { display: none; }
+
+/* ---------- footer ---------- */
+.site-footer {
+    background: var(--second-color);
+    border-top: 1px solid var(--border-color);
+    padding: 32px var(--main-content-padding) 20px;
+    color: var(--text-muted);
+    font-size: 14px;
+}
+.sf-grid {
+    max-width: 1680px;
+    display: grid;
+    grid-template-columns: minmax(180px, 1.4fr) repeat(3, minmax(150px, 1fr));
+    gap: 28px 32px;
+}
+.sf-logo { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
+.sf-logo .brand-name { font-size: 26px; }
+.sf-brand p { margin-top: 10px; max-width: 28ch; line-height: 1.45; }
+.sf-col h2 {
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--text-color);
+    margin-bottom: 12px;
+}
+.sf-col ul { list-style: none; display: grid; gap: 4px; }
+.sf-col a {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 30px;
+    color: var(--text-muted);
+    text-decoration: none;
+    border-radius: 3px;
+    transition: color 0.2s;
+}
+.sf-col a:hover { color: var(--text-color); text-decoration: underline; text-underline-offset: 3px; }
+.sf-col a.active { color: var(--primary-text, var(--primary-color)); }
+.sf-soc svg { flex: none; }
+.sf-soc span { overflow-wrap: anywhere; }
+.sf-bottom {
+    max-width: 1680px;
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-color);
+    font-size: 13px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+}
+
+@media (max-width: 900px) {
+    .sf-grid { grid-template-columns: 1fr 1fr; }
+    .sf-brand { grid-column: 1 / -1; }
+}
+@media (max-width: 700px) {
+    /* the phone bottom bar covers the end of the page */
+    .site-footer { padding: 26px 14px calc(88px + env(safe-area-inset-bottom, 0px)); }
+}
+@media (max-width: 420px) {
+    .sf-grid { grid-template-columns: 1fr; }
+}
+
+/* ---------- login / sign-up dialog ---------- */
+.terms-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+.terms-check input { flex: none; width: 18px; height: 18px; margin-top: 1px; accent-color: var(--primary-color); cursor: pointer; }
+.terms-note { font-size: 13px; line-height: 1.45; color: var(--text-muted); }
+.terms-check a, .terms-note a { color: var(--primary-text, var(--primary-color)); text-underline-offset: 2px; }
+.terms-check a:hover, .terms-note a:hover { color: var(--text-color); }
+
+/* ---------- text areas look like the other fields ---------- */
+.field textarea {
+    background: var(--field-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    color: var(--text-color);
+    font: inherit;
+    font-size: 15px;
+    line-height: 1.45;
+    padding: 10px 12px;
+    width: 100%;
+    min-height: 110px;
+    resize: vertical;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.field textarea:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(255, 140, 0, 0.15); }
+.field-row > .field { min-width: 0; }
+
+/* ---------- legal pages ---------- */
+.legal { max-width: 860px; }
+.legal-head { margin-bottom: 18px; }
+.legal-intro { font-size: 16px; line-height: 1.6; margin-bottom: 14px; }
+.legal-toc {
+    margin: 20px 0 8px;
+    padding: 16px 20px;
+    background: var(--second-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+}
+.legal-toc ol { columns: 2 280px; column-gap: 28px; padding-left: 22px; }
+.legal-toc li { padding: 3px 0; break-inside: avoid; font-size: 14px; }
+.legal-toc .link-btn { text-align: left; font-size: 14px; }
+.legal-sec { padding-top: 22px; scroll-margin-top: calc(var(--header-height) + 12px); }
+.legal-sec h2 { font-family: "Changa One", sans-serif; font-weight: 400; font-size: 22px; margin-bottom: 10px; }
+.legal-n { color: var(--primary-text, var(--primary-color)); }
+.legal-sec p, .legal-sec li { line-height: 1.6; font-size: 15px; color: var(--text-color); }
+.legal-sec p { margin-bottom: 10px; }
+.legal-sec ul { display: grid; gap: 8px; padding-left: 22px; margin-bottom: 10px; }
+.legal-sec li::marker { color: var(--primary-color); }
+.legal-table { min-width: 640px; }
+.legal-sec .table-wrap { margin: 12px 0; }
+.legal-end { margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--border-color); }
+.legal-end .btn { display: inline-flex; text-decoration: none; }
+
+/* ---------- What's new ---------- */
+.upd-skel { height: 120px; border-radius: 4px; }
+.upd-list { display: grid; gap: 16px; max-width: 860px; }
+.upd {
+    background: var(--second-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 20px 22px;
+}
+.upd-head { display: flex; align-items: center; gap: 10px; color: var(--text-muted); font-size: 13px; margin-bottom: 6px; }
+.upd-tag { background: rgba(255, 166, 0, 0.16); color: var(--primary-text, var(--primary-color)); font-weight: 700; }
+.upd-title { font-family: "Changa One", sans-serif; font-weight: 400; font-size: 24px; margin-bottom: 8px; overflow-wrap: anywhere; }
+.upd-body p { line-height: 1.6; margin-bottom: 8px; overflow-wrap: anywhere; }
+.upd-body p:last-child { margin-bottom: 0; }
+.upd-more { text-align: center; padding: 6px 0; }
+
+/* ---------- Support ---------- */
+.sup-layout { display: grid; grid-template-columns: minmax(300px, 420px) minmax(0, 1fr); gap: 24px; align-items: start; max-width: 1100px; }
+.sup-new form, .sup-reply { display: grid; gap: 14px; }
+.sup-items { display: grid; gap: 10px; }
+.sup-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    background: var(--second-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.2s, background 0.2s;
+}
+.sup-item:hover { border-color: var(--text-muted); }
+.sup-item.is-closed { opacity: 0.7; }
+.sup-main { display: grid; gap: 4px; min-width: 0; flex: 1; }
+.sup-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.sup-subject { overflow-wrap: anywhere; }
+.sup-meta { color: var(--text-muted); font-size: 13px; }
+.sup-preview { color: var(--text-muted); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sup-preview em { font-style: normal; color: var(--primary-text, var(--primary-color)); }
+.sup-status { white-space: nowrap; }
+.sup-open { background: rgba(255, 166, 0, 0.16); color: var(--primary-text, var(--primary-color)); }
+.sup-answered { background: rgba(47, 158, 68, 0.18); color: #3bb45a; }
+.sup-closed { background: rgba(128, 128, 128, 0.2); color: var(--text-muted); }
+html[data-theme="light"] .sup-answered { color: #207a38; }
+
+.sup-thread { max-width: 860px; display: grid; gap: 4px; }
+.back-link { display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); text-decoration: none; font-size: 14px; min-height: 32px; width: fit-content; }
+.back-link:hover { color: var(--text-color); }
+.sup-title { font-size: 28px; overflow-wrap: anywhere; }
+.sup-sub { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.sup-msgs { display: grid; gap: 12px; margin: 14px 0 18px; }
+.sup-msg {
+    max-width: 92%;
+    padding: 12px 16px;
+    background: var(--second-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+}
+.sup-msg.is-mine { justify-self: end; border-color: rgba(255, 166, 0, 0.5); background: rgba(255, 166, 0, 0.07); }
+.sup-msg header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; font-size: 13px; color: var(--text-muted); }
+.sup-msg header strong { color: var(--text-color); }
+.sup-msg.is-staff header strong { color: var(--primary-text, var(--primary-color)); }
+.sup-msg header time { margin-left: auto; }
+.sup-body p { line-height: 1.55; margin-bottom: 6px; overflow-wrap: anywhere; }
+.sup-body p:last-child { margin-bottom: 0; }
+.sup-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* ---------- Admin tabs ---------- */
+.tab-count {
+    display: inline-grid;
+    place-items: center;
+    min-width: 20px;
+    height: 20px;
+    margin-left: 8px;
+    padding: 0 6px;
+    border-radius: 3px;
+    background: var(--primary-color);
+    color: #121212;
+    font-size: 12px;
+    font-weight: 700;
+}
+.admin-mode { margin-bottom: 14px; }
+#adminTab > .panel { margin-bottom: 24px; }
+#adminTab .panel form { display: grid; gap: 14px; }
+.soc-admin { list-style: none; display: grid; gap: 8px; max-width: 760px; }
+.soc-admin li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--second-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+}
+.soc-admin-ic { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 3px; background: var(--circle-bg); flex: none; }
+.soc-admin-txt { display: grid; min-width: 0; flex: 1; }
+.soc-admin-txt a { color: var(--text-muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (max-width: 900px) {
+    .sup-layout { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+    .sup-msg { max-width: 100%; }
+    .upd { padding: 16px; }
+    .legal-sec h2 { font-size: 20px; }
+}
+
+.legal-toc .link-btn { font-weight: 400; text-decoration: none; color: var(--text-color); }
+.legal-toc .link-btn:hover { color: var(--primary-text, var(--primary-color)); text-decoration: underline; text-underline-offset: 3px; }

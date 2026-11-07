@@ -35,7 +35,7 @@ class YeliTests(unittest.TestCase):
         _bot._cooldowns.clear()
         core._failed_logins.clear()
         con = sqlite3.connect(config.DB_PATH)
-        for t in ("notifications", "notify_prefs", "notify_meta", "vod_comment_likes", "vod_comments", "vod_likes", "vods", "edit_projects", "free_points", "watch_sessions", "chat_bans", "chat_mods", "events", "alert_rules", "assets", "chat_settings", "commands", "spendings", "upgrades", "upgrade_points", "ledger", "payouts", "donations", "purchases", "wallets", "chat_messages", "gallery_owned", "gallery_items", "avatars", "thumbnails", "signals", "viewers", "live_likes", "follows", "streams", "users"):
+        for t in ("support_messages", "support_tickets", "site_socials", "site_updates", "notifications", "notify_prefs", "notify_meta", "vod_comment_likes", "vod_comments", "vod_likes", "vods", "edit_projects", "free_points", "watch_sessions", "chat_bans", "chat_mods", "events", "alert_rules", "assets", "chat_settings", "commands", "spendings", "upgrades", "upgrade_points", "ledger", "payouts", "donations", "purchases", "wallets", "chat_messages", "gallery_owned", "gallery_items", "avatars", "thumbnails", "signals", "viewers", "live_likes", "follows", "streams", "users"):
             con.execute(f"DELETE FROM {t}")
         con.commit()
         con.close()
@@ -44,7 +44,7 @@ class YeliTests(unittest.TestCase):
         self.anon = app.test_client()
 
     def signup(self, client, name):
-        r = post(client, "/api/register", {"username": name, "email": f"{name}@x.com", "password": "password123"})
+        r = post(client, "/api/register", {"username": name, "email": f"{name}@x.com", "password": "password123", "accept_terms": True})
         self.assertEqual(r.status_code, 201, r.get_json())
 
     # --- helpers for the video editor tests
@@ -83,12 +83,20 @@ class YeliTests(unittest.TestCase):
         self.assertEqual(self.alice.get("/api/me").get_json()["user"]["username"], "alice")
         self.assertIsNone(self.anon.get("/api/me").get_json()["user"])
         # duplicates (case-insensitive) and validation
-        r = post(self.bob, "/api/register", {"username": "ALICE", "email": "b@x.com", "password": "password123"})
+        r = post(self.bob, "/api/register", {"username": "ALICE", "email": "b@x.com", "password": "password123", "accept_terms": True})
         self.assertEqual(r.status_code, 409)
-        r = post(self.bob, "/api/register", {"username": "bob", "email": "alice@x.com", "password": "password123"})
+        r = post(self.bob, "/api/register", {"username": "bob", "email": "alice@x.com", "password": "password123", "accept_terms": True})
         self.assertEqual(r.status_code, 409)
-        self.assertEqual(post(self.bob, "/api/register", {"username": "a!", "email": "b@x.com", "password": "password123"}).status_code, 400)
-        self.assertEqual(post(self.bob, "/api/register", {"username": "bob", "email": "b@x.com", "password": "short"}).status_code, 400)
+        self.assertEqual(post(self.bob, "/api/register", {"username": "a!", "email": "b@x.com", "password": "password123", "accept_terms": True}).status_code, 400)
+        self.assertEqual(post(self.bob, "/api/register", {"username": "bob", "email": "b@x.com", "password": "short", "accept_terms": True}).status_code, 400)
+        # signing up needs the Terms and Cookies Policy ticked, and the version is stored
+        r = post(self.bob, "/api/register", {"username": "bob", "email": "b@x.com", "password": "password123"})
+        self.assertEqual((r.status_code, r.get_json()["field"]), (400, "accept_terms"))
+        r = post(self.bob, "/api/register", {"username": "bob", "email": "b@x.com", "password": "password123", "accept_terms": False})
+        self.assertEqual(r.status_code, 400)
+        row = sqlite3.connect(config.DB_PATH).execute("SELECT terms_version, terms_at FROM users WHERE username = 'alice'").fetchone()
+        self.assertEqual(row[0], config.TERMS_VERSION)
+        self.assertGreater(row[1], 0)
         # login / logout
         self.assertEqual(post(self.anon, "/api/login", {"identifier": "alice", "password": "nope"}).status_code, 401)
         self.assertEqual(post(self.anon, "/api/login", {"identifier": "alice@x.com", "password": "password123"}).status_code, 200)
@@ -2282,6 +2290,125 @@ class YeliTests(unittest.TestCase):
         self.assertFalse(bob.get("/api/channel/ann").get_json()["channel"]["is_mod"])
         # and it can be taken away again
         self.assertFalse(post(boss, "/api/admin/verify/ann", {"verified": False}).get_json()["verified"])
+
+    # ------------------------------------------------------------------ footer, news and support
+    def test_site_socials(self):
+        boss, bob = app.test_client(), app.test_client()
+        self.signup(boss, "boss")
+        self.signup(bob, "bob")
+        self.assertEqual(self.anon.get("/api/site/socials").get_json()["socials"], [])
+        # only the admin changes the footer
+        self.assertEqual(post(bob, "/api/admin/socials", {"platform": "youtube", "url": "https://youtube.com/@yeli"}).status_code, 403)
+        self.assertEqual(post(self.anon, "/api/admin/socials", {"platform": "youtube", "url": "https://youtube.com/@yeli"}).status_code, 401)
+        # unknown network, and addresses that are not plain https links
+        self.assertEqual(post(boss, "/api/admin/socials", {"platform": "myspace", "url": "https://x.com/a"}).status_code, 400)
+        for bad in ("javascript:alert(1)", "http://example.com", "data:text/html,hi", "https://", "https://localhost", "https://u:p@example.com", "https://exa mple.com", ""):
+            r = post(boss, "/api/admin/socials", {"platform": "web", "url": bad})
+            self.assertEqual((bad, r.status_code), (bad, 400))
+        r = post(boss, "/api/admin/socials", {"platform": "youtube", "url": "youtube.com/@yeli", "label": "Our channel"})
+        self.assertEqual(r.status_code, 200)
+        r = post(boss, "/api/admin/socials", {"platform": "x", "url": "https://x.com/yeli"})
+        socials = r.get_json()["socials"]
+        self.assertEqual([s["platform"] for s in socials], ["youtube", "x"])
+        self.assertEqual(socials[0]["url"], "https://youtube.com/@yeli")  # https:// is added when the admin leaves it out
+        self.assertEqual(self.anon.get("/api/site/socials").get_json()["socials"][0]["label"], "Our channel")
+        # remove one (the footer shows the rest)
+        self.assertEqual(bob.delete("/api/admin/socials/%d" % socials[0]["id"], json={}).status_code, 403)
+        r = boss.delete("/api/admin/socials/%d" % socials[0]["id"], json={})
+        self.assertEqual([s["platform"] for s in r.get_json()["socials"]], ["x"])
+        # a limit, so the footer can't grow forever
+        for i in range(config.SOCIALS_MAX):
+            r = post(boss, "/api/admin/socials", {"platform": "web", "url": f"https://site{i}.example.com"})
+        self.assertEqual(r.status_code, 400)
+
+    def test_site_updates(self):
+        boss, bob = app.test_client(), app.test_client()
+        self.signup(boss, "boss")
+        self.signup(bob, "bob")
+        self.assertEqual(self.anon.get("/api/site/updates").get_json(), {"updates": [], "more": False})
+        self.assertEqual(post(bob, "/api/admin/updates", {"title": "Hello", "body": "World"}).status_code, 403)
+        self.assertEqual(post(boss, "/api/admin/updates", {"title": "x", "body": "World"}).status_code, 400)
+        self.assertEqual(post(boss, "/api/admin/updates", {"title": "Hello", "body": ""}).status_code, 400)
+        a = post(boss, "/api/admin/updates", {"title": "First", "body": "One\nTwo", "tag": "New"}).get_json()["update"]
+        post(boss, "/api/admin/updates", {"title": "Second", "body": "Text"})
+        got = self.anon.get("/api/site/updates").get_json()
+        self.assertEqual([u["title"] for u in got["updates"]], ["Second", "First"])  # newest first
+        self.assertEqual(self.anon.get("/api/site/updates?limit=1").get_json()["more"], True)
+        self.assertEqual(bob.delete("/api/admin/updates/%d" % a["id"], json={}).status_code, 403)
+        self.assertEqual(boss.delete("/api/admin/updates/%d" % a["id"], json={}).status_code, 200)
+        self.assertEqual([u["title"] for u in self.anon.get("/api/site/updates").get_json()["updates"]], ["Second"])
+
+    def test_support(self):
+        from yeli import site as site_mod
+        site_mod._last_ticket.clear()
+        boss, bob, eve = app.test_client(), app.test_client(), app.test_client()
+        for c, n in ((boss, "boss"), (bob, "bob"), (eve, "eve")):
+            self.signup(c, n)
+        # you have to be signed in, and the form is checked
+        self.assertEqual(post(self.anon, "/api/support/tickets", {"subject": "Help", "message": "I need some help"}).status_code, 401)
+        self.assertEqual(post(bob, "/api/support/tickets", {"subject": "", "message": "I need some help"}).status_code, 400)
+        self.assertEqual(post(bob, "/api/support/tickets", {"subject": "Help", "message": "short"}).status_code, 400)
+        self.assertEqual(post(bob, "/api/support/tickets", {"subject": "Help", "message": "I need some help", "category": "nope"}).status_code, 400)
+        r = post(bob, "/api/support/tickets", {"subject": "Can't cash out", "message": "My cash-out has been waiting for days.", "category": "payments"})
+        self.assertEqual(r.status_code, 201)
+        tid = r.get_json()["ticket"]["id"]
+        # a second one right away is refused (cooldown)
+        self.assertEqual(post(bob, "/api/support/tickets", {"subject": "Again", "message": "I need some help"}).status_code, 429)
+        # the admin is told (bell), the sender is not
+        n = boss.get("/api/notifications").get_json()
+        self.assertEqual(n["unread"], 1)
+        self.assertEqual((n["notifications"][0]["kind"], n["notifications"][0]["actor"], n["notifications"][0]["ref"]), ("ticket", "bob", str(tid)))
+        self.assertEqual(bob.get("/api/notifications").get_json()["unread"], 0)
+        # the admin sees it in the inbox, other people can't see the inbox or the ticket
+        inbox = boss.get("/api/admin/support?status=open").get_json()
+        self.assertEqual([t["id"] for t in inbox["tickets"]], [tid])
+        self.assertEqual(inbox["tickets"][0]["username"], "bob")
+        self.assertEqual(bob.get("/api/admin/support").status_code, 403)
+        self.assertEqual(eve.get(f"/api/support/tickets/{tid}").status_code, 404)
+        self.assertEqual(post(eve, f"/api/support/tickets/{tid}/messages", {"message": "hello?"}).status_code, 404)
+        self.assertEqual(post(eve, f"/api/support/tickets/{tid}/close").status_code, 404)
+        self.assertEqual(eve.get("/api/support/tickets").get_json()["tickets"], [])
+        # the admin answers: status changes and the person is notified
+        r = post(boss, f"/api/support/tickets/{tid}/messages", {"message": "We approved it today."})
+        self.assertEqual(r.status_code, 201)
+        self.assertEqual(r.get_json()["ticket"]["status"], "answered")
+        self.assertEqual(bob.get("/api/support/tickets").get_json()["tickets"][0]["status"], "answered")
+        n = bob.get("/api/notifications").get_json()
+        self.assertEqual((n["notifications"][0]["kind"], n["notifications"][0]["ref"]), ("support", str(tid)))
+        thread = bob.get(f"/api/support/tickets/{tid}").get_json()
+        self.assertEqual([(m["username"], m["staff"]) for m in thread["messages"]], [("bob", False), ("boss", True)])
+        self.assertFalse(thread["staff"])
+        # the person writes back: it is open again and the admin is told again
+        r = post(bob, f"/api/support/tickets/{tid}/messages", {"message": "Thanks, it arrived!"})
+        self.assertEqual(r.get_json()["ticket"]["status"], "open")
+        self.assertEqual(boss.get("/api/notifications").get_json()["unread"], 2)
+        # closing: nobody can write in it any more
+        self.assertEqual(post(bob, f"/api/support/tickets/{tid}/close").status_code, 200)
+        self.assertEqual(post(bob, f"/api/support/tickets/{tid}/messages", {"message": "one more thing"}).status_code, 409)
+        self.assertEqual(post(boss, f"/api/support/tickets/{tid}/messages", {"message": "one more thing"}).status_code, 409)
+        self.assertEqual(boss.get("/api/admin/support?status=open").get_json()["tickets"], [])
+        self.assertEqual(boss.get("/api/admin/support?status=all").get_json()["counts"], {"open": 0, "answered": 0, "closed": 1})
+        # a limit on open requests per person
+        for i in range(config.SUPPORT_MAX_OPEN):
+            site_mod._last_ticket.clear()
+            self.assertEqual(post(eve, "/api/support/tickets", {"subject": f"Question {i}", "message": "Some details here"}).status_code, 201)
+        site_mod._last_ticket.clear()
+        self.assertEqual(post(eve, "/api/support/tickets", {"subject": "One too many", "message": "Some details here"}).status_code, 429)
+
+    def test_support_notification_prefs(self):
+        from yeli import site as site_mod
+        site_mod._last_ticket.clear()
+        boss, bob = app.test_client(), app.test_client()
+        self.signup(boss, "boss")
+        self.signup(bob, "bob")
+        # the admin can switch the support bell off like any other kind of notification
+        r = post(boss, "/api/notifications/prefs", {"prefs": {"ticket": {"in_app": False}}})
+        self.assertEqual(r.status_code, 200)
+        self.assertFalse(r.get_json()["prefs"]["ticket"]["in_app"])
+        self.assertTrue(r.get_json()["prefs"]["support"]["in_app"])
+        post(bob, "/api/support/tickets", {"subject": "Hello there", "message": "Is anybody out there?"})
+        self.assertEqual(boss.get("/api/notifications").get_json()["unread"], 0)
+
 
     def test_index_and_headers(self):
         r = self.anon.get("/")

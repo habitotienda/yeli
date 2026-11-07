@@ -6,6 +6,8 @@ Who gets told what (each person can switch every kind on/off, separately for the
   comment   someone commented on one of your videos
   like      someone liked one of your videos
   live      a channel you follow went live
+  ticket    someone wrote to Support (only the admins get these)
+  support   Support answered your request
 """
 import html as htmllib
 
@@ -18,10 +20,10 @@ from .db import get_db
 
 bp = Blueprint("notifications", __name__)
 
-KINDS = ("follow", "donation", "comment", "reply", "like", "live")
+KINDS = ("follow", "donation", "comment", "reply", "like", "live", "ticket", "support")
 # (shown in the app, sent by email) when the person never touched the setting.
 # Emails default to the things that deserve one; "like" and "live" can be frequent, so they start app-only.
-DEFAULTS = {"follow": (1, 1), "donation": (1, 1), "comment": (1, 1), "reply": (1, 1), "like": (1, 0), "live": (1, 0)}
+DEFAULTS = {"follow": (1, 1), "donation": (1, 1), "comment": (1, 1), "reply": (1, 1), "like": (1, 0), "live": (1, 0), "ticket": (1, 1), "support": (1, 1)}
 DEDUPE_SECONDS = {"follow": 86400, "like": 86400}  # follow/unfollow or like/unlike spam doesn't ring twice
 LIVE_COOLDOWN = 1800  # a streamer who restarts within 30 minutes doesn't notify everybody again
 MAX_FOLLOWERS_NOTIFIED = 5000
@@ -70,6 +72,8 @@ T = {
         "reply": ("{actor} replied to your comment", "{actor} replied to your comment on “{title}”.", "Read the reply", "video"),
         "like": ("{actor} liked “{title}”", "{actor} liked your video “{title}”.", "View my video", "video"),
         "live": ("{actor} is live now", "{actor} just went live: {title}", "Watch now", "channel"),
+        "ticket": ("Support: {actor} wrote “{title}”", "{actor} sent a support request: “{title}”.", "Open the inbox", "inbox"),
+        "support": ("Yeli Support answered “{title}”", "Yeli Support answered your request “{title}”.", "Read the answer", "support"),
         "test": ("Yeli test email", "This is a test: your notification emails work.", "Open Yeli", "home"),
         "foot": "You get this email because of your notification settings on Yeli.",
         "manage": "Change what you receive",
@@ -82,6 +86,8 @@ T = {
         "reply": ("{actor} respondió a tu comentario", "{actor} respondió a tu comentario en «{title}».", "Leer la respuesta", "video"),
         "like": ("A {actor} le gustó «{title}»", "A {actor} le gustó tu video «{title}».", "Ver mi video", "video"),
         "live": ("{actor} está en directo", "{actor} acaba de empezar un directo: {title}", "Ver ahora", "channel"),
+        "ticket": ("Soporte: {actor} escribió «{title}»", "{actor} envió una solicitud de soporte: «{title}».", "Abrir la bandeja", "inbox"),
+        "support": ("Soporte de Yeli respondió «{title}»", "Soporte de Yeli respondió a tu solicitud «{title}».", "Leer la respuesta", "support"),
         "test": ("Correo de prueba de Yeli", "Esto es una prueba: tus correos de notificaciones funcionan.", "Abrir Yeli", "home"),
         "foot": "Recibes este correo por tus ajustes de notificaciones en Yeli.",
         "manage": "Cambiar lo que recibes",
@@ -97,6 +103,10 @@ def _link(kind_target, base, actor, ref):
         return f"{base}/#/wallet"
     if kind_target == "home":
         return f"{base}/"
+    if kind_target == "inbox":
+        return f"{base}/#/admin?tab=support&ticket={ref}"
+    if kind_target == "support":
+        return f"{base}/#/support?ticket={ref}"
     return f"{base}/#/c/{actor}"
 
 
@@ -108,7 +118,7 @@ def compose(kind, lang, base, unsub, actor="", title="", body="", amount=0, ref=
     subject = subject_t.format(**vals)
     line = line_t.format(**vals)
     url = _link(target, base, actor, ref)
-    quote = body if kind in ("comment", "reply", "donation") else ""
+    quote = body if kind in ("comment", "reply", "donation", "ticket", "support") else ""
     manage = f"{base}/#/settings"
     text = "\n".join(filter(None, [line, f"“{quote}”" if quote else "", "", f"{cta}: {url}", "", "--", tr["foot"], f"{tr['manage']}: {manage}", f"{tr['unsub']}: {unsub}"]))
     e = htmllib.escape

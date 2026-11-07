@@ -116,3 +116,12 @@ SMTP_SECURITY = os.environ.get("YELI_SMTP_SECURITY", "starttls").lower()
 MAIL_CONSOLE = os.environ.get("YELI_MAIL_CONSOLE") == "1"  # development: print the emails instead of sending them
 NOTIFY_EMAILS_PER_HOUR = int(os.environ.get("YELI_NOTIFY_EMAILS_PER_HOUR", "12"))  # per person, so nobody can flood an inbox
 NOTIFY_KEEP = 100  # notifications kept per person in the bell
+
+# Version of the Terms and Conditions + Cookies Policy (static/js/legal.js). Change it when the texts change materially:
+# it is stored with each account when the person signs up or logs in.
+TERMS_VERSION = "2026-11-07"
+# Support (yeli/site.py)
+SUPPORT_MAX_OPEN = 5            # open tickets per person
+SUPPORT_COOLDOWN = 20           # seconds between two new tickets from the same person
+SUPPORT_MAX_MESSAGES = 200      # messages in one ticket
+SOCIALS_MAX = 12                # links in the footer

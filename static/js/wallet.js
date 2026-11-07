@@ -309,7 +309,7 @@ async function pageWallet(root, alive, params) {
 }
 
 /* ---------- Admin ---------- */
-async function pageAdmin(root, alive) {
+async function pageAdmin(root, alive, embedded = false) {
     document.title = 'Admin | Yeli';
     if (!state.me || !state.me.is_admin) {
         root.innerHTML = emptyState('Admins only', 'Set YELI_ADMINS to your username to open this page.', '<a class="btn btn-primary" href="#/">Back to Home</a>');
@@ -322,7 +322,9 @@ async function pageAdmin(root, alive) {
     const open = [...list.payouts, ...approved.payouts];
 
     root.innerHTML = `
-    <div class="page-head"><h1 class="page-title">Admin</h1><p class="page-sub">Payments are in <strong>${esc(s.mode)}</strong> mode.</p></div>
+    ${embedded
+        ? `<p class="muted admin-mode">Payments are in <strong>${esc(s.mode)}</strong> mode.</p>`
+        : `<div class="page-head"><h1 class="page-title">Admin</h1><p class="page-sub">Payments are in <strong>${esc(s.mode)}</strong> mode.</p></div>`}
     ${s.mode === 'sandbox' ? '<div class="notice notice-test">Test mode: these numbers are play money.</div>' : ''}
     <div class="wallet-cards">
         <div class="stat"><span class="stat-label">Sales (gross)</span><span class="stat-value">${cur(s.purchases.gross_cents)}</span><span class="stat-sub">${s.purchases.count} purchases \u00b7 ${num(s.purchases.coins)} Yelis</span></div>

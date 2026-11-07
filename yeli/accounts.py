@@ -39,6 +39,8 @@ def register():
     email = text_field(data, "email", 254).lower()
     password = data.get("password") if isinstance(data.get("password"), str) else ""
 
+    if data.get("accept_terms") not in (True, "on", "true", "1", 1):
+        return err("You must accept the Terms and Conditions and the Cookies Policy to create an account.", field="accept_terms")
     if not USERNAME_RE.match(username):
         return err("Username must be 3–20 characters: letters, numbers or underscores.", field="username")
     if not EMAIL_RE.match(email):
@@ -54,8 +56,8 @@ def register():
 
     try:
         cur = db.execute(
-            "INSERT INTO users (username, email, password_hash, created_at) VALUES (?,?,?,?)",
-            (username, email, generate_password_hash(password), now()),
+            "INSERT INTO users (username, email, password_hash, created_at, terms_version, terms_at) VALUES (?,?,?,?,?,?)",
+            (username, email, generate_password_hash(password), now(), config.TERMS_VERSION, now()),
         )
         db.execute("INSERT INTO streams (user_id) VALUES (?)", (cur.lastrowid,))
         db.execute("INSERT OR IGNORE INTO wallets (user_id, bought) VALUES (?, 0)", (cur.lastrowid,))
@@ -88,6 +90,12 @@ def login():
     if row is None or not check_password_hash(row["password_hash"], password):
         record_failure(ip)
         return err("Wrong username or password.", 401)
+
+    # Logging in means accepting the current Terms and Cookies Policy (the login form says so and links to them).
+    db = get_db()
+    db.execute("UPDATE users SET terms_version = ?, terms_at = ? WHERE id = ? AND terms_version != ?",
+               (config.TERMS_VERSION, now(), row["id"], config.TERMS_VERSION))
+    db.commit()
 
     session.clear()
     session.permanent = True

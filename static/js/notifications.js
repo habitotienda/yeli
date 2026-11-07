@@ -14,6 +14,8 @@ const BELL_IC = (size = 20) => `<svg viewBox="0 0 24 24" width="${size}" height=
 function notifHref(n) {
     if (n.kind === 'like' || n.kind === 'comment' || n.kind === 'reply') return `#/video/${encodeURIComponent(n.ref)}`;
     if (n.kind === 'donation') return '#/wallet';
+    if (n.kind === 'support') return `#/support?ticket=${encodeURIComponent(n.ref)}`;
+    if (n.kind === 'ticket') return `#/admin?tab=support&ticket=${encodeURIComponent(n.ref)}`;
     return channelHref(n.actor);
 }
 
@@ -28,6 +30,8 @@ function notifText(n) {
         case 'reply': return `${who} <span>replied to your comment on</span>${title}`;
         case 'like': return `${who} <span>liked</span>${title}`;
         case 'live': return `${who} <span>is live now</span>${title ? ` <span class="notif-sub" translate="no">${esc(n.title)}</span>` : ''}`;
+        case 'ticket': return `${who} <span>wrote to Support:</span>${title}`;
+        case 'support': return `<strong>Yeli Support</strong> <span>answered your request</span>${title}`;
         default: return who;
     }
 }
@@ -38,6 +42,8 @@ const NOTIF_ICON = {
     reply: '<path d="M9 14L4 9l5-5"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/>',
     comment: '<path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.5 8.5 0 0 1-3.7-.9L3 21l1.9-5.3A8.4 8.4 0 0 1 3 11.5 8.5 8.5 0 0 1 12 3a8.5 8.5 0 0 1 9 8.5z"/>',
     like: '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21.2l7.8-7.7 1-1.1a5.5 5.5 0 0 0 0-7.8z"/>',
+    ticket: '<path d="M4 6h16v10H9l-5 4z"/><path d="M12 9.500v2.500M12 14.500h.01"/>',
+    support: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.500"/><path d="M5.600 5.600l3.900 3.900M14.500 14.500l3.900 3.900M18.400 5.600l-3.900 3.900M9.500 14.500l-3.900 3.900"/>',
     live: '<circle cx="12" cy="12" r="2"/><path d="M16.2 7.8a6 6 0 0 1 0 8.4M7.8 16.2a6 6 0 0 1 0-8.4M19 5a10 10 0 0 1 0 14M5 19A10 10 0 0 1 5 5"/>',
 };
 const notifKindIcon = (kind) => `<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${NOTIF_ICON[kind] || ''}</svg>`;
@@ -156,6 +162,8 @@ function notifPlain(n, count) {
         case 'reply': return `${n.actor} replied to your comment on ${n.title}`;
         case 'like': return `${n.actor} liked ${n.title}`;
         case 'live': return `${n.actor} is live now`;
+        case 'ticket': return `${n.actor} wrote to Support: ${n.title}`;
+        case 'support': return `Yeli Support answered your request ${n.title}`;
         default: return n.actor;
     }
 }
@@ -220,10 +228,12 @@ const NOTIF_KINDS = [
     ['reply', 'Replies', 'Someone replies to one of your comments.'],
     ['like', 'Likes', 'Someone likes one of your videos.'],
     ['live', 'Live streams', 'A channel you follow goes live.'],
+    ['support', 'Support answers', 'Yeli Support answers one of your requests.'],
+    ['ticket', 'New Support requests', 'Someone writes to Support (admins only).'],
 ];
 
 function notifPrefsPanelHtml() {
-    const rows = NOTIF_KINDS.map(([k, name, hint]) => `
+    const rows = NOTIF_KINDS.filter(([k]) => k !== 'ticket' || (state.me && state.me.is_admin)).map(([k, name, hint]) => `
         <div class="np-row" role="row">
             <div class="np-what" role="rowheader"><strong>${name}</strong><small>${hint}</small></div>
             <label class="np-toggle"><input type="checkbox" data-np="${k}:in_app"><span class="np-switch" aria-hidden="true"></span><span class="np-cap">In the app</span></label>

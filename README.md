@@ -450,6 +450,6 @@ desde tu herramienta usando `reply`), ni reenviar *desde el navegador* sin servi
   Al comprarla, el comprador la guarda como **GIF** (bucle de 1,5 s, hecho en el navegador del autor) y la envía desde la pestaña
   **GIFs** del selector de stickers del chat (sticker `g:<id>`). El autor cobra como una donación (misma retención y reglas de retiro).
   Quitar una imagen la oculta de la galería; quien ya la compró conserva su GIF. Límite por canal: `YELI_GALLERY_MAX_PER_USER` (100).
-- Código: `yeli/gallery.py`, `yeli/vods.py` (`/api/shorts`), `static/js/shorts.js`, `gallery.js`, `gif.js` (codificador GIF), `css/shorts-gallery.css`.
+- Código: `yeli/gallery.py`, `yeli/vods.py` (`/api/shorts`, `/api/videos`), `static/js/content.js` (menú Contenido: Video, Short y Galería), `static/js/shorts.js`, `gallery.js`, `gif.js` (codificador GIF), `css/shorts-gallery.css`.
 - Si ya tenías la base de datos, las columnas y tablas nuevas se crean solas al arrancar (o corre `supabase/schema.sql`).
 - La barra inferior del móvil ahora es: Inicio, Explorar, Siguiendo, Transmitir, Shorts, Galería. Mi canal y Ajustes están en el menú del avatar.

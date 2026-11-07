@@ -2107,6 +2107,17 @@ class YeliTests(unittest.TestCase):
         post(client, f"/api/vod/{vid}/finish", {"duration": duration, "cover": JPEG})
         return vid
 
+    def test_videos_feed_lists_published_regular_videos(self):
+        self.signup(self.alice, "alice")
+        self.assertEqual(self.anon.get("/api/videos").get_json()["videos"], [])
+        vid = self.edit_clip(self.alice, "16:9", 60)
+        self.assertEqual(self.anon.get("/api/videos").get_json()["videos"], [])  # private until published
+        post(self.alice, f"/api/vod/{vid}/publish", {"title": "Wide"})
+        short = self.edit_clip(self.alice, "9:16", 60)
+        post(self.alice, f"/api/vod/{short}/publish", {"title": "Tall"})
+        feed = self.anon.get("/api/videos").get_json()["videos"]
+        self.assertEqual([x["id"] for x in feed], [vid])  # Shorts have their own feed
+
     def test_vertical_videos_become_shorts(self):
         self.signup(self.alice, "alice")
         self.signup(self.bob, "bob")

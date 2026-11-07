@@ -113,7 +113,8 @@ function parseHash() {
 
 function setActiveNav(path) {
     document.querySelectorAll('[data-route]').forEach((el) => {
-        const active = el.dataset.route === path;
+        const group = (el.dataset.routeGroup || '').split(' ').filter(Boolean);
+        const active = el.dataset.route === path || group.includes(path);
         el.classList.toggle('active', active);
         if (active) el.setAttribute('aria-current', 'page');
         else el.removeAttribute('aria-current');
@@ -122,7 +123,7 @@ function setActiveNav(path) {
 }
 
 /* The order of the main sections decides which way a page bounces in: forward comes from the right, back from the left. */
-const SECTION_RANK = [['/', 0], ['/explore', 1], ['/following', 2], ['/shorts', 2.4], ['/gallery', 2.7], ['/search', 3], ['/c/', 4], ['/video/', 4], ['/studio', 5], ['/clips', 5], ['/editor', 5], ['/wallet', 6], ['/chest', 6], ['/bot', 7], ['/moderation', 7], ['/settings', 8], ['/admin', 9]];
+const SECTION_RANK = [['/', 0], ['/explore', 1], ['/following', 2], ['/content', 2.2], ['/videos', 2.4], ['/shorts', 2.5], ['/gallery', 2.7], ['/search', 3], ['/c/', 4], ['/video/', 4], ['/studio', 5], ['/clips', 5], ['/editor', 5], ['/wallet', 6], ['/chest', 6], ['/bot', 7], ['/moderation', 7], ['/settings', 8], ['/admin', 9]];
 const rankOf = (path) => (SECTION_RANK.find(([p]) => (p.endsWith('/') && p.length > 1 ? path.startsWith(p) : path === p)) || [0, 3.5])[1];
 let lastRank = 0;
 let enterTimer = null;
@@ -162,6 +163,8 @@ async function route(focus = false) {
         else if (path === '/explore') await pageExplore(root, params, alive);
         else if (path === '/following') await pageFollowing(root, alive);
         else if (path === '/search') await pageSearch(root, params, alive);
+        else if (path === '/content') pageContent(root);
+        else if (path === '/videos') await pageVideos(root, alive);
         else if (path === '/shorts') await pageShorts(root, params, alive);
         else if (path === '/gallery') await pageGallery(root, params, alive);
         else if (path === '/studio') pageStudio(root);

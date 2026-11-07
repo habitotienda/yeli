@@ -350,6 +350,26 @@ def shorts_feed():
     return jsonify(shorts=out, next_offset=offset + used, more=used < len(rows) or len(rows) >= 60)
 
 
+@bp.get("/api/videos")
+def videos_feed():
+    """The Video tab of Content: published regular (not vertical) videos, newest first. `offset` pages through it."""
+    db = get_db()
+    me_row = current_user()
+    offset = max(0, int_arg("offset", 0))
+    rows = db.execute(
+        f"{VOD_SELECT} WHERE v.status = 'ready' AND v.kind != 'short' AND v.visibility IN ('public', 'followers') "
+        "ORDER BY v.started_at DESC LIMIT 60 OFFSET ?", (offset,)
+    ).fetchall()
+    out, used = [], 0
+    for r in rows:
+        used += 1
+        if _visible(r, me_row):
+            out.append(vod_json(r, me_row))
+        if len(out) >= 24:
+            break
+    return jsonify(videos=out, next_offset=offset + used, more=used < len(rows) or len(rows) >= 60)
+
+
 @bp.get("/api/me/videos")
 @login_required
 def my_videos():

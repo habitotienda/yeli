@@ -2258,6 +2258,31 @@ class YeliTests(unittest.TestCase):
         con.close()
         return uid
 
+    def test_verified_badge_and_admin_mod(self):
+        boss, ann, bob = self.client(), self.client(), self.client()
+        self.signup(boss, "boss")  # listed in YELI_ADMINS
+        self.signup(ann, "ann")
+        self.signup(bob, "bob")
+        # only an admin can verify an account
+        self.assertEqual(post(bob, "/api/admin/verify/ann", {"verified": True}).status_code, 403)
+        self.assertEqual(post(boss, "/api/admin/verify/nobody", {"verified": True}).status_code, 404)
+        self.assertFalse(ann.get("/api/channel/ann").get_json()["channel"]["verified"])
+        self.assertTrue(post(boss, "/api/admin/verify/ann", {"verified": True}).get_json()["verified"])
+        ch = ann.get("/api/channel/ann").get_json()["channel"]
+        self.assertTrue(ch["verified"])
+        self.assertFalse(ch["admin"])
+        self.assertTrue(bob.get("/api/channel/boss").get_json()["channel"]["admin"])
+        # the badges travel with chat messages, and an admin is a moderator in every chat without being picked
+        self.assertEqual(post(ann, "/api/chat/ann", {"text": "hi"}).status_code, 201)
+        self.assertEqual(post(boss, "/api/chat/ann", {"text": "hello"}).status_code, 201)
+        msgs = {m["user"]: m for m in bob.get("/api/chat/ann").get_json()["messages"]}
+        self.assertTrue(msgs["ann"]["verified"] and msgs["ann"]["owner"] and not msgs["ann"]["admin"])
+        self.assertTrue(msgs["boss"]["admin"] and msgs["boss"]["mod"] and not msgs["boss"]["owner"])
+        self.assertTrue(boss.get("/api/channel/ann").get_json()["channel"]["is_mod"])
+        self.assertFalse(bob.get("/api/channel/ann").get_json()["channel"]["is_mod"])
+        # and it can be taken away again
+        self.assertFalse(post(boss, "/api/admin/verify/ann", {"verified": False}).get_json()["verified"])
+
     def test_index_and_headers(self):
         r = self.anon.get("/")
         self.assertEqual(r.status_code, 200)

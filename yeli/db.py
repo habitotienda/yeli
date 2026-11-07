@@ -36,7 +36,8 @@ CREATE TABLE IF NOT EXISTS users (
     avatar        TEXT NOT NULL DEFAULT '',
     avatar_updated INTEGER NOT NULL DEFAULT 0,
     stream_key    TEXT NOT NULL DEFAULT '',
-    name_color    TEXT NOT NULL DEFAULT ''
+    name_color    TEXT NOT NULL DEFAULT '',
+    verified      INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS avatars (
     user_id    INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
@@ -463,7 +464,7 @@ CREATE TABLE IF NOT EXISTS assets (
 
 # Columns added after the first release. Older SQLite files get them with ALTER TABLE; on Postgres they are added the same way.
 MIGRATIONS = {
-        "users": [("stream_key", "TEXT NOT NULL DEFAULT ''"), ("name_color", "TEXT NOT NULL DEFAULT ''")],
+        "users": [("stream_key", "TEXT NOT NULL DEFAULT ''"), ("name_color", "TEXT NOT NULL DEFAULT ''"), ("verified", "INTEGER NOT NULL DEFAULT 0")],
         "streams": [("mode", "TEXT NOT NULL DEFAULT 'p2p'"), ("ip", "TEXT NOT NULL DEFAULT ''"), ("notified_at", "INTEGER NOT NULL DEFAULT 0")],
         "chat_settings": [("tts_enabled", "INTEGER NOT NULL DEFAULT 0"), ("tts_command", "TEXT NOT NULL DEFAULT 'say'"),
                           ("tts_name", "INTEGER NOT NULL DEFAULT 1"), ("tts_template", "TEXT NOT NULL DEFAULT '{user} says: {text}'"),

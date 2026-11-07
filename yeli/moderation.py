@@ -9,6 +9,10 @@ bp = Blueprint("moderation", __name__)
 
 
 def is_mod(db, channel_id, user_id):
+    """Moderators are picked by the streamer; admins are moderators in every chat automatically."""
+    who = db.execute("SELECT username FROM users WHERE id = ?", (user_id,)).fetchone()
+    if who and is_admin(who["username"]):
+        return True
     return bool(db.execute("SELECT 1 FROM chat_mods WHERE channel_id = ? AND user_id = ?", (channel_id, user_id)).fetchone())
 
 

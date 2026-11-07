@@ -158,9 +158,9 @@ function createChat(container, channel, { isOwner = false, canMod = isOwner, onV
     const donateBtn = $('[data-chat-donate]', container);
     if (donateBtn) donateBtn.addEventListener('click', () => openDonate(channel));
 
+    /** Custom icons after the name: admin, verified, streamer or mod, and the supporter medal (see badges.js). */
     function medal(m) {
-        if (!m.badge) return '';
-        return `<span class="chat-medal medal-${m.badge}" title="${MEDALS[m.badge]} supporter" aria-label="${MEDALS[m.badge]} badge">\u2605</span>`;
+        return userBadgesHtml({ admin: m.admin, verified: m.verified, streamer: m.owner, mod: m.mod, tier: m.badge }, 16);
     }
 
     function nameLink(m) {
@@ -214,7 +214,6 @@ function createChat(container, channel, { isOwner = false, canMod = isOwner, onV
             row.className = 'chat-msg chat-sticker-msg';
             row.append(nameLink(m));
             row.insertAdjacentHTML('beforeend', medal(m));
-            if (m.owner) row.insertAdjacentHTML('beforeend', '<span class="chat-badge">Streamer</span>');
             row.append(stickerImg(m.sticker, 'chat-sticker'));
         } else if (m.kind === 'tts') {
             row.className = 'chat-msg chat-tts';
@@ -232,7 +231,7 @@ function createChat(container, channel, { isOwner = false, canMod = isOwner, onV
             who.className = 'chat-user chat-bot-name';
             who.textContent = m.user;
             row.append(who);
-            row.insertAdjacentHTML('beforeend', '<span class="chat-badge chat-badge-bot">Bot</span>');
+            row.insertAdjacentHTML('beforeend', userBadgesHtml({ bot: true }, 16));
             const text = document.createElement('span');
             text.className = 'chat-text';
             text.textContent = m.text;
@@ -241,8 +240,6 @@ function createChat(container, channel, { isOwner = false, canMod = isOwner, onV
             row.className = 'chat-msg';
             row.append(nameLink(m));
             row.insertAdjacentHTML('beforeend', medal(m));
-            if (m.owner) row.insertAdjacentHTML('beforeend', '<span class="chat-badge">Streamer</span>');
-            else if (m.mod) row.insertAdjacentHTML('beforeend', '<span class="chat-badge chat-badge-mod">Mod</span>');
             const text = document.createElement('span');
             text.className = 'chat-text';
             text.textContent = m.text;

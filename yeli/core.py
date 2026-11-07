@@ -31,7 +31,7 @@ def int_arg(name, default=0):
 
 
 USER_COLS = (
-    "id, username, email, bio, created_at, avatar, avatar_updated, name_color,"
+    "id, username, email, bio, created_at, avatar, avatar_updated, name_color, verified,"
     " COALESCE((SELECT bought FROM wallets w WHERE w.user_id = users.id), 0) AS balance,"
     " (SELECT COUNT(*) FROM avatars a WHERE a.user_id = users.id) AS has_upload"
 )
@@ -83,6 +83,7 @@ def user_json(row):
         "balance": row["balance"],
         "name_color": row["name_color"],
         "is_admin": is_admin(row["username"]),
+        "verified": bool(row["verified"]),
     }
 
 

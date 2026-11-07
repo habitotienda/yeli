@@ -341,6 +341,21 @@ def admin_summary():
     )
 
 
+@bp.post("/api/admin/verify/<username>")
+@admin_required
+def admin_verify(username):
+    """Only an admin can give or take away the verified badge of an account."""
+    db = get_db()
+    target = db.execute("SELECT id, username FROM users WHERE username = ?", (username,)).fetchone()
+    if target is None:
+        return err("User not found.", 404)
+    data = request.get_json(silent=True) or {}
+    verified = 1 if data.get("verified") else 0
+    db.execute("UPDATE users SET verified = ? WHERE id = ?", (verified, target["id"]))
+    db.commit()
+    return jsonify(username=target["username"], verified=bool(verified))
+
+
 @bp.get("/api/admin/payouts")
 @admin_required
 def admin_payouts():

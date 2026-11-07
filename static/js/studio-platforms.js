@@ -32,6 +32,12 @@ async function openPlatforms() {
             <div id="platBody"><p class="muted">Loading\u2026</p></div>
             <button type="button" class="btn btn-primary btn-block" data-close>Done</button>
         </div>`;
+    // The X and "Done" buttons (data-close) and a click on the backdrop close the dialog.
+    // The dialog element is reused, so the handler is bound once.
+    if (!dlg.dataset.closeBound) {
+        dlg.dataset.closeBound = '1';
+        dlg.addEventListener('click', (e) => { if (e.target === dlg || e.target.closest('[data-close]')) dlg.close(); });
+    }
     dlg.showModal();
     const body = $('#platBody', dlg);
 

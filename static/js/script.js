@@ -245,7 +245,7 @@ function streamCard(c) {
             ${avatar(c)}
             <div class="stream-text">
                 <h3 class="stream-title">${esc(c.title)}</h3>
-                <p class="stream-channel">${esc(c.username)}</p>
+                <p class="stream-channel">${esc(c.username)}${accountBadgesHtml(c, 15)}</p>
                 <p class="stream-cat"><span class="chip-static">${esc(c.category)}</span></p>
             </div>
         </div>
@@ -261,7 +261,7 @@ function channelCard(c) {
     <a class="channel-card" href="${channelHref(c.username)}">
         ${avatar(c, 'avatar-md')}
         <div class="stream-text">
-            <h3 class="stream-title">${esc(c.username)}</h3>
+            <h3 class="stream-title">${esc(c.username)}${accountBadgesHtml(c, 17)}</h3>
             <p class="stream-channel">${plural(c.followers, 'follower', 'followers')}</p>
         </div>
     </a>`;
@@ -728,8 +728,9 @@ async function pageChannel(root, name, alive) {
 
     function paintInfo() {
         $('#chTitle').textContent = ch.live ? ch.title : ch.username;
+        if (!ch.live) $('#chTitle').insertAdjacentHTML('beforeend', accountBadgesHtml(ch, 24));
         $('#chLine').innerHTML = ch.live
-            ? `<span class="badge-live">LIVE</span><span class="stream-channel">${esc(ch.username)}</span><span class="chip-static">${esc(ch.category)}</span>`
+            ? `<span class="badge-live">LIVE</span><span class="stream-channel">${esc(ch.username)}${accountBadgesHtml(ch, 16)}</span><span class="chip-static">${esc(ch.category)}</span>`
             : '<span class="muted">Offline</span>';
         $('#chBio').textContent = ch.bio || (ch.is_me ? 'You haven\u2019t written a bio yet.' : 'This channel has no bio yet.');
         $('#chJoined').textContent = `Joined ${new Date(ch.joined * 1000).toLocaleDateString(window.YELI_LANG, { year: 'numeric', month: 'long' })}`;
@@ -744,7 +745,9 @@ async function pageChannel(root, name, alive) {
             ? `<a class="btn btn-secondary btn-ico btn-edit" href="#/settings">${IC(EDIT_PATH)}<span>Edit profile</span></a><a class="btn btn-primary" href="#/studio">${broadcast ? 'Open studio' : 'Go live'}</a>`
             : `<button type="button" class="btn ${ch.following ? 'btn-secondary is-following' : 'btn-primary'}" id="followBtn" aria-pressed="${ch.following}">
                    <img src="static/svg/${ch.following ? 'heart-filled' : 'heart'}.svg" alt="" width="16" height="16">${ch.following ? 'Following' : 'Follow'}
-               </button>`);
+               </button>`)
+            + (state.me && state.me.is_admin
+                ? `<button type="button" class="btn btn-secondary btn-ico" id="verifyBtn">${badgeHtml('verified', 18)}<span>${ch.verified ? 'Remove verification' : 'Verify'}</span></button>` : '');
     }
 
     function applyInfo(next) {
@@ -764,6 +767,16 @@ async function pageChannel(root, name, alive) {
     $('#chDonateBtn').addEventListener('click', () => openDonate(ch.username));
 
     $('#chActions').addEventListener('click', async (e) => {
+        const verifyBtn = e.target.closest('#verifyBtn');
+        if (verifyBtn) { // only admins see this button; the server checks it again
+            try {
+                const r = await api(`/admin/verify/${encodeURIComponent(ch.username)}`, { method: 'POST', body: { verified: !ch.verified } });
+                ch.verified = r.verified;
+                paintInfo();
+                toast(r.verified ? 'Verified.' : 'Verification removed.');
+            } catch (err) { toast(err.message); }
+            return;
+        }
         const shareBtn = e.target.closest('#shareBtn');
         if (shareBtn) { openShareDialog({ title: ch.username, text: ch.live ? `${ch.username} is live on Yeli` : `${ch.username} on Yeli` }); return; }
         const likeBtn = e.target.closest('#liveLikeBtn');
@@ -959,7 +972,7 @@ function showSuggest(results, q) {
     const rows = results.map((c) => `
         <a role="option" class="suggest-row" href="${channelHref(c.username)}">
             ${avatar(c, 'avatar-sm')}
-            <span class="suggest-name">${esc(c.username)}</span>
+            <span class="suggest-name">${esc(c.username)}</span>${accountBadgesHtml(c, 15)}
             ${c.live ? `<span class="badge-live badge-small">LIVE</span><span class="suggest-sub">${esc(c.title)}</span>` : `<span class="suggest-sub">${plural(c.followers, 'follower', 'followers')}</span>`}
         </a>`).join('');
     suggestBox.innerHTML = rows + `<a role="option" class="suggest-row suggest-all" href="#/search?q=${encodeURIComponent(q)}">Search for \u201c${esc(q)}\u201d</a>`;

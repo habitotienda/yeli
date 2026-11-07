@@ -16,7 +16,7 @@ __all__ = ['LIVE_COND', 'CHANNEL_SELECT', 'query_channels', 'channel_json', 'cou
 LIVE_COND = "(CASE WHEN s.is_live = 1 AND s.last_seen >= :cut THEN 1 ELSE 0 END) = 1"
 
 CHANNEL_SELECT = """
-SELECT u.id, u.username, u.bio, u.created_at, u.avatar, u.avatar_updated,
+SELECT u.id, u.username, u.bio, u.created_at, u.avatar, u.avatar_updated, u.verified,
        CASE WHEN s.is_live = 1 AND s.last_seen >= :cut THEN 1 ELSE 0 END AS live,
        s.title AS title, s.category AS category, s.started_at AS started_at, s.mode AS mode,
        COALESCE((SELECT level FROM upgrades up WHERE up.user_id = u.id AND up.track = 'boost'), 0) AS boost,
@@ -55,6 +55,8 @@ def channel_json(row):
         "thumb": row["thumb"] if live else None,
         "live_likes": row["live_likes"] if live else 0,
         "joined": row["created_at"],
+        "verified": bool(row["verified"]),
+        "admin": is_admin(row["username"]),
     }
 
 

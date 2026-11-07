@@ -174,7 +174,7 @@ async function pageVideo(root, id, alive) {
         const bar = $('#vClip');
         bar.hidden = !v.is_clip;
         bar.innerHTML = v.is_clip ? `${IC(LOCK_PATH, 'none', 20)}<div class="clip-bar-text"><strong>Private clip</strong><span>Only you can see this. Cut it in the editor, then publish it to your channel when it is ready.</span></div>
-            <div class="clip-bar-actions"><button type="button" class="btn btn-primary" data-vod="publish">${IC(GLOBE_PATH)}<span>Publish</span></button><a class="btn btn-secondary btn-ico" href="${editorHref(v.id)}">${IC(FILM_PATH)}<span>Open in editor</span></a></div>` : '';
+            <div class="clip-bar-actions"><button type="button" class="btn btn-primary btn-ico" data-vod="publish">${IC(GLOBE_PATH)}<span>Publish</span></button><a class="btn btn-secondary btn-ico" href="${editorHref(v.id)}">${IC(FILM_PATH)}<span>Open in editor</span></a></div>` : '';
         $('#vComments').hidden = v.is_clip;
         const pop = popNext; popNext = false;      // the heart bounces only right after you tap it, not on every repaint
         $('#vActions').innerHTML = (v.is_clip ? '' : `<button type="button" class="btn btn-secondary btn-ico like-btn${v.liked ? ' is-liked' : ''}${v.liked && pop ? ' pop' : ''}" data-vod="like" aria-pressed="${v.liked}" aria-label="${v.liked ? 'Unlike' : 'Like'}" title="${v.liked ? 'Unlike' : 'Like'}">${IC(HEART_PATH, v.liked ? 'currentColor' : 'none')}<span class="like-count">${countText(v.likes)}</span></button>`

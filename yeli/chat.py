@@ -32,7 +32,9 @@ def chat_json(row, channel_id):
         "owner": row["user_id"] == channel_id and not bot and not platform,
         "badge": 0 if bot or platform or "badge" not in keys else economy.level_value("badge", row["badge"]),
         "color": "" if bot or platform or "name_color" not in keys else row["name_color"],
-        "mod": bool("is_mod" in keys and row["is_mod"]) and not bot and not platform,
+        "mod": not bot and not platform and (bool("is_mod" in keys and row["is_mod"]) or is_admin(row["username"])),
+        "admin": not bot and not platform and is_admin(row["username"]),
+        "verified": not bot and not platform and bool("verified" in keys and row["verified"]),
         "kind": "msg" if row["kind"] == "ext" else row["kind"],
         "sticker": row["sticker"],
         "amount": row["amount"],
@@ -44,7 +46,7 @@ def channel_row(username):
 
 
 CHAT_BASE = """SELECT m.id, m.text, m.created_at, m.user_id, m.kind, m.sticker, m.amount, m.platform, m.ext_name, u.username,
-               u.name_color,
+               u.name_color, u.verified,
                EXISTS(SELECT 1 FROM chat_mods cm WHERE cm.channel_id = m.channel_id AND cm.user_id = m.user_id) AS is_mod,
                COALESCE((SELECT level FROM upgrades up WHERE up.user_id = m.user_id AND up.track = 'badge'), 0) AS badge
                FROM chat_messages m JOIN users u ON u.id = m.user_id
@@ -126,7 +128,7 @@ def chat_send(username):
     db.commit()
     row = {"id": cur.lastrowid, "text": text, "created_at": t, "user_id": me_row["id"], "username": me_row["username"],
            "kind": kind, "sticker": sticker, "amount": 0,
-           "badge": user_level(db, me_row["id"], "badge"), "name_color": me_row["name_color"],
+           "badge": user_level(db, me_row["id"], "badge"), "name_color": me_row["name_color"], "verified": me_row["verified"],
            "is_mod": 1 if is_mod(db, channel["id"], me_row["id"]) else 0}
     replies = []
     if kind == "msg" and text.startswith("!"):

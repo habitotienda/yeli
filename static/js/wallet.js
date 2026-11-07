@@ -126,10 +126,10 @@ const LEDGER_TEXT = {
 };
 const dateOf = (ts) => new Date(ts * 1000).toLocaleDateString(window.YELI_LANG, { year: 'numeric', month: 'short', day: 'numeric' });
 
-const BADGES = ['None', 'Bronze', 'Silver', 'Gold'];
+const UPGRADE_BADGE_NAMES = ['None', 'Bronze', 'Silver', 'Gold'];
 const UPGRADE_ORDER = ['earnings', 'boost', 'badge', 'color'];
 const NAME_SWATCHES = ['#ff6b6b', '#ffa94d', '#ffd43b', '#a9e34b', '#38d9a9', '#4dabf7', '#9775fa', '#f783ac']; // the API's JSON keys come back sorted
-const upgradeValue = (track, v) => track === 'earnings' ? `${v}%` : track === 'boost' ? `${v}x` : track === 'badge' ? BADGES[v] : track === 'color' ? (v === 0 ? 'No color' : v === 99 ? 'Any color' : `${v} colors`) : num(v);
+const upgradeValue = (track, v) => track === 'earnings' ? `${v}%` : track === 'boost' ? `${v}x` : track === 'badge' ? UPGRADE_BADGE_NAMES[v] : track === 'color' ? (v === 0 ? 'No color' : v === 99 ? 'Any color' : `${v} colors`) : num(v);
 
 function tabNav(tab) {
     return `<nav class="tabs" role="tablist" aria-label="Wallet sections">${[['buy', 'Buy Yelis'], ['upgrades', 'Upgrades'], ['cashout', 'Cash out'], ['history', 'History']]

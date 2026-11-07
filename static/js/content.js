@@ -6,7 +6,7 @@
    ========================================================================= */
 const CONTENT_ICONS = {
     video: '<rect x="3" y="5" width="18" height="14" rx="3.5"/><path d="M10.2 9.6v4.8l4.2-2.4z" fill="currentColor"/>',
-    short: '<rect x="6.5" y="2.5" width="11" height="19" rx="3.5"/><path d="M10.6 9.2v5.6l4.4-2.8z" fill="currentColor"/>',
+    short: '<rect x="5.5" y="2.5" width="13" height="19" rx="4.2"/><path d="M13.2 6.4L9.3 12.5h2.8l-1 5.1 4-6.3h-2.8z" fill="currentColor" stroke-width="1.3"/>',
     gallery: '<rect x="3" y="3.5" width="18" height="17" rx="3.5"/><circle cx="8.6" cy="9" r="1.7"/><path d="M4 17l5-4.6 3.4 3 3-2.6L20 16.6"/>'
 };
 const CONTENT_OPTIONS = [

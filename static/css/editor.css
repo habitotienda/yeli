@@ -203,3 +203,66 @@
 @media (max-width: 700px) {
     .clip-actions .btn { flex: 1 1 auto; justify-content: center; }
 }
+
+/* ---------- editor: project bar, live meter, new tool panels ---------- */
+.ed-bar { gap: 6px; }
+.ed-title {
+    flex: 1 1 0; min-width: 0; display: grid; gap: 0; text-align: left; padding: 2px 8px; border: 0; border-radius: 8px;
+    background: transparent; color: #f2f2f5; font: inherit; cursor: pointer;
+}
+.ed-title:hover { background: rgba(255, 255, 255, 0.07); }
+.ed-title span { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ed-title small { font-size: 11px; color: var(--ed-muted); }
+.ed-live {
+    flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px; padding: 6px 10px; border: 0; border-radius: 999px; cursor: pointer;
+    font: inherit; font-size: 12px; font-weight: 700; white-space: nowrap;
+}
+.ed-live[hidden] { display: none; }
+.ed-live.is-ok { background: rgba(56, 217, 169, 0.18); color: #38d9a9; }
+.ed-live.is-low { background: rgba(255, 107, 107, 0.18); color: #ff8787; }
+.ed-live-note { display: flex; align-items: flex-start; gap: 4px; }
+.ed-live-note svg { flex: 0 0 auto; margin-top: 2px; }
+.ed-live-note.is-ok { border-color: #38d9a9; }
+.ed-sheet-note { margin: 8px 2px 0; font-size: 12px; }
+.ed-screen.is-drag canvas { cursor: move; touch-action: none; }
+
+.ed-track-m { height: 22px; margin-top: 6px; }
+.ed-track-m:empty { display: none; }
+.ed-music { position: absolute; top: 0; bottom: 0; border-radius: 6px; background: #2f6f5e; overflow: hidden; cursor: pointer; }
+.ed-music span { display: flex; align-items: center; gap: 4px; padding: 3px 8px; font-size: 11px; font-weight: 600; white-space: nowrap; color: #e9fff8; }
+.ed-clip.is-ext { background-color: #3a3340; box-shadow: inset 0 0 0 1px rgba(255, 169, 77, 0.5); }
+.ed-text.is-sticker { background: #4dabf7; }
+
+.ed-grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 4px 18px; }
+.ed-after { margin-top: 12px; }
+.ed-field-row { margin: 0 0 10px; }
+.ed-field-row input {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--ed-line); border-radius: 10px;
+    background: #0c0c0e; color: #fff; font: inherit; font-size: 16px; user-select: text; -webkit-user-select: text;
+}
+.ed-colorpick { flex: 0 0 38px; width: 38px; height: 38px; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; }
+.ed-device-sm { padding: 10px; font-size: 13px; margin-bottom: 8px; }
+.ed-stickers { display: grid; grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); gap: 6px; max-height: 168px; overflow-y: auto; }
+.ed-sticker { padding: 6px 0; border: 0; border-radius: 10px; background: var(--ed-chip); font-size: 26px; line-height: 1.1; cursor: pointer; }
+.ed-sticker:hover, .ed-sticker:active { background: #34343b; }
+a.ed-chip { text-decoration: none; }
+.ed-panel { max-height: 46vh; overflow-y: auto; }
+
+/* ---------- clips: saved projects, publish dialog ---------- */
+.chip-live-ok { background: rgba(56, 217, 169, 0.16); color: #1d9d78; }
+.chip-live-low { background: rgba(255, 107, 107, 0.16); color: #d6455a; }
+.project-card .thumb-initial svg { opacity: 0.8; }
+.vod-cover-btns { display: grid; gap: 8px; }
+.vod-frame { display: grid; gap: 10px; margin-top: 10px; padding: 10px; border: 1px solid var(--border-color); border-radius: 10px; }
+.vod-frame video { width: 100%; max-height: 220px; background: #000; border-radius: 6px; }
+.vod-frame input[type="range"] { width: 100%; }
+.vod-frame[hidden] { display: none; }
+.vod-vis { display: grid; gap: 8px; }
+.vod-vis-opt { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 10px; cursor: pointer; }
+.vod-vis-opt:has(input:checked) { border-color: var(--primary-color); background: rgba(var(--accent-rgb, 255, 166, 0), 0.08); }
+.vod-vis-opt span { display: grid; gap: 2px; }
+.vod-vis-opt small { color: var(--text-muted); }
+@media (max-width: 520px) {
+    .ed-live span { display: none; }
+    .ed-export-btn { padding: 8px 14px; }
+}

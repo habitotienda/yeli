@@ -11,15 +11,18 @@ How it works
   * the editor exports its result with POST /api/vod/new + the same /chunk and /finish routes (a clip with source "edit")
   * POST /api/vod/<id>/publish makes a clip public (and /unpublish takes it back to a private clip)
   * if the browser disappears, a recording that sent nothing for VOD_STALE_SECONDS is closed with what it has
+  * the editor keeps its work as a saved PROJECT (yeli/projects.py); an export must name its project, and at least
+    EDIT_MIN_LIVE_PCT % of it has to be footage from live streams, measured by the server
+  * a published video needs a cover; the raw recording can be watched but not downloaded
   * a clip can be changed freely; once published, the streamer may change the cover, title and description ONE time
 
 Streams started from OBS over WHIP don't pass through the streamer's browser, so they are not recorded.
 """
+import json
 import os
 import re
 import secrets
 from pathlib import Path
-from urllib.parse import urlparse
 
 from flask import Blueprint, Response, jsonify, request, send_file
 
@@ -30,6 +33,7 @@ from .db import get_db
 from .bot import LINK_RE, chat_settings
 from .moderation import active_ban, can_moderate
 from .notifications import notify
+from .projects import clean_project, get_project, live_pct as project_live_pct, timeline_seconds
 
 bp = Blueprint("vods", __name__)
 
@@ -93,6 +97,7 @@ def vod_json(row, me_row=None):
         "visibility": row["visibility"],
         "is_clip": row["visibility"] == "private",
         "source": row["source"],
+        "live_pct": row["live_pct"],
         # a clip can be changed freely; a published video only once
         "can_edit": bool(mine and row["status"] == "ready" and (row["visibility"] == "private" or not row["edited"])),
         "likes": row["likes"],
@@ -105,7 +110,7 @@ def vod_json(row, me_row=None):
 
 VOD_SELECT = """
 SELECT v.id, v.user_id, v.title, v.description, v.category, v.mime, v.status, v.size, v.duration, v.started_at,
-       v.cover_ver, v.edited, v.visibility, v.source, (v.cover IS NOT NULL AND LENGTH(v.cover) > 0) AS has_cover,
+       v.cover_ver, v.edited, v.visibility, v.source, v.live_pct, (v.cover IS NOT NULL AND LENGTH(v.cover) > 0) AS has_cover,
        (SELECT COUNT(*) FROM vod_likes l WHERE l.vod_id = v.id) AS likes,
        (SELECT COUNT(*) FROM vod_comments c WHERE c.vod_id = v.id) AS comment_count,
        u.username, u.avatar, u.avatar_updated
@@ -186,13 +191,19 @@ def vod_new():
     mime = text_field(data, "mime", 80).split(";")[0].strip().lower()
     if mime not in MIMES:
         return err("This video format isn't supported.")
+    title = text_field(data, "title", config.VOD_TITLE_MAX) or "Edited video"
     db = get_db()
-    project = None
-    if data.get("project") not in (None, ""):  # exporting a draft: the clip remembers where it came from
-        project = db.execute("SELECT id, name, title FROM edit_projects WHERE id = ? AND user_id = ?", (str(data["project"]), me_row["id"])).fetchone()
-        if project is None:
-            return err("Project not found.", 404)
-    title = text_field(data, "title", config.VOD_TITLE_MAX) or (project and (project["title"] or project["name"])) or "Edited video"
+    # An export belongs to a saved project, and the server measures how much of it is live footage.
+    project = get_project(db, me_row["id"], data.get("project_id"))
+    if project is None:
+        return err("Save your project before exporting it.", 400, field="project")
+    cleaned = clean_project(json.loads(project["data"]))
+    if cleaned is None or not cleaned["clips"]:
+        return err("This project has no clips.", 400, field="project")
+    pct = project_live_pct(db, me_row["id"], cleaned)
+    if pct < config.EDIT_MIN_LIVE_PCT:
+        return err(f"At least {config.EDIT_MIN_LIVE_PCT}% of your video has to be footage from your live streams. Right now it is {pct}%.",
+                   400, field="live", live_pct=pct, min_live=config.EDIT_MIN_LIVE_PCT)
     for old in db.execute("SELECT * FROM vods WHERE user_id = ? AND status = 'recording' AND source = 'edit'", (me_row["id"],)).fetchall():
         _finalize(db, old, old["updated_at"])  # an export that was abandoned
     saved = db.execute("SELECT COUNT(*) AS n FROM vods WHERE user_id = ? AND status = 'ready'", (me_row["id"],)).fetchone()["n"]
@@ -203,9 +214,9 @@ def vod_new():
     vid = secrets.token_hex(8)
     t = now()
     db.execute(
-        """INSERT INTO vods (id, user_id, title, category, mime, status, started_at, updated_at, visibility, source, project_id)
-           VALUES (?,?,?,'Other',?,'recording',?,?,'private','edit',?)""",
-        (vid, me_row["id"], title, mime, t, t, project and project["id"]),
+        """INSERT INTO vods (id, user_id, title, category, mime, status, started_at, updated_at, visibility, source, live_pct, project_id)
+           VALUES (?,?,?,'Other',?,'recording',?,?,'private','edit',?,?)""",
+        (vid, me_row["id"], title, mime, t, t, pct, project["id"]),
     )
     db.commit()
     vod_path(db.execute("SELECT id, mime FROM vods WHERE id = ?", (vid,)).fetchone()).touch()
@@ -275,31 +286,19 @@ def vod_finish(vid):
         if row["source"] == "edit":  # an export is not a live: its length is what the editor says, not the wall clock
             try:
                 duration = min(max(int(round(float(data.get("duration")))), 0), 24 * 3600)
+                planned = db.execute("SELECT duration FROM edit_projects WHERE id = ?", (row_full(db, vid)["project_id"],)).fetchone()
+                if planned is not None:
+                    duration = min(duration, int(planned["duration"]) + 2)  # an export can't be longer than the project it came from
             except (TypeError, ValueError):
                 duration = None
             cover = decode_jpeg(data.get("cover"), config.MAX_COVER_BYTES) if data.get("cover") else None
             if cover is not None:
                 db.execute("UPDATE vods SET cover = ?, cover_ver = ? WHERE id = ?", (cover, now(), vid))
-        full = row_full(db, vid)
-        ok = _finalize(db, full, now(), duration)
-        if ok and full["project_id"]:
-            _link_export(db, full["project_id"], vid, data.get("state_rev"))
+        ok = _finalize(db, row_full(db, vid), now(), duration)
         db.commit()
         if not ok:
             return jsonify(ok=True, saved=False)
     return jsonify(ok=True, saved=True, video=vod_json(_get(db, vid), me_row))
-
-
-def _link_export(db, project_id, vid, state_rev):
-    """The draft now points to its newest export. It counts as 'exported' only if its timeline is still the one that was
-    rendered: `state_rev` is what the editor says it exported; if the draft was saved with other edits meanwhile it stays a draft."""
-    try:
-        state_rev = int(state_rev)
-    except (TypeError, ValueError):
-        state_rev = None
-    db.execute(
-        "UPDATE edit_projects SET vod_id = ?, status = CASE WHEN state_rev = ? THEN 'exported' ELSE 'draft' END WHERE id = ?",
-        (vid, state_rev, project_id))
 
 
 # --------------------------------------------------------------------------
@@ -332,7 +331,7 @@ def my_videos():
     rows = db.execute(
         f"{VOD_SELECT} WHERE v.user_id = ? AND v.status = 'ready' ORDER BY v.started_at DESC LIMIT 200", (me_row["id"],)
     ).fetchall()
-    return jsonify(videos=[vod_json(r, me_row) for r in rows if vod_path(r).exists()], limit=config.VOD_MAX_PER_USER)
+    return jsonify(videos=[vod_json(r, me_row) for r in rows if vod_path(r).exists()], limit=config.VOD_MAX_PER_USER, min_live=config.EDIT_MIN_LIVE_PCT)
 
 
 @bp.get("/api/vod/<vid>")
@@ -348,33 +347,22 @@ def vod_info(vid):
     return jsonify(video=vod_json(row, me_row))
 
 
-def _direct_download_attempt():
-    """True when the request looks like the file being opened, saved or fetched by a script, not played by a <video>.
-
-    Browsers that send Fetch Metadata (Chrome, Edge, Firefox, Safari 16.4+) say what the response is for: a <video>
-    element sends `Sec-Fetch-Dest: video`; typing the URL (`document`), "save link as" or fetch()/XHR (`empty`) don't.
-    Older browsers send nothing, so there the page must have been the Referer, which a pasted URL doesn't have.
-    This closes the casual routes. It is not DRM: whatever a browser can play, a determined person with the
-    developer tools or a custom client can still copy, and the signed-URL step (next) narrows that further."""
-    if not config.VOD_BLOCK_DIRECT:
-        return False
-    dest = request.headers.get("Sec-Fetch-Dest")
-    if dest is not None:
-        return dest not in ("video", "audio")
-    return urlparse(request.headers.get("Referer", "")).netloc != request.host
-
-
 @bp.get("/api/vod/<vid>/video")
 def vod_file(vid):
     row = _get(get_db(), vid)
     if row is None or row["status"] != "ready" or not _visible(row, current_user()):
         return err("Video not found.", 404)
-    if _direct_download_attempt():  # after the visibility check, so it tells nobody that a hidden video exists
-        return err("This video can only be watched on Yeli.", 403, protected=True)
-    resp = send_file(vod_path(row), mimetype=row["mime"], conditional=True, max_age=3600)  # supports Range (seeking)
+    # Recordings are for watching, not for keeping: only a <video> element on this site may ask for the file. A browser
+    # says what a request is for (Sec-Fetch-Dest) and where it comes from (Sec-Fetch-Site); "Save as", a fetch() that
+    # copies the bytes, a link opened in a tab and another site embedding the file are all refused. This stops the
+    # download buttons and the easy copies; it can't stop someone who records their own screen.
+    dest, site = request.headers.get("Sec-Fetch-Dest"), request.headers.get("Sec-Fetch-Site")
+    if (dest and dest not in ("video", "audio")) or (site and site != "same-origin"):
+        return err("This video can only be watched on Yeli.", 403)
+    resp = send_file(vod_path(row), mimetype=row["mime"], conditional=True, max_age=3600, as_attachment=False)  # supports Range (seeking)
     resp.headers["Cache-Control"] = ("public" if row["visibility"] == "public" else "private") + ", max-age=3600"
     resp.headers["Content-Disposition"] = "inline"
-    resp.headers["Cross-Origin-Resource-Policy"] = "same-origin"  # other sites can't embed or hotlink it
+    resp.headers["Cross-Origin-Resource-Policy"] = "same-origin"
     return resp
 
 
@@ -442,20 +430,20 @@ def vod_edit(vid):
     return jsonify(ok=True, video=vod_json(_get(db, vid), me_row))
 
 
-def apply_publish(db, row, target, title, description, category, cover=None):
-    """Make a clip visible ('public' or 'followers') with its final details. `cover` is JPEG bytes or None to keep the current one."""
-    if cover is not None:
-        db.execute("UPDATE vods SET visibility = ?, title = ?, description = ?, category = ?, cover = ?, cover_ver = ? WHERE id = ?",
-                   (target, title, description, category, cover, now(), row["id"]))
-    else:
-        db.execute("UPDATE vods SET visibility = ?, title = ?, description = ?, category = ? WHERE id = ?",
-                   (target, title, description, category, row["id"]))
+def publish_problem(row, new_cover=False):
+    """Why this video can't go on the channel yet, or None. Applies to publishing and to any change from private."""
+    if row["source"] == "edit" and 0 <= row["live_pct"] < config.EDIT_MIN_LIVE_PCT:
+        return f"An edited video needs at least {config.EDIT_MIN_LIVE_PCT}% footage from your live streams. This one has {row['live_pct']}%.", "live"
+    if not row["has_cover"] and not new_cover:
+        return "Add a cover before publishing, so people see a picture of your video.", "cover"
+    return None
 
 
 @bp.post("/api/vod/<vid>/publish")
 @login_required
 def vod_publish(vid):
-    """Make a clip public on the channel. Title, description, category and cover can be set in the same step."""
+    """Make a clip public (or followers-only) on the channel. The title, description, category and cover can be set in the same
+    step; a cover is required, and an edited video has to be mostly live footage."""
     me_row = current_user()
     db = get_db()
     row = _get(db, vid)
@@ -468,22 +456,26 @@ def vod_publish(vid):
         target = data.get("visibility", "public")
         if target not in ("public", "followers"):
             return err("Unknown privacy option.")
-        title, description, category, cover = row["title"], row["description"], row["category"], None
+        title, description, category = row["title"], row["description"], row["category"]
         if "title" in data:
             title = text_field(data, "title", config.VOD_TITLE_MAX)
-        if not title:
-            return err("Give your video a title.", field="title")
+            if not title:
+                return err("Give your video a title.", field="title")
         if "description" in data:
             description = text_field(data, "description", config.VOD_DESC_MAX)
-        if "category" in data:
-            if data["category"] not in config.CATEGORIES:
-                return err("Unknown category.", field="category")
+        if data.get("category") in CATEGORIES:
             category = data["category"]
+        cover = None
         if data.get("cover"):
             cover = decode_jpeg(data["cover"], config.MAX_COVER_BYTES)
             if cover is None:
                 return err("That cover image isn't valid or is too big.", field="cover")
-        apply_publish(db, row, target, title, description, category, cover)
+        problem = publish_problem(row, cover is not None)
+        if problem:
+            return err(problem[0], 400, field=problem[1])
+        if cover is not None:
+            db.execute("UPDATE vods SET cover = ?, cover_ver = ? WHERE id = ?", (cover, now(), vid))
+        db.execute("UPDATE vods SET visibility = ?, title = ?, description = ?, category = ? WHERE id = ?", (target, title, description, category, vid))
         db.commit()
     return jsonify(ok=True, video=vod_json(_get(db, vid), me_row))
 
@@ -516,6 +508,10 @@ def vod_visibility(vid):
     target = (request.get_json(silent=True) or {}).get("visibility")
     if target not in ("private", "followers", "public"):
         return err("Unknown privacy option.")
+    if target != "private" and row["visibility"] == "private":  # leaving private follows the same rules as publishing
+        problem = publish_problem(row)
+        if problem:
+            return err(problem[0], 400, field=problem[1])
     db.execute("UPDATE vods SET visibility = ? WHERE id = ?", (target, vid))
     db.commit()
     return jsonify(ok=True, video=vod_json(_get(db, vid), me_row))

@@ -38,7 +38,7 @@ def create_app():
     from . import accounts, alerts, bot, bridge, channels, chat, chest, media, moderation, notifications, projects, pwa, streaming, restream, upgrades, vods, voice, wallet
     from .security import install as install_security
 
-    for module in (channels, accounts, chat, wallet, upgrades, chest, bot, moderation, notifications, alerts, streaming, restream, bridge, vods, projects, voice, media, pwa):
+    for module in (channels, accounts, chat, wallet, upgrades, chest, bot, moderation, notifications, alerts, projects, streaming, restream, bridge, vods, voice, media, pwa):
         app.register_blueprint(module.bp)
     install_security(app)
     return app

@@ -86,15 +86,10 @@ VOD_STALE_SECONDS = 120  # a recording that stops sending data this long is clos
 VOD_TITLE_MAX = 80
 VOD_DESC_MAX = 500
 VOD_COMMENT_MAX = 300
-# The video file is only served to a <video> player, never to a direct open / "save as" / fetch (see vods.vod_file).
-VOD_BLOCK_DIRECT = os.environ.get("YELI_VOD_BLOCK_DIRECT", "1") != "0"
-
-# Editor drafts ("projects"): the timeline is stored as JSON, the video files stay where they are.
-PROJECT_MAX_PER_USER = int(os.environ.get("YELI_PROJECT_MAX_PER_USER", "20"))
-PROJECT_STATE_MAX = 96 * 1024  # serialized timeline; the JSON request limit is 128 KB
-PROJECT_MAX_CLIPS = 300
-PROJECT_MAX_TEXTS = 100
-PROJECT_NAME_MAX = 80
+# Edited videos must be mostly made of footage from the streamer's own live streams.
+EDIT_MIN_LIVE_PCT = int(os.environ.get("YELI_EDIT_MIN_LIVE_PCT", "70"))
+EDIT_MAX_PROJECTS = int(os.environ.get("YELI_EDIT_MAX_PROJECTS", "20"))  # saved editor projects (drafts) per channel
+EDIT_PROJECT_MAX_BYTES = 100 * 1024  # a project is only a list of cuts, so this is a lot
 TTS_BIN = os.environ.get("YELI_TTS_BIN", "")  # speech program (espeak-ng); empty = look for espeak-ng / espeak on the PATH
 
 

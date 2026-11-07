@@ -129,7 +129,7 @@ async function pageVideo(root, id, alive) {
     root.innerHTML = `
     <div class="vod-page">
         <div class="clip-bar" id="vClip" role="note" hidden></div>
-        <div class="player vod-player"><video id="vodVideo" playsinline preload="metadata"></video></div>
+        <div class="player vod-player"><video id="vodVideo" playsinline preload="metadata" controlslist="nodownload noremoteplayback" oncontextmenu="return false"></video></div>
         <div class="channel-head">
             <a href="${channelHref(v.username)}" aria-label="${esc(v.username)}">${avatar(v, 'avatar-lg')}</a>
             <div class="channel-titles">
@@ -598,33 +598,104 @@ function openVideoEdit(v, done) {
     });
 }
 
-/** Publishing a clip: pick the title and the description people will see, then it goes on the channel. */
+/** Publishing a clip: the cover (a picture you upload, or a frame of the video), the title and the description people will see,
+ *  the category, and who can watch it. A cover is required; an edited video also needs enough live footage (the server checks). */
 function openPublishDialog(v, done, visibility = 'public') {
-    const onlyFollowers = visibility === 'followers';
+    let coverUrl = null; // a new cover waiting to be saved
+    const cats = ((state.config && state.config.categories) || []).filter((c) => typeof c === 'string');
+    const live = v.source === 'edit' && v.live_pct >= 0 ? `<div class="notice" role="note">${v.live_pct}% of this edit is footage from your live streams.</div>` : '';
     const dlg = dialogShell('Publish this clip', `
         <form id="pubForm" class="props-form" novalidate>
-            <div class="notice" role="note">${onlyFollowers ? 'Only people who follow you will be able to watch it, like it and comment. You can change who sees it later.' : 'Anyone will be able to watch it on your channel, like it and comment. You can make it private again later.'}</div>
+            ${live}
+            <div class="field"><label>Cover <small class="muted">(required)</small></label>
+                <div class="vod-cover-edit">
+                    <div class="vod-cover-box" id="pbCoverBox">${v.cover ? `<img src="${vodCoverSrc(v)}" alt="">` : '<span class="muted">No cover yet</span>'}</div>
+                    <div class="vod-cover-btns">
+                        <label class="btn btn-secondary file-btn">Upload a picture<input type="file" id="pbCover" accept="image/*" hidden></label>
+                        <button type="button" class="btn btn-secondary" id="pbFrame">Pick a frame of the video</button>
+                    </div>
+                </div>
+                <div class="vod-frame" id="pbFramePanel" hidden>
+                    <video id="pbFrameVideo" muted playsinline preload="auto" controlslist="nodownload" disablepictureinpicture></video>
+                    <input type="range" id="pbFrameRange" min="0" max="1000" value="0" aria-label="Frame of the video">
+                    <div class="row"><button type="button" class="btn btn-secondary" id="pbFrameNo">Cancel</button><button type="button" class="btn btn-primary" id="pbFrameYes">Use this frame</button></div>
+                </div>
+            </div>
             <div class="field"><label for="pbTitle">Title</label><input id="pbTitle" maxlength="80" autocomplete="off" required></div>
             <div class="field"><label for="pbDesc">Description</label><textarea id="pbDesc" rows="3" maxlength="500" placeholder="Tell people what this video is about"></textarea></div>
+            ${cats.length ? '<div class="field"><label for="pbCat">Category</label><select id="pbCat"></select></div>' : ''}
+            <div class="field"><label>Who can watch</label>
+                <div class="vod-vis">
+                    <label class="vod-vis-opt"><input type="radio" name="pbVis" value="public"><span><strong>Public</strong><small>Anyone can watch it on your channel, like it and comment.</small></span></label>
+                    <label class="vod-vis-opt"><input type="radio" name="pbVis" value="followers"><span><strong>Followers only</strong><small>Only people who follow you.</small></span></label>
+                </div>
+                <small class="muted">You can change who sees it, or make it private again, later.</small>
+            </div>
             <p class="form-error" id="pbErr" role="alert" hidden></p>
             <button type="submit" class="btn btn-primary btn-block" id="pbGo">Publish</button>
         </form>`);
-    const title = $('#pbTitle', dlg), desc = $('#pbDesc', dlg), err = $('#pbErr', dlg);
+    const title = $('#pbTitle', dlg), desc = $('#pbDesc', dlg), err = $('#pbErr', dlg), box = $('#pbCoverBox', dlg);
     title.value = v.title;
     desc.value = v.description || '';
+    const cat = $('#pbCat', dlg);
+    if (cat) {
+        cat.innerHTML = cats.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+        cat.value = cats.includes(v.category) ? v.category : cats[cats.length - 1];
+    }
+    $(`input[name="pbVis"][value="${visibility === 'followers' ? 'followers' : 'public'}"]`, dlg).checked = true;
+    const showError = (m) => { err.textContent = m; err.hidden = false; };
+    const setCover = (url) => { coverUrl = url; box.innerHTML = `<img src="${url}" alt="">`; err.hidden = true; };
+
+    $('#pbCover', dlg).addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        e.target.value = '';
+        if (!file) return;
+        try { setCover(await fileToCoverDataUrl(file)); } catch (e2) { showError(e2.message); }
+    });
+
+    // a frame of the video: the same player the site uses, moved with a slider, copied to a picture
+    const panel = $('#pbFramePanel', dlg), fv = $('#pbFrameVideo', dlg), range = $('#pbFrameRange', dlg);
+    $('#pbFrame', dlg).addEventListener('click', () => {
+        panel.hidden = false;
+        if (!fv.src) fv.src = `/api/vod/${encodeURIComponent(v.id)}/video`;
+    });
+    $('#pbFrameNo', dlg).addEventListener('click', () => { panel.hidden = true; fv.pause(); });
+    range.addEventListener('input', () => { try { fv.currentTime = (range.value / 1000) * Math.max(0.1, v.duration - 0.2); } catch { /* not ready yet */ } });
+    $('#pbFrameYes', dlg).addEventListener('click', () => {
+        try {
+            const W = 640, H = 360, c = document.createElement('canvas');
+            c.width = W; c.height = H;
+            const cx = c.getContext('2d');
+            cx.fillStyle = '#111';
+            cx.fillRect(0, 0, W, H);
+            const s = Math.max(W / fv.videoWidth, H / fv.videoHeight);
+            cx.drawImage(fv, (W - fv.videoWidth * s) / 2, (H - fv.videoHeight * s) / 2, fv.videoWidth * s, fv.videoHeight * s);
+            for (const q of [0.85, 0.75, 0.65, 0.55, 0.45, 0.35]) {
+                const url = c.toDataURL('image/jpeg', q);
+                if (url.length * 0.75 < 78000) { setCover(url); panel.hidden = true; fv.pause(); return; }
+            }
+            showError('Couldn’t use that frame. Try another one.');
+        } catch { showError('This browser couldn’t take a picture from the video. Upload a picture instead.'); }
+    });
+    dlg.addEventListener('close', () => { fv.pause(); fv.removeAttribute('src'); fv.load(); });
+
     $('#pubForm', dlg).addEventListener('submit', async (ev) => {
         ev.preventDefault();
         err.hidden = true;
+        if (!v.cover && !coverUrl) { showError('Add a cover first: upload a picture or pick a frame of the video.'); return; }
         const btn = $('#pbGo', dlg);
         btn.disabled = true;
+        const target = $('input[name="pbVis"]:checked', dlg).value;
         try {
-            const r = await api(`/vod/${encodeURIComponent(v.id)}/publish`, { method: 'POST', body: { title: title.value, description: desc.value, visibility } });
+            const body = { title: title.value, description: desc.value, visibility: target };
+            if (cat) body.category = cat.value;
+            if (coverUrl) body.cover = coverUrl;
+            const r = await api(`/vod/${encodeURIComponent(v.id)}/publish`, { method: 'POST', body });
             dlg.close();
-            toast(onlyFollowers ? 'Published for your followers.' : 'Published on your channel.');
+            toast(target === 'followers' ? 'Published for your followers.' : 'Published on your channel.');
             done(r.video);
         } catch (e2) {
-            err.textContent = e2.message;
-            err.hidden = false;
+            showError(e2.message);
             btn.disabled = false;
         }
     });

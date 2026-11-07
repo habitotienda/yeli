@@ -41,6 +41,21 @@ Cosas que debes saber (Render, plan gratis):
 
 ---
 
+## Editor de video, proyectos y publicación
+
+- **Proyectos guardados**: en el editor, *Guardar* (o Ctrl+S) guarda el proyecto en el servidor y luego se autoguarda. Se continúa desde
+  **Clips → Proyectos**, incluso desde otro dispositivo. Los videos del dispositivo y la música no se guardan (hay que volver a añadirlos).
+- **Regla del 70%**: un video editado debe tener al menos `YELI_EDIT_MIN_LIVE_PCT` % (70 por defecto) de material de tus directos. El
+  medidor está en la barra superior y el servidor lo vuelve a calcular desde el proyecto guardado al exportar. Límite: `YELI_EDIT_MAX_PROJECTS` (20).
+- **Sin descarga**: el editor ya no exporta archivos, y `/api/vod/<id>/video` solo responde a un `<video>` de la propia web
+  (cabeceras `Sec-Fetch-*`). Es una barrera contra "guardar como" y copias fáciles; no impide grabar la pantalla.
+- **Publicar**: requiere portada (subir imagen o elegir un fotograma), título, categoría y quién lo ve (público / seguidores).
+- **Herramientas**: cortar inicio/fin, dividir, velocidad, volumen, 12 filtros, brillo/contraste/saturación/desenfoque/opacidad, rotar,
+  espejo, zoom y mover, fundidos, formatos 16:9 · 9:16 · 1:1 · 4:5, fondo (negro, desenfocado, blanco, color), textos (fuentes,
+  contorno, sombra, animación, arrastrar sobre la imagen), stickers, marca de agua, música del dispositivo, 1080p.
+
+---
+
 ## Notificaciones (en la app y por correo)
 
 La campana de la barra superior avisa de: nuevos seguidores, Yelis/stickers recibidos, comentarios, respuestas a tus comentarios y me gusta en tus videos, y

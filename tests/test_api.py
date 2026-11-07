@@ -20,13 +20,14 @@ from yeli import config, core, db as database, economy  # noqa: E402
 
 app = yeli.create_app()
 
+import base64  # noqa: E402
+JPEG = "data:image/jpeg;base64," + base64.b64encode(b"\xff\xd8\xff" + b"x" * 300).decode()
+OCTET = {"content_type": "application/octet-stream"}
+
 
 def post(c, url, body=None):
     return c.post(url, json=body or {})
 
-
-# what a <video> element sends; without it the video file is refused (see vods._direct_download_attempt)
-PLAY = {"Sec-Fetch-Dest": "video"}
 
 class YeliTests(unittest.TestCase):
     def setUp(self):
@@ -34,7 +35,7 @@ class YeliTests(unittest.TestCase):
         _bot._cooldowns.clear()
         core._failed_logins.clear()
         con = sqlite3.connect(config.DB_PATH)
-        for t in ("edit_project_covers", "edit_project_sources", "edit_projects", "notifications", "notify_prefs", "notify_meta", "vod_comment_likes", "vod_comments", "vod_likes", "vods", "free_points", "watch_sessions", "chat_bans", "chat_mods", "events", "alert_rules", "assets", "chat_settings", "commands", "spendings", "upgrades", "upgrade_points", "ledger", "payouts", "donations", "purchases", "wallets", "chat_messages", "avatars", "thumbnails", "signals", "viewers", "live_likes", "follows", "streams", "users"):
+        for t in ("notifications", "notify_prefs", "notify_meta", "vod_comment_likes", "vod_comments", "vod_likes", "vods", "edit_projects", "free_points", "watch_sessions", "chat_bans", "chat_mods", "events", "alert_rules", "assets", "chat_settings", "commands", "spendings", "upgrades", "upgrade_points", "ledger", "payouts", "donations", "purchases", "wallets", "chat_messages", "avatars", "thumbnails", "signals", "viewers", "live_likes", "follows", "streams", "users"):
             con.execute(f"DELETE FROM {t}")
         con.commit()
         con.close()
@@ -45,6 +46,37 @@ class YeliTests(unittest.TestCase):
     def signup(self, client, name):
         r = post(client, "/api/register", {"username": name, "email": f"{name}@x.com", "password": "password123"})
         self.assertEqual(r.status_code, 201, r.get_json())
+
+    # --- helpers for the video editor tests
+    def live_vod(self, client, seconds=60, body=b"LIVE"):
+        """A saved live recording of this client's channel (a private clip)."""
+        post(client, "/api/stream/start", {"title": "Live", "category": "Talk"})
+        vid = post(client, "/api/vod/start", {"mime": "video/webm"}).get_json()["id"]
+        client.post(f"/api/vod/{vid}/chunk?seq=0", data=body, **OCTET)
+        post(client, f"/api/vod/{vid}/finish")
+        con = sqlite3.connect(config.DB_PATH)
+        con.execute("UPDATE vods SET duration = ? WHERE id = ?", (seconds, vid))
+        con.commit()
+        con.close()
+        return vid
+
+    def project(self, client, clips, **extra):
+        data = {"aspect": "16:9", "clips": clips, "texts": [], **extra}
+        r = post(client, "/api/projects", {"title": "P", "data": data})
+        self.assertEqual(r.status_code, 200, r.get_json())
+        return r.get_json()["project"]["id"]
+
+    def new_edit(self, client, title="v", duration=5, finish=True):
+        """An exported edit (a private clip) made from a fresh live recording."""
+        live = self.live_vod(client)
+        pid = self.project(client, [{"a": f"vod:{live}", "in": 0, "out": 10}])
+        r = post(client, "/api/vod/new", {"mime": "video/webm", "title": title, "project_id": pid})
+        self.assertEqual(r.status_code, 200, r.get_json())
+        vid = r.get_json()["id"]
+        if finish:
+            client.post(f"/api/vod/{vid}/chunk?seq=0", data=b"EDIT", **OCTET)
+            post(client, f"/api/vod/{vid}/finish", {"duration": duration})
+        return vid
 
     def test_accounts(self):
         self.signup(self.alice, "alice")
@@ -75,9 +107,8 @@ class YeliTests(unittest.TestCase):
         octet = {"content_type": "application/octet-stream"}
         self.signup(self.alice, "alice")
         self.signup(self.bob, "bob")
-        vid = post(self.alice, "/api/vod/new", {"mime": "video/webm", "title": "v"}).get_json()["id"]
-        self.alice.post(f"/api/vod/{vid}/chunk?seq=0", data=b"EDIT", **octet)
-        post(self.alice, f"/api/vod/{vid}/finish", {"duration": 5})
+        vid = self.new_edit(self.alice, "v")
+        post(self.alice, f"/api/vod/{vid}/edit", {"cover": JPEG})
         vis = lambda who, v: post(who, f"/api/vod/{vid}/visibility", {"visibility": v})
         self.assertEqual(vis(self.bob, "public").status_code, 404)           # only the owner
         self.assertEqual(vis(self.alice, "nope").status_code, 400)
@@ -1176,7 +1207,7 @@ class YeliTests(unittest.TestCase):
         # ...and neither can a clip: only published videos take likes and comments
         self.assertEqual(post(self.bob, like, {"liked": True}).status_code, 404)
         self.assertEqual(post(self.bob, comments, {"text": "hi"}).status_code, 404)
-        post(self.alice, f"/api/vod/{vid}/publish")
+        post(self.alice, f"/api/vod/{vid}/publish", {"cover": JPEG})
 
         # likes: only accounts, idempotent, one per person, counted and reported per viewer
         self.assertEqual(post(self.anon, like, {"liked": True}).status_code, 401)
@@ -1250,7 +1281,7 @@ class YeliTests(unittest.TestCase):
         vid = post(client, "/api/vod/start", {"mime": "video/webm"}).get_json()["id"]
         client.post(f"/api/vod/{vid}/chunk?seq=0", data=b"AAAA", **octet)
         post(client, f"/api/vod/{vid}/finish")
-        post(client, f"/api/vod/{vid}/publish")
+        post(client, f"/api/vod/{vid}/publish", {"cover": JPEG})
         return vid
 
     def test_comment_likes_and_replies(self):
@@ -1345,7 +1376,10 @@ class YeliTests(unittest.TestCase):
         # the editor exports through its own upload: it needs an account, a known format and doesn't need a live stream
         self.assertEqual(post(self.anon, "/api/vod/new", {"mime": "video/webm"}).status_code, 401)
         self.assertEqual(post(self.alice, "/api/vod/new", {"mime": "video/x-flv"}).status_code, 400)
-        vid = post(self.alice, "/api/vod/new", {"mime": "video/webm;codecs=vp8,opus", "title": "My edit"}).get_json()["id"]
+        self.assertEqual(post(self.alice, "/api/vod/new", {"mime": "video/webm"}).status_code, 400)  # an export needs a saved project
+        src = self.live_vod(self.alice)
+        pid = self.project(self.alice, [{"a": f"vod:{src}", "in": 0, "out": 100}])
+        vid = post(self.alice, "/api/vod/new", {"mime": "video/webm;codecs=vp8,opus", "title": "My edit", "project_id": pid}).get_json()["id"]
         url = f"/api/vod/{vid}/chunk"
         self.assertEqual(self.alice.post(url + "?seq=0", data=b"EDIT", **octet).status_code, 200)
         self.assertEqual(self.bob.post(url + "?seq=1", data=b"X", **octet).status_code, 404)
@@ -1353,7 +1387,8 @@ class YeliTests(unittest.TestCase):
         # finishing: the editor says how long it is and gives a cover; the result is a private clip
         r = post(self.alice, f"/api/vod/{vid}/finish", {"duration": 93.4, "cover": jpeg}).get_json()
         v = r["video"]
-        self.assertEqual((v["title"], v["source"], v["visibility"], v["duration"], v["category"]), ("My edit", "edit", "private", 93, "Other"))
+        self.assertEqual((v["title"], v["source"], v["visibility"], v["category"], v["live_pct"]), ("My edit", "edit", "private", "Other", 100))
+        self.assertEqual(v["duration"], 93)
         self.assertIsNotNone(v["cover"])
         self.assertEqual(self.alice.get(f"/api/vod/{vid}/cover").status_code, 200)
         self.assertEqual(self.bob.get(f"/api/vod/{vid}/video").status_code, 404)
@@ -1367,281 +1402,152 @@ class YeliTests(unittest.TestCase):
         self.assertEqual(lv["source"], "live")
 
         # a bad duration is just ignored
-        bad = post(self.alice, "/api/vod/new", {"mime": "video/webm"}).get_json()["id"]
+        bad = post(self.alice, "/api/vod/new", {"mime": "video/webm", "project_id": pid}).get_json()["id"]
         self.alice.post(f"/api/vod/{bad}/chunk?seq=0", data=b"BAD", **octet)
         self.assertGreaterEqual(post(self.alice, f"/api/vod/{bad}/finish", {"duration": "soon"}).get_json()["video"]["duration"], 0)
 
         # an export that sent nothing disappears
-        nothing = post(self.alice, "/api/vod/new", {"mime": "video/webm"}).get_json()["id"]
+        nothing = post(self.alice, "/api/vod/new", {"mime": "video/webm", "project_id": pid}).get_json()["id"]
         self.assertFalse(post(self.alice, f"/api/vod/{nothing}/finish", {"duration": 3}).get_json()["saved"])
 
         # the saved-videos limit covers clips too
         old_cap = config.VOD_MAX_PER_USER
         config.VOD_MAX_PER_USER = 1
         try:
-            r = post(self.alice, "/api/vod/new", {"mime": "video/webm"})
+            r = post(self.alice, "/api/vod/new", {"mime": "video/webm", "project_id": pid})
             self.assertEqual((r.status_code, r.get_json()["limit"]), (409, True))
         finally:
             config.VOD_MAX_PER_USER = old_cap
 
         # publish, then take it back to a clip: comments and likes are kept but nobody can reach them meanwhile
-        pub = post(self.alice, f"/api/vod/{vid}/publish", {"title": "Final cut"}).get_json()["video"]
+        pub = post(self.alice, f"/api/vod/{vid}/publish", {"title": "Final cut", "cover": JPEG}).get_json()["video"]
         self.assertEqual((pub["visibility"], pub["title"]), ("public", "Final cut"))
-        self.assertEqual(post(self.alice, f"/api/vod/{vid}/publish").status_code, 200)  # again: harmless
+        self.assertEqual(post(self.alice, f"/api/vod/{vid}/publish", {"cover": JPEG}).status_code, 200)  # again: harmless
         self.assertEqual([x["id"] for x in self.anon.get("/api/channel/alice/videos").get_json()["videos"]], [vid])
         self.assertEqual(post(self.bob, f"/api/vod/{vid}/comments", {"text": "nice"}).status_code, 201)
         self.assertEqual(post(self.bob, f"/api/vod/{vid}/unpublish").status_code, 404)
         self.assertEqual(post(self.alice, f"/api/vod/{vid}/unpublish").get_json()["video"]["visibility"], "private")
         self.assertEqual(self.anon.get("/api/channel/alice/videos").get_json()["videos"], [])
         self.assertEqual(post(self.bob, f"/api/vod/{vid}/comments", {"text": "still there?"}).status_code, 404)
-        post(self.alice, f"/api/vod/{vid}/publish")
+        post(self.alice, f"/api/vod/{vid}/publish", {"cover": JPEG})
         self.assertEqual(self.anon.get(f"/api/vod/{vid}/comments").get_json()["total"], 1)
         # published: the one change applies again
         self.assertEqual(post(self.alice, f"/api/vod/{vid}/edit", {"title": "Final cut 2"}).status_code, 200)
         self.assertEqual(post(self.alice, f"/api/vod/{vid}/edit", {"title": "Final cut 3"}).status_code, 403)
 
-    def test_editor_projects_drafts(self):
-        import base64
-        octet = {"content_type": "application/octet-stream"}
-        jpeg = "data:image/jpeg;base64," + base64.b64encode(b"\xff\xd8\xff" + b"x" * 300).decode()
+    def test_projects_save_and_continue(self):
         self.signup(self.alice, "alice")
         self.signup(self.bob, "bob")
-
-        def make_vod(client, source_stream):
-            if source_stream:
-                post(client, "/api/stream/start", {"title": "Live", "category": "Talk"})
-                vid = post(client, "/api/vod/start", {"mime": "video/webm"}).get_json()["id"]
-            else:
-                vid = post(client, "/api/vod/new", {"mime": "video/webm"}).get_json()["id"]
-            client.post(f"/api/vod/{vid}/chunk?seq=0", data=b"X", **octet)
-            post(client, f"/api/vod/{vid}/finish", {"duration": 100})
-            return vid
-
-        live, edit, bobs = make_vod(self.alice, True), make_vod(self.alice, False), make_vod(self.bob, False)
-        clip = lambda uid, asset, a=0, b=10, **kw: {"uid": uid, "asset": asset, "in": a, "out": b, **kw}  # noqa: E731
-
-        # needs an account
-        self.assertEqual(self.anon.get("/api/me/projects").status_code, 401)
-        self.assertEqual(post(self.anon, "/api/projects", {}).status_code, 401)
-
-        # create empty, then save a timeline: 20 s of the live (10 s at 2x = 5 s + 10 s) and 5 s of an edit
-        p = post(self.alice, "/api/projects", {"name": "Highlights"}).get_json()["project"]
-        self.assertEqual((p["name"], p["rev"], p["clip_count"], p["status"], p["live_ratio"]), ("Highlights", 1, 0, "draft", 0))
-        state = {"aspect": "9:16", "clips": [clip("e1", f"vod:{live}", 0, 10, speed=2), clip("e2", f"vod:{live}", 20, 30),
-                                             clip("e3", f"vod:{edit}", 0, 5, speed=1, beautify=0.5, nested={"x": 1}), clip("e4", "file:a.mp4:1:2", 0, 5)],
-                 "texts": [{"uid": "e5", "text": "hi", "start": 1, "dur": 2}]}
-        r = post(self.alice, f"/api/projects/{p['id']}/save", {"rev": 1, "state": state, "title": "My title", "description": "d", "category": "Gaming", "visibility": "followers"})
-        self.assertEqual(r.status_code, 200, r.get_json())
-        p = r.get_json()["project"]
-        self.assertEqual((p["rev"], p["clip_count"], p["aspect"], p["duration"], p["live_seconds"]), (2, 4, "9:16", 25.0, 15.0))
-        self.assertEqual((p["live_ratio"], p["title"], p["category"], p["visibility"]), (0.6, "My title", "Gaming", "followers"))
-
-        # reading it back: canonical state, unknown scalar fields kept, nested ones dropped, nothing missing
-        got = self.alice.get(f"/api/projects/{p['id']}").get_json()["project"]
-        self.assertEqual(got["missing_sources"], [])
-        self.assertEqual(got["state"]["clips"][2]["beautify"], 0.5)
-        self.assertNotIn("nested", got["state"]["clips"][2])
-        self.assertEqual(got["state"]["clips"][0]["speed"], 2)
-        self.assertEqual(got["state"]["texts"][0]["pos"], "bottom")
-        self.assertNotIn("state", self.alice.get("/api/me/projects").get_json()["projects"][0])
-
-        # two tabs: a save based on an old version is refused and writes nothing
-        r = post(self.alice, f"/api/projects/{p['id']}/save", {"rev": 1, "title": "stale"})
-        self.assertEqual((r.status_code, r.get_json()["rev"], r.get_json()["conflict"]), (409, 2, True))
-        self.assertEqual(self.alice.get(f"/api/projects/{p['id']}").get_json()["project"]["title"], "My title")
-        self.assertEqual(post(self.alice, f"/api/projects/{p['id']}/save", {"title": "x"}).status_code, 400)  # rev is required
-        self.assertEqual(post(self.alice, f"/api/projects/{p['id']}/save", {"rev": 2}).status_code, 400)  # nothing to save
-
-        # validation: the timeline, the details, other people's videos
-        bad = lambda st: post(self.alice, f"/api/projects/{p['id']}/save", {"rev": 2, "state": st})  # noqa: E731
-        self.assertEqual(bad({"aspect": "4:3"}).status_code, 400)
-        self.assertEqual(bad({"clips": [clip("a", "vod:zz")]}).status_code, 400)
-        self.assertEqual(bad({"clips": [clip("a", f"vod:{live}", 5, 5)]}).status_code, 400)
-        self.assertEqual(bad({"clips": [clip("a", f"vod:{live}", speed=9)]}).status_code, 400)
-        self.assertEqual(bad({"clips": [clip("a", f"vod:{live}", **{"in": float("nan")})]}).status_code, 400)
-        self.assertEqual(bad({"clips": [clip("a", f"vod:{live}")] * (config.PROJECT_MAX_CLIPS + 1)}).status_code, 400)
-        self.assertEqual(bad({"clips": [clip("a", f"vod:{bobs}")]}).status_code, 403)
-        self.assertEqual(post(self.alice, f"/api/projects/{p['id']}/save", {"rev": 2, "category": "Nope"}).status_code, 400)
-        self.assertEqual(post(self.alice, f"/api/projects/{p['id']}/save", {"rev": 2, "visibility": "me"}).status_code, 400)
-        self.assertEqual(post(self.alice, f"/api/projects/{p['id']}/save", {"rev": 2, "name": " "}).status_code, 400)
-        self.assertEqual(post(self.alice, "/api/projects", {"state": {"clips": [clip("a", f"vod:{bobs}")]}}).status_code, 403)
-        self.assertEqual(self.alice.get(f"/api/projects/{p['id']}").get_json()["project"]["rev"], 2)  # none of that changed anything
-        self.assertEqual(len(self.alice.get("/api/me/projects").get_json()["projects"]), 1)  # a refused create leaves no row
-
-        # custom cover: owner only, JPEG only, doesn't use up a rev
-        url = f"/api/projects/{p['id']}/cover"
-        self.assertEqual(self.alice.get(url).status_code, 404)
-        self.assertEqual(post(self.alice, url, {"cover": "data:image/png;base64,AAAA"}).status_code, 400)
-        self.assertEqual(post(self.alice, url, {"cover": jpeg, "source": "x"}).status_code, 400)
-        cp = post(self.alice, url, {"cover": jpeg, "source": "frame"}).get_json()["project"]
-        self.assertEqual((cp["cover_source"], cp["rev"]), ("frame", 2))
-        self.assertIsNotNone(cp["cover"])
-        self.assertEqual((self.alice.get(url).status_code, self.alice.get(url).mimetype), (200, "image/jpeg"))
-        self.assertEqual(self.bob.get(url).status_code, 404)
-        self.assertEqual(self.anon.get(url).status_code, 401)
-        self.assertEqual(post(self.bob, url, {"cover": jpeg}).status_code, 404)
-        self.assertIsNone(post(self.alice, url + "/delete").get_json()["project"]["cover"])
-        self.assertEqual(self.alice.get(url).status_code, 404)
-
-        # nobody else can see, change or delete it
-        self.assertEqual(self.bob.get(f"/api/projects/{p['id']}").status_code, 404)
-        self.assertEqual(post(self.bob, f"/api/projects/{p['id']}/save", {"rev": 2, "title": "hax"}).status_code, 404)
-        self.assertEqual(post(self.bob, f"/api/projects/{p['id']}/delete").status_code, 404)
+        src = self.live_vod(self.alice)
+        clip = {"a": f"vod:{src}", "in": 2, "out": 12, "speed": 2, "filter": "sepia", "zoom": 99, "rot": 1}
+        self.assertEqual(post(self.anon, "/api/projects", {"data": {"clips": []}}).status_code, 401)
+        self.assertEqual(post(self.alice, "/api/projects", {"data": "nope"}).status_code, 400)
+        pid = self.project(self.alice, [clip, {"a": "http://evil/x.mp4", "in": 0, "out": 5}, {"a": f"vod:{src}", "in": 3, "out": 3}],
+                           texts=[{"text": "hi", "start": 1, "dur": 2, "font": "Comic", "color": "red", "size": 9999}])
+        got = self.alice.get(f"/api/projects/{pid}").get_json()
+        d = got["data"]
+        self.assertEqual(len(d["clips"]), 1)                                   # a link to anywhere and an empty cut are dropped
+        self.assertEqual((d["clips"][0]["zoom"], d["clips"][0]["filter"], d["clips"][0]["speed"]), (4, "sepia", 2))  # numbers are clamped
+        self.assertEqual((d["texts"][0]["font"], d["texts"][0]["color"], d["texts"][0]["size"]), ("Fredoka", "#ffffff", 60))
+        self.assertEqual((got["project"]["duration"], got["project"]["live_pct"], got["project"]["cover_vod"]), (5.0, 100, src))
+        # only mine
+        self.assertEqual(self.bob.get(f"/api/projects/{pid}").status_code, 404)
+        self.assertEqual(post(self.bob, "/api/projects", {"id": pid, "data": d}).status_code, 404)
+        self.assertEqual(post(self.bob, f"/api/projects/{pid}/delete").status_code, 404)
+        # saving again with the id updates it (same project, new title)
+        r = post(self.alice, "/api/projects", {"id": pid, "title": "Second", "data": d}).get_json()["project"]
+        self.assertEqual((r["id"], r["title"]), (pid, "Second"))
+        self.assertEqual([p["id"] for p in self.alice.get("/api/me/projects").get_json()["projects"]], [pid])
         self.assertEqual(self.bob.get("/api/me/projects").get_json()["projects"], [])
-
-        # a source that was deleted is reported, the draft still opens
-        post(self.alice, f"/api/vod/{edit}/delete")
-        self.assertEqual(self.alice.get(f"/api/projects/{p['id']}").get_json()["project"]["missing_sources"], [edit])
-
-        # an exported draft goes back to draft when its timeline changes, but not when only the details change
-        con = sqlite3.connect(config.DB_PATH)
-        con.execute("UPDATE edit_projects SET status = 'exported', vod_id = ? WHERE id = ?", (live, p["id"]))
-        con.commit()
-        con.close()
-        self.assertEqual(post(self.alice, f"/api/projects/{p['id']}/save", {"rev": 2, "title": "t2"}).get_json()["project"]["status"], "exported")
-        self.assertEqual(post(self.alice, f"/api/projects/{p['id']}/save", {"rev": 3, "state": {"clips": []}}).get_json()["project"]["status"], "draft")
-
-        # the per-account limit, then delete: the exported clip is not touched
-        old_cap = config.PROJECT_MAX_PER_USER
-        config.PROJECT_MAX_PER_USER = 1
+        # the limit
+        old = config.EDIT_MAX_PROJECTS
+        config.EDIT_MAX_PROJECTS = 1
         try:
-            r = post(self.alice, "/api/projects", {})
+            r = post(self.alice, "/api/projects", {"data": d})
             self.assertEqual((r.status_code, r.get_json()["limit"]), (409, True))
         finally:
-            config.PROJECT_MAX_PER_USER = old_cap
-        self.assertEqual(post(self.alice, f"/api/projects/{p['id']}/delete").status_code, 200)
-        self.assertEqual(self.alice.get(f"/api/projects/{p['id']}").status_code, 404)
-        self.assertEqual(self.alice.get(f"/api/vod/{live}").status_code, 200)
+            config.EDIT_MAX_PROJECTS = old
+        self.assertEqual(post(self.alice, f"/api/projects/{pid}/delete").status_code, 200)
+        self.assertEqual(self.alice.get(f"/api/projects/{pid}").status_code, 404)
 
-    def test_video_file_is_not_directly_downloadable(self):
-        octet = {"content_type": "application/octet-stream"}
-        self.signup(self.alice, "alice")
-        post(self.alice, "/api/stream/start", {"title": "Live", "category": "Talk"})
-        vid = post(self.alice, "/api/vod/start", {"mime": "video/webm"}).get_json()["id"]
-        self.alice.post(f"/api/vod/{vid}/chunk?seq=0", data=b"0123456789", **octet)
-        post(self.alice, f"/api/vod/{vid}/finish")
-        post(self.alice, f"/api/vod/{vid}/publish")
-        url = f"/api/vod/{vid}/video"
-
-        # a <video> element (any viewer, with seeking) plays it, and other sites can't embed it
-        for client in (self.alice, self.anon):
-            r = client.get(url, headers={**PLAY, "Range": "bytes=2-5"})
-            self.assertEqual((r.status_code, r.data), (206, b"2345"))
-            self.assertEqual((r.headers["Content-Disposition"], r.headers["Cross-Origin-Resource-Policy"]), ("inline", "same-origin"))
-        # opening the URL, "save link as", fetch()/XHR, <iframe>, <a download>: refused, even for the owner
-        for dest in ("document", "empty", "iframe", "embed", "image"):
-            r = self.alice.get(url, headers={"Sec-Fetch-Dest": dest})
-            self.assertEqual((r.status_code, r.get_json()["protected"]), (403, True), dest)
-        self.assertEqual(self.anon.get(url, headers={"Sec-Fetch-Dest": "document"}).status_code, 403)
-        # browsers without Fetch Metadata: only a request that comes from a Yeli page (Referer) plays
-        self.assertEqual(self.anon.get(url).status_code, 403)
-        self.assertEqual(self.anon.get(url, headers={"Referer": "https://evil.example/page"}).status_code, 403)
-        self.assertEqual(self.anon.get(url, headers={"Referer": "http://localhost/#/video/x"}).status_code, 200)
-        # a hidden video still looks like it doesn't exist, not like it's protected
-        post(self.alice, f"/api/vod/{vid}/unpublish")
-        self.assertEqual(self.anon.get(url, headers={"Sec-Fetch-Dest": "document"}).status_code, 404)
-        # the switch
-        config.VOD_BLOCK_DIRECT = False
-        try:
-            self.assertEqual(self.alice.get(url, headers={"Sec-Fetch-Dest": "document"}).status_code, 200)
-        finally:
-            config.VOD_BLOCK_DIRECT = True
-
-    def test_publish_flow_from_a_draft(self):
-        import base64
-        octet = {"content_type": "application/octet-stream"}
-        jpeg = lambda n: "data:image/jpeg;base64," + base64.b64encode(b"\xff\xd8\xff" + bytes([n]) * 300).decode()  # noqa: E731
+    def test_edit_needs_mostly_live_footage(self):
         self.signup(self.alice, "alice")
         self.signup(self.bob, "bob")
-        post(self.alice, "/api/stream/start", {"title": "Live", "category": "Talk"})
-        live = post(self.alice, "/api/vod/start", {"mime": "video/webm"}).get_json()["id"]
-        self.alice.post(f"/api/vod/{live}/chunk?seq=0", data=b"L", **octet)
-        post(self.alice, f"/api/vod/{live}/finish")
-
-        p = post(self.alice, "/api/projects", {"name": "Cut", "state": {"clips": [{"uid": "e1", "asset": f"vod:{live}", "in": 0, "out": 5}]}}).get_json()["project"]
-        pid = p["id"]
-        self.assertEqual(p["publish_problems"], ["title", "export"])
-
-        def export(rev, extra=None, cover=None):
-            vid = post(self.alice, "/api/vod/new", {"mime": "video/webm", **(extra or {})}).get_json()["id"]
-            self.alice.post(f"/api/vod/{vid}/chunk?seq=0", data=b"EXPORT", **octet)
-            return vid, post(self.alice, f"/api/vod/{vid}/finish", {"duration": 5, "cover": jpeg(1), "state_rev": rev}).get_json()
-
-        # the export can only link to my own project
-        self.assertEqual(post(self.bob, "/api/vod/new", {"mime": "video/webm", "project": pid}).status_code, 404)
-        self.assertEqual(post(self.alice, "/api/vod/new", {"mime": "video/webm", "project": "nope"}).status_code, 404)
-        # publishing before exporting or without a title is refused
-        r = post(self.alice, f"/api/projects/{pid}/publish")
-        self.assertEqual((r.status_code, r.get_json()["needs_export"]), (409, True))
-
-        # details typed in the publish sheet are kept on the draft, with a custom cover
-        r = post(self.alice, f"/api/projects/{pid}/save", {"rev": p["rev"], "title": "Best of", "description": "Highlights", "category": "Gaming", "visibility": "followers"}).get_json()["project"]
-        post(self.alice, f"/api/projects/{pid}/cover", {"cover": jpeg(9), "source": "upload"})
-        self.assertEqual((r["publish_problems"], r["state_rev"]), (["export"], 1))
-
-        # export: the clip is linked, takes the draft's title, and the draft becomes 'exported'
-        vid, fin = export(1, {"project": pid})
-        self.assertEqual((fin["video"]["title"], fin["video"]["visibility"], fin["video"]["is_clip"]), ("Best of", "private", True))
-        got = self.alice.get(f"/api/projects/{pid}").get_json()["project"]
-        self.assertEqual((got["status"], got["vod_id"], got["publish_problems"]), ("exported", vid, []))
-
-        # publish from the draft: details and the CUSTOM cover (not the automatic one) reach the video
-        r = post(self.alice, f"/api/projects/{pid}/publish")
-        self.assertEqual(r.status_code, 200, r.get_json())
-        v = r.get_json()["video"]
-        self.assertEqual((v["visibility"], v["title"], v["description"], v["category"]), ("followers", "Best of", "Highlights", "Gaming"))
-        self.assertTrue(self.alice.get(f"/api/vod/{vid}/cover").data.endswith(bytes([9]) * 300))
-        self.assertEqual(post(self.alice, f"/api/projects/{pid}/publish").status_code, 409)  # already published
-        self.assertEqual(self.anon.get("/api/channel/alice/videos").get_json()["videos"], [])  # followers only
-        self.assertEqual(post(self.bob, f"/api/projects/{pid}/publish").status_code, 404)
-
-        # changing the timeline makes the export stale; an export that finishes with an old state_rev stays a draft
-        post(self.alice, f"/api/vod/{vid}/unpublish")
-        got = post(self.alice, f"/api/projects/{pid}/save", {"rev": got["rev"], "state": {"clips": [{"uid": "e1", "asset": f"vod:{live}", "in": 0, "out": 8}]}}).get_json()["project"]
-        self.assertEqual((got["status"], got["state_rev"], "export" in got["publish_problems"]), ("draft", 2, True))
-        self.assertEqual(post(self.alice, f"/api/projects/{pid}/publish").status_code, 409)
-        vid2, _ = export(1, {"project": pid})  # rendered from the old timeline
-        self.assertEqual(self.alice.get(f"/api/projects/{pid}").get_json()["project"]["status"], "draft")
-        vid3, _ = export(2, {"project": pid})
-        self.assertEqual(self.alice.get(f"/api/projects/{pid}").get_json()["project"]["vod_id"], vid3)
-        r = post(self.alice, f"/api/projects/{pid}/publish", {"visibility": "private"})
-        self.assertEqual((r.status_code, r.get_json()["field"]), (400, "visibility"))
-        self.assertEqual(post(self.alice, f"/api/projects/{pid}/publish", {"visibility": "public"}).get_json()["video"]["visibility"], "public")
-        self.assertEqual({x["id"] for x in self.anon.get("/api/channel/alice/videos").get_json()["videos"]}, {vid3})
-
-        # deleting the exported clip: the draft is a draft again and says so
-        post(self.alice, f"/api/vod/{vid3}/delete")
-        got = self.alice.get(f"/api/projects/{pid}").get_json()["project"]
-        self.assertEqual((got["status"], got["vod_id"]), ("draft", None))
-
-        # publishing a clip directly now takes the whole set of details too
-        vid4, _ = export(0)
-        self.assertEqual(post(self.alice, f"/api/vod/{vid4}/publish", {"category": "Nope"}).status_code, 400)
-        self.assertEqual(post(self.alice, f"/api/vod/{vid4}/publish", {"cover": "data:image/png;base64,AAAA"}).status_code, 400)
-        v = post(self.alice, f"/api/vod/{vid4}/publish", {"title": "Direct", "description": "D", "category": "Art", "cover": jpeg(7)}).get_json()["video"]
-        self.assertEqual((v["title"], v["description"], v["category"], v["visibility"]), ("Direct", "D", "Art", "public"))
-        self.assertTrue(self.anon.get(f"/api/vod/{vid4}/cover").data.endswith(bytes([7]) * 300))
-
-    def test_projects_table_migrates_from_step_one(self):
-        import tempfile, os
-        path = os.path.join(tempfile.mkdtemp(), "old.db")
-        con = sqlite3.connect(path)
-        con.executescript("CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, email TEXT, password_hash TEXT, created_at INTEGER);"
-                          "CREATE TABLE vods (id TEXT PRIMARY KEY, user_id INTEGER, title TEXT NOT NULL DEFAULT '', mime TEXT, started_at INTEGER, updated_at INTEGER);"
-                          "CREATE TABLE edit_projects (id TEXT PRIMARY KEY, user_id INTEGER, name TEXT NOT NULL DEFAULT '', rev INTEGER NOT NULL DEFAULT 1, created_at INTEGER, updated_at INTEGER);")
+        live = self.live_vod(self.alice)
+        # footage from the device is not saved in a project: it only counts as time that is not live
+        mixed = lambda file_s: self.project(self.alice, [{"a": f"vod:{live}", "in": 0, "out": 10}, {"a": "file:me.mp4:1:1", "in": 0, "out": file_s}])
+        new = lambda pid: post(self.alice, "/api/vod/new", {"mime": "video/webm", "project_id": pid})
+        self.assertEqual(new(mixed(4)).status_code, 200)                       # 10 of 14 s = 71%
+        r = new(mixed(5))                                                       # 10 of 15 s = 66%
+        self.assertEqual((r.status_code, r.get_json()["live_pct"], r.get_json()["field"]), (400, 66, "live"))
+        self.assertEqual(new(self.project(self.alice, [{"a": "file:me.mp4:1:1", "in": 0, "out": 9}])).status_code, 400)  # no live at all
+        # speed changes the length that counts, not just the cut
+        self.assertEqual(new(self.project(self.alice, [{"a": f"vod:{live}", "in": 0, "out": 10}, {"a": "file:x:1:1", "in": 0, "out": 8, "speed": 2}])).status_code, 200)  # 10 s of live + 8 s at 2x = 4 s: 71%
+        # somebody else's live recording doesn't count as mine
+        theirs = self.live_vod(self.bob)
+        pid = self.project(self.alice, [{"a": f"vod:{theirs}", "in": 0, "out": 10}])
+        self.assertEqual(new(pid).status_code, 400)
+        # a project can't be used by someone else, and an export needs one
+        self.assertEqual(post(self.bob, "/api/vod/new", {"mime": "video/webm", "project_id": pid}).status_code, 400)
+        # an edit of an edit counts for its own live share, so footage can't be laundered through exports
+        half = self.project(self.alice, [{"a": f"vod:{live}", "in": 0, "out": 10}, {"a": "file:x:1:1", "in": 0, "out": 8}])  # 10 of 18 s = 55%
+        self.assertEqual(new(half).status_code, 400)
+        con = sqlite3.connect(config.DB_PATH)
+        con.execute("UPDATE vods SET live_pct = 70, source = 'edit' WHERE id = ?", (live,))
         con.commit()
         con.close()
-        saved = config.DB_PATH
-        config.DB_PATH = path
-        try:
-            database.init_db()
-            database.init_db()
-            con = sqlite3.connect(path)
-            self.assertIn("state_rev", {r[1] for r in con.execute("PRAGMA table_info(edit_projects)")})
-            self.assertIn("project_id", {r[1] for r in con.execute("PRAGMA table_info(vods)")})
-            con.close()
-        finally:
-            config.DB_PATH = saved
+        self.assertEqual(new(self.project(self.alice, [{"a": f"vod:{live}", "in": 0, "out": 10}])).status_code, 200)  # an edit that is 70% live is worth 70%: just enough
+        con = sqlite3.connect(config.DB_PATH)
+        con.execute("UPDATE vods SET live_pct = 50 WHERE id = ?", (live,))
+        con.commit()
+        con.close()
+        self.assertEqual(new(self.project(self.alice, [{"a": f"vod:{live}", "in": 0, "out": 10}])).status_code, 400)
+
+    def test_publish_needs_cover_and_live_share(self):
+        self.signup(self.alice, "alice")
+        live = self.live_vod(self.alice)
+        con = sqlite3.connect(config.DB_PATH)
+        con.execute("UPDATE vods SET cover = NULL WHERE id = ?", (live,))
+        con.commit()
+        con.close()
+        # no cover: it can't go public, either by publishing or by changing who can see it
+        r = post(self.alice, f"/api/vod/{live}/publish", {"title": "Hi"})
+        self.assertEqual((r.status_code, r.get_json()["field"]), (400, "cover"))
+        self.assertEqual(post(self.alice, f"/api/vod/{live}/visibility", {"visibility": "public"}).status_code, 400)
+        self.assertEqual(post(self.alice, f"/api/vod/{live}/publish", {"cover": "data:image/png;base64,AAAA"}).status_code, 400)
+        r = post(self.alice, f"/api/vod/{live}/publish", {"cover": JPEG, "visibility": "followers", "category": "Music", "title": "Show"}).get_json()["video"]
+        self.assertEqual((r["visibility"], r["category"], r["title"]), ("followers", "Music", "Show"))
+        self.assertIsNotNone(r["cover"])
+        self.assertEqual(post(self.alice, f"/api/vod/{live}/visibility", {"visibility": "public"}).status_code, 200)
+        # an edit below the live share can't be published whatever the cover
+        ed = self.new_edit(self.alice)
+        con = sqlite3.connect(config.DB_PATH)
+        con.execute("UPDATE vods SET live_pct = 40 WHERE id = ?", (ed,))
+        con.commit()
+        con.close()
+        r = post(self.alice, f"/api/vod/{ed}/publish", {"cover": JPEG})
+        self.assertEqual((r.status_code, r.get_json()["field"]), (400, "live"))
+        self.assertEqual(post(self.alice, f"/api/vod/{ed}/visibility", {"visibility": "public"}).status_code, 400)
+        # older exports that were never measured keep working
+        con = sqlite3.connect(config.DB_PATH)
+        con.execute("UPDATE vods SET live_pct = -1 WHERE id = ?", (ed,))
+        con.commit()
+        con.close()
+        self.assertEqual(post(self.alice, f"/api/vod/{ed}/publish", {"cover": JPEG}).status_code, 200)
+
+    def test_recordings_can_not_be_downloaded(self):
+        self.signup(self.alice, "alice")
+        live = self.live_vod(self.alice)
+        url = f"/api/vod/{live}/video"
+        ok = lambda **h: self.alice.get(url, headers=h).status_code
+        self.assertEqual(ok(), 200)                                                               # a client that sends no hints
+        self.assertEqual(ok(**{"Sec-Fetch-Dest": "video", "Sec-Fetch-Site": "same-origin"}), 200)  # the <video> element
+        self.assertEqual(ok(**{"Sec-Fetch-Dest": "document", "Sec-Fetch-Site": "none"}), 403)     # opened in a tab / "save link as"
+        self.assertEqual(ok(**{"Sec-Fetch-Dest": "empty", "Sec-Fetch-Site": "same-origin"}), 403)  # fetch() copying the bytes
+        self.assertEqual(ok(**{"Sec-Fetch-Dest": "video", "Sec-Fetch-Site": "cross-site"}), 403)  # another site embedding it
+        r = self.alice.get(url, headers={"Sec-Fetch-Dest": "video", "Sec-Fetch-Site": "same-origin"})
+        self.assertEqual(r.headers["Content-Disposition"], "inline")
+        r.close()
 
     def test_old_databases_get_clip_columns(self):
         """A database made before clips and replies keeps its videos published and gets the new columns."""
@@ -1936,7 +1842,7 @@ class YeliTests(unittest.TestCase):
         for who in (self.anon, self.bob):
             for tail in ("", "/video", "/cover"):
                 self.assertEqual(who.get(f"/api/vod/{vid}{tail}").status_code, 404, tail)
-        self.assertEqual(self.alice.get(f"/api/vod/{vid}/video", headers=PLAY).status_code, 200)
+        self.assertEqual(self.alice.get(f"/api/vod/{vid}/video").status_code, 200)
         self.assertEqual(self.alice.get(f"/api/vod/{vid}/cover").status_code, 200)
         self.assertEqual([x["id"] for x in self.alice.get("/api/me/videos").get_json()["videos"]], [vid])
         self.assertEqual(self.anon.get("/api/me/videos").status_code, 401)
@@ -1951,8 +1857,8 @@ class YeliTests(unittest.TestCase):
         # publishing: only the owner, a title is required, then it is public
         self.assertEqual(post(self.bob, f"/api/vod/{vid}/publish").status_code, 404)
         self.assertEqual(post(self.anon, f"/api/vod/{vid}/publish").status_code, 401)
-        self.assertEqual(post(self.alice, f"/api/vod/{vid}/publish", {"title": " "}).status_code, 400)
-        r = post(self.alice, f"/api/vod/{vid}/publish", {"description": "Hello"}).get_json()["video"]
+        self.assertEqual(post(self.alice, f"/api/vod/{vid}/publish", {"title": " ", "cover": JPEG}).status_code, 400)
+        r = post(self.alice, f"/api/vod/{vid}/publish", {"description": "Hello", "cover": JPEG}).get_json()["video"]
         self.assertEqual((r["visibility"], r["description"], r["can_edit"]), ("public", "Hello", True))
         self.assertFalse(r["edited"])  # publishing did not use up the one change either
         listed = self.anon.get("/api/channel/alice/videos").get_json()["videos"]
@@ -1963,10 +1869,10 @@ class YeliTests(unittest.TestCase):
         self.assertEqual(self.alice.post(url + "?seq=3", data=b"late", **octet).status_code, 409)
 
         # the video file can be played and seeked (Range)
-        full = self.anon.get(f"/api/vod/{vid}/video", headers=PLAY)
+        full = self.anon.get(f"/api/vod/{vid}/video")
         self.assertEqual((full.status_code, full.mimetype), (200, "video/webm"))
         self.assertTrue(full.data.startswith(b"AAAABBBB"))
-        part = self.anon.get(f"/api/vod/{vid}/video", headers={**PLAY, "Range": "bytes=4-7"})
+        part = self.anon.get(f"/api/vod/{vid}/video", headers={"Range": "bytes=4-7"})
         self.assertEqual((part.status_code, part.data), (206, b"BBBB"))
 
         # one change only: title + description + cover together, then it is locked
@@ -2073,7 +1979,7 @@ class YeliTests(unittest.TestCase):
         vid = post(self.alice, "/api/vod/start", {"mime": "video/webm"}).get_json()["id"]
         self.alice.post(f"/api/vod/{vid}/chunk?seq=0", data=b"AAAA", content_type="application/octet-stream")
         post(self.alice, f"/api/vod/{vid}/finish")
-        post(self.alice, f"/api/vod/{vid}/publish")
+        post(self.alice, f"/api/vod/{vid}/publish", {"cover": JPEG})
         post(self.bob, f"/api/vod/{vid}/like", {"liked": True})
         post(self.bob, f"/api/vod/{vid}/like", {"liked": True})
         post(self.bob, f"/api/vod/{vid}/comments", {"text": "nice one"})

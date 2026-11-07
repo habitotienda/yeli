@@ -85,3 +85,17 @@
 .obs .trans-row { grid-template-columns: minmax(0, 1fr) 84px; }
 .obs .trans-row .obs-input { min-height: 34px; }
 .obs .trans-row input[type="number"] { padding-inline: 4px; }
+
+/* Estudio OBS: en pantallas angostas o con zoom, los 4 paneles de abajo (Escenas, Fuentes, Mezclador, Controles)
+   sumaban más ancho del que tenían y se metían encima del chat. Ahora las columnas pueden achicarse
+   (minmax(0, …)) y lo que no entra se corta dentro de cada panel en vez de salirse. */
+@media (min-width: 1001px) {
+    .obs .obs-docks {
+        grid-template-columns:
+            minmax(0, 1.15fr) minmax(0, 0.9fr) minmax(0, 1.2fr) minmax(0, 0.95fr);
+        min-width: 0;
+        overflow: hidden;
+    }
+    .obs .obs-docks .dock { min-width: 0; overflow: hidden; }
+    .obs .dock-body { overflow-y: auto; overflow-x: hidden; }
+}

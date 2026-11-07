@@ -620,6 +620,7 @@ async function pageChannel(root, name, alive) {
     const controls = createPlayerControls(player, video, {
         live: true,
         quality: ch.mode === 'sfu' ? null : { onChange: (h) => { if (watcher) watcher.setQuality(h); } },
+        fsTarget: $('.channel-layout'),   // fullscreen keeps the chat next to the video, so you can read and write
     });
     const chestChip = createChestChip($('#chestChip'), { isOwner: ch.is_me });
     const chat = createChat($('#chatPanel'), ch.username, { isOwner: ch.is_me, canMod: ch.is_me || ch.is_mod });

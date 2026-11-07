@@ -29,9 +29,9 @@ html[data-theme="light"] {
    1. CHAT
    ========================================================================== */
 .chat {
-    border-radius: 18px;
+    border-radius: 4px;
     border: 1px solid var(--p5-line);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.16);
+    box-shadow: none;
 }
 .obs-chat .chat { border-radius: 0; box-shadow: none; border: 0; }
 .popout-overlay .chat { box-shadow: none; border: 0; }
@@ -39,7 +39,7 @@ html[data-theme="light"] {
 .chat-head {
     padding: 14px 16px;
     border-bottom: 1px solid var(--p5-line);
-    background: linear-gradient(180deg, rgba(255, 166, 0, 0.09), transparent);
+    background: transparent;
 }
 .chat-head h2 { display: inline-flex; align-items: center; gap: 9px; font-size: 20px; }
 .chat-head h2::before {
@@ -51,66 +51,66 @@ html[data-theme="light"] {
 /* Botones de la cabecera */
 .chat-tools { gap: 6px; }
 .chat-popout {
-    width: 32px; height: 32px; border-radius: 10px; color: var(--p5-soft);
+    width: 32px; height: 32px; border-radius: 4px; color: var(--p5-soft);
     transition: background 0.15s, color 0.15s, transform 0.15s var(--ease-out, ease);
 }
 .chat-popout:hover { background: var(--p5-hover); color: var(--text-color); }
 .chat-popout:active { transform: scale(0.92); }
 .chat-popout[aria-pressed="true"] { color: var(--primary-color); background: rgba(255, 166, 0, 0.14); }
 .chat-donate {
-    padding: 6px 13px; border-radius: 999px; font-weight: 700;
-    background: linear-gradient(135deg, rgba(255, 190, 40, 0.22), rgba(255, 110, 0, 0.12));
+    padding: 6px 13px; border-radius: 4px; font-weight: 700;
+    background: rgba(255, 190, 40, 0.22);
     border-color: rgba(255, 190, 40, 0.5);
     transition: transform 0.15s var(--ease-out, ease), box-shadow 0.15s, background 0.15s;
 }
-.chat-donate:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(255, 166, 0, 0.28); background: linear-gradient(135deg, rgba(255, 190, 40, 0.32), rgba(255, 110, 0, 0.18)); }
+.chat-donate:hover { transform: translateY(-1px); box-shadow: none; background: rgba(255, 190, 40, 0.32); }
 
 /* Lista de mensajes */
 .chat-log { padding: 10px 8px 10px 10px; gap: 2px; scrollbar-width: thin; scrollbar-color: rgba(128, 132, 146, 0.4) transparent; }
 .chat-empty {
     display: grid; gap: 8px; justify-items: center; padding: 28px 20px;
-    border: 1px dashed var(--p5-line); border-radius: 16px; max-width: 260px;
+    border: 1px dashed var(--p5-line); border-radius: 4px; max-width: 260px;
 }
 .chat-empty::before { content: "\1F4AC"; font-size: 26px; }
 
 body:not(.popout-overlay) .chat-msg {
-    padding: 5px 30px 5px 8px; margin: 0 -2px; border-radius: 10px;
+    padding: 5px 30px 5px 8px; margin: 0 -2px; border-radius: 4px;
     transition: background 0.12s;
     animation: p5-msg 0.22s var(--ease-out, ease) both;
 }
 body:not(.popout-overlay) .chat-msg:hover { background: var(--p5-hover); }
 .chat-user { font-weight: 700; }
-.chat-del { top: 5px; right: 4px; border-radius: 8px; }
+.chat-del { top: 5px; right: 4px; border-radius: 3px; }
 
 /* Insignias como píldoras */
 .chat-badge {
-    margin-left: 6px; padding: 1px 8px; border-radius: 999px; font-size: 9.5px; letter-spacing: 0.06em;
+    margin-left: 6px; padding: 1px 8px; border-radius: 4px; font-size: 9.5px; letter-spacing: 0.06em;
     box-shadow: 0 1px 0 rgba(255, 255, 255, 0.25) inset;
 }
-.chat-medal { margin-left: 5px; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.3)); }
+.chat-medal { margin-left: 5px; filter: none; }
 
 /* Mensaje del bot */
 body:not(.popout-overlay) .chat-bot {
-    padding: 7px 10px 7px 12px; border-left: 0; border-radius: 12px;
-    background: linear-gradient(90deg, rgba(77, 171, 247, 0.16), rgba(77, 171, 247, 0.04));
+    padding: 7px 10px 7px 12px; border-left: 0; border-radius: 4px;
+    background: rgba(77, 171, 247, 0.16);
     box-shadow: inset 3px 0 0 #4dabf7;
 }
 .chat-bot-name { font-weight: 700; }
 
 /* Mensaje de voz (TTS) */
 body:not(.popout-overlay) .chat-tts {
-    padding: 7px 10px; border-left: 0; border-radius: 12px; align-items: center;
-    background: linear-gradient(90deg, rgba(255, 210, 77, 0.17), rgba(255, 210, 77, 0.04));
+    padding: 7px 10px; border-left: 0; border-radius: 4px; align-items: center;
+    background: rgba(255, 210, 77, 0.17);
     box-shadow: inset 3px 0 0 #ffd24d;
 }
 .chat-tts-icon { width: 22px; height: 22px; place-items: center; border-radius: 50%; background: rgba(255, 210, 77, 0.2); padding: 0; }
 
 /* Donaciones */
 .chat-donation {
-    position: relative; margin: 6px 0; padding: 12px 14px; border-radius: 14px;
+    position: relative; margin: 6px 0; padding: 12px 14px; border-radius: 4px;
     border: 1px solid rgba(255, 190, 40, 0.6);
-    background: linear-gradient(135deg, rgba(255, 190, 40, 0.22), rgba(255, 110, 0, 0.1));
-    box-shadow: 0 6px 18px rgba(255, 166, 0, 0.14);
+    background: rgba(255, 190, 40, 0.22);
+    box-shadow: none;
     animation: p5-donation 0.5s var(--ease-out, ease) both;
 }
 .chat-donation-head { font-size: 14px; }
@@ -122,7 +122,7 @@ body:not(.popout-overlay) .chat-tts {
 /* Herramientas de moderador (aparecen al pasar el cursor) */
 .chat-modtools { gap: 5px; }
 .chat-modtools button {
-    padding: 2px 9px; border-radius: 999px; font-size: 11px;
+    padding: 2px 9px; border-radius: 4px; font-size: 11px;
     background: var(--p5-surface-2); border: 1px solid var(--p5-line); color: var(--text-color);
     transition: background 0.12s, border-color 0.12s, color 0.12s;
 }
@@ -130,8 +130,8 @@ body:not(.popout-overlay) .chat-tts {
 
 /* Botón "New messages" */
 .chat-jump {
-    padding: 7px 16px; font-weight: 700; border-radius: 999px;
-    box-shadow: 0 8px 22px rgba(255, 166, 0, 0.4);
+    padding: 7px 16px; font-weight: 700; border-radius: 4px;
+    box-shadow: none;
     animation: p5-jump 0.22s var(--ease-out, ease) both;
 }
 
@@ -141,7 +141,7 @@ html[data-theme="light"] .chat-foot { background: #fff; }
 .obs-chat .chat-foot { background: var(--o-panel); }
 .chat-form { gap: 8px; align-items: center; }
 .chat-input {
-    min-height: 42px; padding: 10px 16px; border-radius: 999px; font-size: 14px;
+    min-height: 42px; padding: 10px 16px; border-radius: 4px; font-size: 14px;
     background: var(--p5-field); border: 1px solid var(--p5-line);
     transition: border-color 0.15s, box-shadow 0.15s;
 }
@@ -151,33 +151,33 @@ html[data-theme="light"] .chat-input { border-color: #cdd2dc; }
 .chat-form .chat-sticker-btn:hover { background: rgba(255, 166, 0, 0.16); transform: scale(1.06); }
 .chat-form .chat-sticker-btn[aria-expanded="true"] { background: rgba(255, 166, 0, 0.18); }
 .chat-send {
-    min-height: 42px; padding: 0 20px; border-radius: 999px; font-weight: 700;
-    box-shadow: 0 5px 14px rgba(255, 166, 0, 0.3);
+    min-height: 42px; padding: 0 20px; border-radius: 4px; font-weight: 700;
+    box-shadow: none;
     transition: transform 0.14s var(--ease-out, ease), box-shadow 0.18s;
 }
-.chat-send:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(255, 166, 0, 0.4); }
+.chat-send:hover { transform: translateY(-1px); box-shadow: none; }
 .chat-send:active { transform: scale(0.96); }
-.chat-error { padding: 8px 12px; border-radius: 10px; background: rgba(224, 20, 58, 0.1); }
+.chat-error { padding: 8px 12px; border-radius: 4px; background: rgba(224, 20, 58, 0.1); }
 
 /* Selector de stickers */
 .sticker-pop {
-    left: 8px; right: 8px; bottom: calc(100% + 6px); padding: 12px; border-radius: 18px;
+    left: 8px; right: 8px; bottom: calc(100% + 6px); padding: 12px; border-radius: 4px;
     background: var(--p5-surface); border: 1px solid var(--p5-line);
-    box-shadow: 0 -14px 40px rgba(0, 0, 0, 0.45);
+    box-shadow: none;
     animation: p5-pop 0.2s var(--ease-out, ease) both; transform-origin: 50% 100%;
     scrollbar-width: thin;
 }
-html[data-theme="light"] .sticker-pop { background: #fff; box-shadow: 0 -14px 36px rgba(20, 26, 44, 0.2); }
-.sticker-tabs { gap: 4px; padding: 4px; margin-bottom: 12px; border-radius: 999px; background: var(--p5-surface-2); border: 1px solid var(--p5-line); }
-.sticker-tabs button { padding: 7px 8px; border: 0; border-radius: 999px; transition: background 0.15s, color 0.15s; }
+html[data-theme="light"] .sticker-pop { background: #fff; box-shadow: none; }
+.sticker-tabs { gap: 4px; padding: 4px; margin-bottom: 12px; border-radius: 4px; background: var(--p5-surface-2); border: 1px solid var(--p5-line); }
+.sticker-tabs button { padding: 7px 8px; border: 0; border-radius: 4px; transition: background 0.15s, color 0.15s; }
 .sticker-tabs button:hover { color: var(--text-color); }
-.sticker-tabs button[aria-selected="true"] { box-shadow: 0 4px 10px rgba(255, 166, 0, 0.35); }
+.sticker-tabs button[aria-selected="true"] { box-shadow: none; }
 .sticker-grid { gap: 8px; }
-.sticker-btn { padding: 8px 4px 6px; border-radius: 14px; background: var(--p5-surface-2); transition: transform 0.14s var(--ease-out, ease), border-color 0.14s, background 0.14s; }
+.sticker-btn { padding: 8px 4px 6px; border-radius: 4px; background: var(--p5-surface-2); transition: transform 0.14s var(--ease-out, ease), border-color 0.14s, background 0.14s; }
 .sticker-btn:hover, .sticker-btn:focus-visible { transform: translateY(-2px) scale(1.06); background: rgba(255, 166, 0, 0.12); outline: none; }
-.sticker-cost { padding: 0 7px; border-radius: 999px; background: rgba(255, 210, 77, 0.16); }
+.sticker-cost { padding: 0 7px; border-radius: 4px; background: rgba(255, 210, 77, 0.16); }
 .sticker-confirm { padding: 8px 0 2px; }
-.sticker-empty { padding: 18px 10px; text-align: center; border: 1px dashed var(--p5-line); border-radius: 14px; line-height: 1.5; }
+.sticker-empty { padding: 18px 10px; text-align: center; border: 1px dashed var(--p5-line); border-radius: 4px; line-height: 1.5; }
 
 /* ==========================================================================
    2. PÁGINA DEL BOT (#/bot)
@@ -189,22 +189,22 @@ html[data-theme="light"] .sticker-pop { background: #fff; box-shadow: 0 -14px 36
 .section:has(#cmdForm) > .section-title::before,
 .section:has(#ttsForm) > .section-title::before,
 .section:has(#setForm) > .section-title::before { content: ""; width: 5px; height: 22px; border-radius: 4px; background: var(--primary-color); }
-.section:has(#ttsForm) > .section-title::before { background: linear-gradient(180deg, #ffd24d, #f08c00); }
-.section:has(#setForm) > .section-title::before { background: linear-gradient(180deg, #4dabf7, #1c7ed6); }
+.section:has(#ttsForm) > .section-title::before { background: #ffd24d; }
+.section:has(#setForm) > .section-title::before { background: #4dabf7; }
 
 #cmdForm, #ttsForm, #setForm {
-    padding: 22px; gap: 16px; border-radius: 18px;
+    padding: 22px; gap: 16px; border-radius: 4px;
     border: 1px solid var(--p5-line); background: var(--p5-surface);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    box-shadow: none;
 }
-html[data-theme="light"] #cmdForm, html[data-theme="light"] #ttsForm, html[data-theme="light"] #setForm { box-shadow: 0 8px 22px rgba(20, 26, 44, 0.07); }
+html[data-theme="light"] #cmdForm, html[data-theme="light"] #ttsForm, html[data-theme="light"] #setForm { box-shadow: none; }
 
 /* Campos */
 #cmdForm .field label, #ttsForm .field label, #setForm .field label { font-size: 12.5px; font-weight: 700; letter-spacing: 0.04em; color: var(--p5-soft); }
 #cmdForm .field input, #cmdForm .field select, #cmdForm .field textarea,
 #ttsForm .field input, #ttsForm .field select, #ttsForm .field textarea,
 #setForm .field input, #setForm .field select, #setForm .field textarea {
-    min-height: 44px; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--p5-line); background-color: var(--p5-field);
+    min-height: 44px; padding: 10px 14px; border-radius: 4px; border: 1px solid var(--p5-line); background-color: var(--p5-field);
 }
 html[data-theme="light"] #cmdForm .field input, html[data-theme="light"] #cmdForm .field select, html[data-theme="light"] #cmdForm .field textarea,
 html[data-theme="light"] #ttsForm .field input, html[data-theme="light"] #ttsForm .field select,
@@ -218,7 +218,7 @@ html[data-theme="light"] #setForm .field input, html[data-theme="light"] #setFor
 
 /* Casillas como interruptores */
 #ttsForm .check, #setForm .check {
-    align-items: center; gap: 14px; padding: 13px 14px; border-radius: 14px;
+    align-items: center; gap: 14px; padding: 13px 14px; border-radius: 4px;
     background: var(--p5-surface-2); border: 1px solid var(--p5-line);
     transition: border-color 0.15s, background 0.15s;
 }
@@ -226,12 +226,12 @@ html[data-theme="light"] #setForm .field input, html[data-theme="light"] #setFor
 #ttsForm .check:has(input:checked), #setForm .check:has(input:checked) { background: rgba(255, 166, 0, 0.08); border-color: rgba(255, 166, 0, 0.4); }
 #ttsForm .check input, #setForm .check input {
     appearance: none; -webkit-appearance: none; flex: none; order: 2; margin: 0 0 0 auto;
-    position: relative; width: 42px; height: 24px; border-radius: 999px; background: #4a4d57; cursor: pointer;
+    position: relative; width: 42px; height: 24px; border-radius: 4px; background: #4a4d57; cursor: pointer;
     transition: background 0.2s;
 }
 #ttsForm .check input::after, #setForm .check input::after {
     content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35); transition: transform 0.2s var(--ease-out, ease);
+    box-shadow: none; transition: transform 0.2s var(--ease-out, ease);
 }
 #ttsForm .check input:checked, #setForm .check input:checked { background: #2fb344; }
 #ttsForm .check input:checked::after, #setForm .check input:checked::after { transform: translateX(18px); }
@@ -242,15 +242,15 @@ html[data-theme="light"] #ttsForm .check input:checked, html[data-theme="light"]
 #setForm .stack { display: grid; gap: 10px; }
 
 /* Botones */
-#cmdForm .row .btn, #ttsForm .row .btn, #setForm .row .btn { min-height: 44px; padding: 0 22px; border-radius: 12px; font-weight: 700; }
-#cmdForm .btn-primary, #ttsForm .btn-primary, #setForm .btn-primary { box-shadow: 0 6px 16px rgba(255, 166, 0, 0.3); transition: transform 0.14s var(--ease-out, ease), box-shadow 0.18s; }
-#cmdForm .btn-primary:hover, #ttsForm .btn-primary:hover, #setForm .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(255, 166, 0, 0.42); }
+#cmdForm .row .btn, #ttsForm .row .btn, #setForm .row .btn { min-height: 44px; padding: 0 22px; border-radius: 4px; font-weight: 700; }
+#cmdForm .btn-primary, #ttsForm .btn-primary, #setForm .btn-primary { box-shadow: none; transition: transform 0.14s var(--ease-out, ease), box-shadow 0.18s; }
+#cmdForm .btn-primary:hover, #ttsForm .btn-primary:hover, #setForm .btn-primary:hover { transform: translateY(-1px); box-shadow: none; }
 #cmdForm .btn-secondary, #ttsForm .btn-secondary, #setForm .btn-secondary { background: var(--p5-hover); border-color: transparent; }
 #cmdForm .btn-secondary:hover, #ttsForm .btn-secondary:hover, #setForm .btn-secondary:hover { background: rgba(255, 166, 0, 0.16); }
-#cmdForm .form-error, #ttsForm .form-error, #setForm .form-error { padding: 10px 12px; border-radius: 10px; background: rgba(224, 20, 58, 0.1); }
+#cmdForm .form-error, #ttsForm .form-error, #setForm .form-error { padding: 10px 12px; border-radius: 4px; background: rgba(224, 20, 58, 0.1); }
 
 /* Tabla de comandos */
-.section:has(#cmdForm) .table-wrap { margin-top: 16px; border-radius: 16px; border-color: var(--p5-line); background: var(--p5-surface); }
+.section:has(#cmdForm) .table-wrap { margin-top: 16px; border-radius: 4px; border-color: var(--p5-line); background: var(--p5-surface); }
 .section:has(#cmdForm) .table th { padding: 12px 16px; font-size: 11px; letter-spacing: 0.09em; text-transform: uppercase; background: var(--p5-surface-2); border-bottom-color: var(--p5-line); }
 .section:has(#cmdForm) .table td { padding: 12px 16px; border-bottom-color: var(--p5-line); }
 .section:has(#cmdForm) .table td.wrap { white-space: normal; min-width: 180px; color: var(--p5-soft); }
@@ -258,14 +258,14 @@ html[data-theme="light"] #ttsForm .check input:checked, html[data-theme="light"]
 .section:has(#cmdForm) .table tbody tr:hover { background: var(--p5-hover); }
 .section:has(#cmdForm) .table td.actions { justify-content: flex-end; }
 .section:has(#cmdForm) .table code, .section:has(#cmdForm) .hint code, .section:has(#ttsForm) code, .page-sub code {
-    padding: 2px 8px; border-radius: 8px; background: rgba(255, 166, 0, 0.14); color: var(--primary-text, var(--primary-color));
+    padding: 2px 8px; border-radius: 3px; background: rgba(255, 166, 0, 0.14); color: var(--primary-text, var(--primary-color));
     font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px; font-weight: 600;
 }
 .section:has(#cmdForm) .badge { background: rgba(77, 171, 247, 0.18); color: #4dabf7; font-weight: 700; }
-.section:has(#cmdForm) > p.muted { margin-top: 14px; padding: 22px; text-align: center; border: 1px dashed var(--p5-line); border-radius: 14px; }
-.section:has(#cmdForm) > .hint { margin-top: 14px; padding: 12px 14px; border-radius: 12px; background: var(--p5-hover); line-height: 1.9; }
+.section:has(#cmdForm) > p.muted { margin-top: 14px; padding: 22px; text-align: center; border: 1px dashed var(--p5-line); border-radius: 4px; }
+.section:has(#cmdForm) > .hint { margin-top: 14px; padding: 12px 14px; border-radius: 4px; background: var(--p5-hover); line-height: 1.9; }
 .section:has(#cmdForm) .obs-btn {
-    min-height: 34px; padding: 0 14px; border-radius: 999px; font-weight: 600; font-size: 13px;
+    min-height: 34px; padding: 0 14px; border-radius: 4px; font-weight: 600; font-size: 13px;
     background: var(--p5-hover); border: 1px solid transparent; color: var(--text-color);
     transition: background 0.14s, border-color 0.14s, color 0.14s;
 }
@@ -276,10 +276,10 @@ html[data-theme="light"] #ttsForm .check input:checked, html[data-theme="light"]
    Móvil
    ========================================================================== */
 @media (max-width: 720px) {
-    #cmdForm, #ttsForm, #setForm { padding: 18px; border-radius: 18px; }
+    #cmdForm, #ttsForm, #setForm { padding: 18px; border-radius: 4px; }
     #cmdForm .row .btn, #ttsForm .row .btn, #setForm .row .btn { flex: 1 1 100%; }
     .section:has(#cmdForm) .table th, .section:has(#cmdForm) .table td { padding: 10px 12px; }
-    .chat { border-radius: 16px; }
+    .chat { border-radius: 4px; }
     .sticker-pop { left: 4px; right: 4px; }
 }
 

@@ -42,7 +42,9 @@ function saveQualityPref(q) {
  * opts.seekable = true adds a progress bar, the time and a speed button (recorded videos).
  * Returns { destroy(), getQuality() }.
  */
-function createPlayerControls(player, video, { live = true, quality = null, seekable = false } = {}) {
+function createPlayerControls(player, video, { live = true, quality = null, seekable = false, fsTarget = null } = {}) {
+    // What goes fullscreen. On a channel page it is the whole watch layout, so the chat comes along; elsewhere, the player.
+    const fsEl = fsTarget || player;
     let currentQuality = quality ? loadQualityPref() : 0;
     const prefs = loadVolumePrefs();
     video.volume = prefs.volume;
@@ -72,7 +74,15 @@ function createPlayerControls(player, video, { live = true, quality = null, seek
 
     const btn = (name) => el.querySelector(`[data-vc="${name}"]`);
     const slider = el.querySelector('.vc-volume');
-    const isFs = () => document.fullscreenElement === player || document.webkitFullscreenElement === player;
+    const isFs = () => document.fullscreenElement === fsEl || document.webkitFullscreenElement === fsEl || fsEl.classList.contains('is-pseudo-fs');
+    // Browsers without the Fullscreen API for elements (iPhone): fill the screen with CSS instead.
+    const setPseudoFs = (on) => {
+        fsEl.classList.toggle('is-pseudo-fs', on);
+        document.documentElement.classList.toggle('has-pseudo-fs', on);
+        paint();
+    };
+    const onEsc = (e) => { if (e.key === 'Escape' && fsEl.classList.contains('is-pseudo-fs')) setPseudoFs(false); };
+    document.addEventListener('keydown', onEsc);
 
     function paint() {
         btn('play').innerHTML = video.paused ? VC_ICONS.play : VC_ICONS.pause;
@@ -93,8 +103,11 @@ function createPlayerControls(player, video, { live = true, quality = null, seek
     const userChoice = () => { delete video.dataset.noPersist; };
     const toggleMute = () => { userChoice(); video.muted = !video.muted; if (!video.muted && video.volume === 0) video.volume = 0.5; };
     const toggleFs = () => {
-        if (isFs()) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
-        else (player.requestFullscreen || player.webkitRequestFullscreen || (() => {})).call(player);
+        if (fsEl.classList.contains('is-pseudo-fs')) { setPseudoFs(false); return; }
+        if (isFs()) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
+        const request = fsEl.requestFullscreen || fsEl.webkitRequestFullscreen;
+        if (!request) { setPseudoFs(true); return; }
+        Promise.resolve(request.call(fsEl)).catch(() => setPseudoFs(true));
     };
     const togglePip = async () => {
         try {
@@ -274,7 +287,9 @@ function createPlayerControls(player, video, { live = true, quality = null, seek
             document.removeEventListener('click', onDocClick);
             document.removeEventListener('fullscreenchange', onFs);
             document.removeEventListener('webkitfullscreenchange', onFs);
-            if (document.fullscreenElement === player) document.exitFullscreen().catch(() => {});
+            document.removeEventListener('keydown', onEsc);
+            if (fsEl.classList.contains('is-pseudo-fs')) setPseudoFs(false);
+            if (document.fullscreenElement === fsEl) document.exitFullscreen().catch(() => {});
         },
     };
 }

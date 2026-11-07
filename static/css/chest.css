@@ -39,7 +39,7 @@
 
 /* Locked: dull and closed. Ready: bright, glowing and wiggling. Open: lid up with light coming out. */
 .chest-art.is-locked .chest-svg { filter: grayscale(0.6) brightness(0.8); }
-.chest-art.is-ready .chest-svg { filter: drop-shadow(0 0 14px rgba(255, 196, 0, 0.75)); animation: chest-wiggle 1.6s ease-in-out infinite; }
+.chest-art.is-ready .chest-svg { filter: none; animation: chest-wiggle 1.6s ease-in-out infinite; }
 .chest-art.is-open .chest-lid,
 .chest-art.is-opening .chest-lid { transform: translate(-10px, -26px) rotate(-14deg); }
 .chest-art.is-open .chest-lock,
@@ -80,15 +80,15 @@
     height: 12px;
     background: var(--field-bg);
     border: 1px solid var(--border-color);
-    border-radius: 999px;
+    border-radius: 4px;
     overflow: hidden;
 }
 
 .chest-bar > span {
     display: block;
     height: 100%;
-    background: linear-gradient(90deg, #ffd43b, var(--primary-color));
-    border-radius: 999px;
+    background: #ffd43b;
+    border-radius: 4px;
     transition: width 0.6s ease;
 }
 
@@ -133,7 +133,7 @@
     width: 84px;
     height: 84px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #ffd43b, var(--primary-color));
+    background: #ffd43b;
     color: #3a2400;
     font-size: 2rem;
     font-weight: 700;

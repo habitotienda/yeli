@@ -36,7 +36,7 @@ body::before {
     inset: 0;
     z-index: -1;
     pointer-events: none;
-    background: radial-gradient(60% 45% at 85% -10%, rgba(var(--accent-rgb), 0.09), transparent 70%);
+    background: transparent;
 }
 
 .site-header::after {
@@ -46,7 +46,7 @@ body::before {
     right: 0;
     bottom: -1px;
     height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(var(--accent-rgb), 0.55) 50%, transparent);
+    background: rgba(var(--accent-rgb), 0.55);
     opacity: 0.7;
     pointer-events: none;
 }
@@ -66,14 +66,14 @@ body::before {
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
-    box-shadow: 0 2px 10px rgba(var(--accent-rgb), 0.2);
+    background: var(--primary-color);
+    box-shadow: none;
 }
 
 .btn-primary:hover {
-    background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+    background: var(--primary-hover);
     filter: brightness(1.06);
-    box-shadow: 0 4px 16px rgba(var(--accent-rgb), 0.32);
+    box-shadow: none;
 }
 
 :focus-visible {
@@ -88,7 +88,7 @@ body::before {
 
 .stream-card:hover .stream-thumb,
 .stream-card:focus-visible .stream-thumb {
-    box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.75), 0 10px 26px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.75);
 }
 
 .channel-card { transition: background 0.2s ease, box-shadow 0.2s ease; }
@@ -174,7 +174,7 @@ body::before {
     display: inline-flex;
     background: var(--field-bg);
     border: 1px solid var(--border-color);
-    border-radius: 9px;
+    border-radius: 3px;
     padding: 3px;
     gap: 2px;
     flex-shrink: 0;
@@ -199,7 +199,7 @@ body::before {
     font-size: 13px;
     font-weight: 500;
     color: var(--text-muted);
-    border-radius: 7px;
+    border-radius: 3px;
     transition: background 0.2s ease, color 0.2s ease;
     white-space: nowrap;
 }
@@ -220,7 +220,7 @@ body::before {
 .theme-chip {
     width: 100%;
     aspect-ratio: 16 / 10;
-    border-radius: 8px;
+    border-radius: 3px;
     border: 1px solid var(--border-color);
     position: relative;
     overflow: hidden;
@@ -243,7 +243,7 @@ body::before {
     top: 22%;
     width: 52%;
     height: 14%;
-    border-radius: 99px;
+    border-radius: 4px;
     background: var(--primary-color);
 }
 
@@ -500,7 +500,7 @@ h1, h2, h3, .banner-title, .page-title { text-wrap: balance; }
     outline: none;
 }
 
-.dialog { border-radius: 14px; }
+.dialog { border-radius: 4px; }
 
 /* Desktop: the search bar sits in the middle of the header and takes the free space */
 @media (min-width: 721px) {
@@ -568,7 +568,7 @@ h1, h2, h3, .banner-title, .page-title { text-wrap: balance; }
     width: 192px;
     aspect-ratio: 16 / 9;
     background: #111;
-    border-radius: 6px;
+    border-radius: 3px;
     overflow: hidden;
     display: grid;
     place-items: center;
@@ -720,7 +720,7 @@ html.reduce-motion .btn-ico svg { animation: none !important; transition: none; 
     min-width: 0;
     height: 42px;
     padding: 0 14px;
-    border-radius: 999px;
+    border-radius: 4px;
     border: 1px solid var(--border-color);
     background: var(--field-bg);
     color: var(--text-color);
@@ -737,7 +737,7 @@ html.reduce-motion .btn-ico svg { animation: none !important; transition: none; 
     align-items: flex-start;
     gap: 12px;
     padding: 10px 6px;
-    border-radius: 10px;
+    border-radius: 4px;
 }
 
 .vc-item:hover { background: rgba(var(--fg-rgb, 255, 255, 255), 0.04); }
@@ -799,7 +799,7 @@ html.reduce-motion .btn-ico svg { animation: none !important; transition: none; 
     gap: 8px;
     padding: 8px 14px;
     border: 1px solid rgba(255, 255, 255, 0.22);
-    border-radius: 999px;
+    border-radius: 4px;
     background: rgba(18, 18, 22, 0.72);
     -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
@@ -828,7 +828,7 @@ html.reduce-motion .btn-ico svg { animation: none !important; transition: none; 
         width: 100%;
         max-width: none;
         margin: auto 0 0;
-        border-radius: 16px 16px 0 0;
+        border-radius: 4px 4px 0 0;
         border-bottom: 0;
         max-height: min(90dvh, 760px);
     }
@@ -877,7 +877,7 @@ html.reduce-motion .btn-ico svg { animation: none !important; transition: none; 
     gap: 6px;
     padding: 6px 2px;
     border: 0;
-    border-radius: 10px;
+    border-radius: 4px;
     background: none;
     color: var(--text-color);
     font: inherit;
@@ -909,8 +909,8 @@ html.reduce-motion .btn-ico svg { animation: none !important; transition: none; 
 .share-more .share-app-ico { color: var(--text-color); border: 1px solid var(--border-color); background: var(--field-bg, transparent); }
 .share-x .share-app-ico { border: 1px solid rgba(255, 255, 255, 0.18); }
 
-.share-qr { display: flex; align-items: center; gap: 16px; padding: 14px; border: 1px solid var(--border-color); border-radius: 12px; }
-.share-qr-img { flex: 0 0 auto; width: 132px; height: 132px; border-radius: 8px; overflow: hidden; background: #fff; }
+.share-qr { display: flex; align-items: center; gap: 16px; padding: 14px; border: 1px solid var(--border-color); border-radius: 4px; }
+.share-qr-img { flex: 0 0 auto; width: 132px; height: 132px; border-radius: 3px; overflow: hidden; background: #fff; }
 .share-qr-img svg { display: block; width: 100%; height: 100%; }
 .share-qr-info { display: grid; gap: 8px; justify-items: start; min-width: 0; }
 .share-qr-info p { font-size: 13px; }
@@ -1015,7 +1015,7 @@ html.reduce-motion .btn-ico svg { animation: none !important; transition: none; 
     min-width: 18px;
     height: 18px;
     padding: 0 5px;
-    border-radius: 999px;
+    border-radius: 4px;
     background: var(--live, #ff2e4d);
     color: #fff;
     font-size: 11px;
@@ -1039,8 +1039,8 @@ html.reduce-motion .btn-ico svg { animation: none !important; transition: none; 
     flex-direction: column;
     background: #1f2026;
     border: 1px solid #35373f;
-    border-radius: 10px;
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+    border-radius: 4px;
+    box-shadow: none;
     overflow: hidden;
 }
 .notif-panel[hidden] { display: none; }
@@ -1048,12 +1048,12 @@ html.reduce-motion .btn-ico svg { animation: none !important; transition: none; 
 .notif-head h3 { margin: 0; font-size: 17px; font-family: "Changa One", sans-serif; font-weight: 400; letter-spacing: 0.2px; }
 .notif-tools { display: flex; align-items: center; gap: 4px; }
 .notif-link {
-    border: 0; background: none; padding: 6px 8px; border-radius: 6px;
+    border: 0; background: none; padding: 6px 8px; border-radius: 3px;
     color: var(--primary-color); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
 }
 .notif-link:hover:not(:disabled) { background: rgba(255, 166, 0, 0.12); }
 .notif-link:disabled { color: var(--text-muted); cursor: default; opacity: 0.6; }
-.notif-gear { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; color: var(--text-muted); text-decoration: none; }
+.notif-gear { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 3px; color: var(--text-muted); text-decoration: none; }
 .notif-gear:hover, .notif-gear:focus-visible { background: rgba(255, 255, 255, 0.08); color: var(--text-color); }
 .notif-gear svg { width: 18px; height: 18px; }
 .notif-list { overflow-y: auto; overscroll-behavior: contain; flex: 1 1 auto; }
@@ -1107,7 +1107,7 @@ html.reduce-motion .btn-ico svg { animation: none !important; transition: none; 
         width: auto; max-width: none;
         max-height: calc(100dvh - var(--header-height, 60px) - 74px - env(safe-area-inset-bottom, 0px));
         border-inline: 0; border-top: 0;
-        border-radius: 0 0 14px 14px;
+        border-radius: 0 0 4px 4px;
     }
     .notif-item { padding: 14px 16px; }
     .notif-btn { width: 36px; height: 36px; }
@@ -1144,7 +1144,7 @@ html.reduce-motion .notif-btn.has-unread svg { animation: none; }
     display: inline-block;
     margin-right: 6px;
     padding: 1px 7px;
-    border-radius: 999px;
+    border-radius: 4px;
     font-size: 10.5px;
     font-weight: 700;
     line-height: 1.5;
@@ -1166,7 +1166,7 @@ html.reduce-motion .notif-btn.has-unread svg { animation: none; }
     margin: 10px 0;
     padding: 12px;
     border: 1px solid var(--o-border, var(--border-color));
-    border-radius: 10px;
+    border-radius: 4px;
     background: var(--o-head, transparent);
 }
 
@@ -1195,10 +1195,10 @@ html.reduce-motion .notif-btn.has-unread svg { animation: none; }
 .plat-error { margin: 6px 0 0; font-size: 12.5px; color: #d6204a; overflow-wrap: anywhere; }
 .plat-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .plat-on { display: inline-flex; align-items: center; gap: 6px; margin-right: auto; font-weight: 600; cursor: pointer; }
-.plat-note { margin: 0 0 10px; padding: 10px 12px; border-radius: 8px; font-size: 13.5px; line-height: 1.45; background: rgba(245, 165, 36, 0.14); }
+.plat-note { margin: 0 0 10px; padding: 10px 12px; border-radius: 3px; font-size: 13.5px; line-height: 1.45; background: rgba(245, 165, 36, 0.14); }
 .plat-form { margin-top: 12px; }
 .plat-form .row { display: flex; gap: 8px; }
-.plat-code { margin: 8px 0; padding: 10px 12px; border-radius: 8px; font-size: 12.5px; overflow-x: auto; background: rgba(var(--fg-rgb, 255, 255, 255), 0.07); }
+.plat-code { margin: 8px 0; padding: 10px 12px; border-radius: 3px; font-size: 12.5px; overflow-x: auto; background: rgba(var(--fg-rgb, 255, 255, 255), 0.07); }
 #platformsDialog .dialog-body { max-height: 88dvh; overflow-y: auto; }
 #platformsDialog [data-plat-add] { display: block; margin-top: 10px; }
 #platformsDialog .panel-section > .hint { display: block; margin-top: 12px; }
@@ -1220,8 +1220,8 @@ html.reduce-motion .notif-btn.has-unread svg { animation: none; }
     background: var(--second-color, #252525);
     color: var(--text-color);
     border: 1px solid var(--border-color);
-    border-radius: 12px;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+    border-radius: 4px;
+    box-shadow: none;
 }
 .vod-menu[hidden] { display: none; }
 .vod-menu-title {
@@ -1241,7 +1241,7 @@ html.reduce-motion .notif-btn.has-unread svg { animation: none; }
     padding: 8px 10px;
     background: transparent;
     border: 0;
-    border-radius: 8px;
+    border-radius: 3px;
     color: inherit;
     font: inherit;
     text-align: left;
@@ -1254,7 +1254,7 @@ html.reduce-motion .notif-btn.has-unread svg { animation: none; }
 .vod-menu-item.is-on small { color: var(--text-muted); }
 .vod-menu-item.is-danger { color: var(--live, #ff2e4d); }
 .vod-menu-sep { height: 1px; margin: 6px 4px; background: var(--border-color); }
-html[data-theme="light"] .vod-menu { box-shadow: 0 12px 32px rgba(20, 24, 40, 0.16); }
+html[data-theme="light"] .vod-menu { box-shadow: none; }
 html[data-theme="light"] .vod-menu-item:hover,
 html[data-theme="light"] .vod-menu-item:focus-visible { background: rgba(20, 24, 40, 0.06); }
 

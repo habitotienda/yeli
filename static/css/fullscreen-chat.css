@@ -1,0 +1,71 @@
+/* Fullscreen on a live channel: the video and the chat together, so you can read and write while it fills the screen.
+   Wide screens (computer, phone turned sideways): video on the left, chat on the right.
+   Tall screens (phone upright): video on top, chat under it. The chat's own "hide" button still works. */
+
+.channel-layout:fullscreen,
+.channel-layout.is-pseudo-fs {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    grid-template-rows: minmax(0, 1fr);
+    gap: 0;
+    align-items: stretch;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    background: #000;
+    overflow: hidden;
+}
+
+/* the same, filling the screen with CSS where the browser can't do real fullscreen (iPhone) */
+.channel-layout.is-pseudo-fs { position: fixed; inset: 0; z-index: 5000; width: 100vw; height: 100dvh; }
+html.has-pseudo-fs, html.has-pseudo-fs body { overflow: hidden; }
+
+.channel-layout:fullscreen.chat-hidden,
+.channel-layout.is-pseudo-fs.chat-hidden { grid-template-columns: minmax(0, 1fr); }
+
+/* only the video stays from the page (title, about and videos are hidden) */
+.channel-layout:fullscreen .channel,
+.channel-layout.is-pseudo-fs .channel { display: block !important; min-width: 0; min-height: 0; height: 100%; margin: 0; }
+.channel-layout:fullscreen .channel > :not(.player),
+.channel-layout.is-pseudo-fs .channel > :not(.player) { display: none !important; }
+.channel-layout:fullscreen .channel .player,
+.channel-layout.is-pseudo-fs .channel .player {
+    width: 100%; height: 100%; max-height: none; min-height: 0; margin: 0;
+    aspect-ratio: auto; border: 0; border-radius: 0;
+}
+
+.channel-layout:fullscreen .channel-chat,
+.channel-layout.is-pseudo-fs .channel-chat {
+    position: static; order: 0; height: 100%; min-height: 0; max-height: none; margin: 0;
+}
+.channel-layout:fullscreen .channel-chat .chat,
+.channel-layout.is-pseudo-fs .channel-chat .chat {
+    border: 0; border-left: 1px solid var(--border-color); border-radius: 0;
+}
+
+/* upright phone or tablet: video on top, chat below */
+@media (orientation: portrait) {
+    .channel-layout:fullscreen,
+    .channel-layout.is-pseudo-fs { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+    .channel-layout:fullscreen.chat-hidden,
+    .channel-layout.is-pseudo-fs.chat-hidden { grid-template-rows: minmax(0, 1fr); }
+    .channel-layout:fullscreen .channel,
+    .channel-layout.is-pseudo-fs .channel { height: auto; }
+    .channel-layout:fullscreen.chat-hidden .channel,
+    .channel-layout.is-pseudo-fs.chat-hidden .channel { height: 100%; }
+    .channel-layout:fullscreen .channel .player,
+    .channel-layout.is-pseudo-fs .channel .player { height: auto; aspect-ratio: 16 / 9; }
+    .channel-layout:fullscreen.chat-hidden .channel .player,
+    .channel-layout.is-pseudo-fs.chat-hidden .channel .player { height: 100%; aspect-ratio: auto; }
+    .channel-layout:fullscreen .channel-chat .chat,
+    .channel-layout.is-pseudo-fs .channel-chat .chat { border-left: 0; border-top: 1px solid var(--border-color); }
+}
+
+/* phone turned sideways: a narrower chat, so the video keeps most of the screen */
+@media (orientation: landscape) and (max-height: 520px) {
+    .channel-layout:fullscreen,
+    .channel-layout.is-pseudo-fs { grid-template-columns: minmax(0, 1fr) 280px; }
+    .channel-layout:fullscreen.chat-hidden,
+    .channel-layout.is-pseudo-fs.chat-hidden { grid-template-columns: minmax(0, 1fr); }
+}

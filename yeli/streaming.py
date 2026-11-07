@@ -245,7 +245,7 @@ def watch_poll(username):
         return err("Invalid viewer id.")
     db = get_db()
     row = db.execute(
-        """SELECT u.id, COALESCE(s.is_live = 1 AND s.last_seen >= ?, 0) AS live
+        """SELECT u.id, CASE WHEN s.is_live = 1 AND s.last_seen >= ? THEN 1 ELSE 0 END AS live
            FROM users u LEFT JOIN streams s ON s.user_id = u.id WHERE u.username = ?""",
         (now() - LIVE_TIMEOUT, username),
     ).fetchone()

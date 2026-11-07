@@ -1,7 +1,7 @@
 # Yeli
 
 Plataforma de streaming con cuentas, chat con stickers, seguidores, buscador, estudio tipo OBS y una
-economía de monedas (**Yelis**) para apoyar a los streamers. Backend en Python (Flask + SQLite).
+economía de monedas (**Yelis**) para apoyar a los streamers. Backend en Python (Flask + Supabase/Postgres; SQLite solo para desarrollo).
 
 ## Empezar (2 minutos)
 
@@ -26,12 +26,23 @@ Para que varias personas hagan directo a la vez y cada una tenga muchos espectad
 3. Variables: las del `render.yaml` (HTTPS, proxy, clave secreta generada). Pon tu usuario en `YELI_ADMINS`.
 4. Abre `https://yeli.onrender.com`. Por ser HTTPS, la cámara y el micrófono funcionan también desde el celular.
 
+### Supabase (base de datos)
+
+1. En [supabase.com](https://supabase.com) crea un proyecto y guarda la contraseña de la base de datos.
+2. **Connect → Transaction pooler** → copia la cadena (puerto `6543`) y pon tu contraseña. Es tu `DATABASE_URL`.
+3. En Render: *Environment* → `DATABASE_URL` = esa cadena. Al arrancar, la app crea las tablas sola (también puedes pegar
+   `supabase/schema.sql` en el *SQL Editor*; se puede correr varias veces). Las tablas quedan con *Row Level Security* activado y sin
+   políticas: la app habla directo con la base y la API pública de Supabase (clave `anon`) no puede leer nada.
+4. Para llevar los datos de una base SQLite vieja: `DATABASE_URL=... python scripts/sqlite_to_supabase.py instance/yeli.db`.
+
+Sin `DATABASE_URL` la app usa un archivo SQLite local (desarrollo y tests: `python -m unittest discover tests`).
+
 Cosas que debes saber (Render, plan gratis):
 
-- **Los datos se pierden.** El sistema de archivos del plan gratis es efímero: la base SQLite se borra en cada reinicio,
-  redespliegue o cuando el servicio se duerme tras ~15 minutos sin visitas. Cuentas, Yelis y chats desaparecerían. Sirve para una demo
-  (por eso `YELI_DEMO=1` muestra un aviso). Para conservar los datos: plan de pago con **disco persistente** (descomenta
-  `disk` y `YELI_DB` en `render.yaml`), o una base de datos externa (no incluida: habría que portar las consultas a Postgres).
+- **La base de datos está en Supabase**, así que cuentas, Yelis, chats, comentarios, portadas y proyectos del editor sobreviven a los
+  reinicios. Lo que **sí se pierde** en el plan gratis son los **archivos de video** de los directos y ediciones guardados (se escriben en el
+  disco del servidor, que es efímero): por eso `YELI_DEMO=1` muestra un aviso. Para conservarlos: plan de pago con **disco persistente**
+  (descomenta `disk` y `YELI_VOD_DIR` en `render.yaml`).
 - **El primer acceso tras dormir tarda** (arranque en frío).
 - **El servidor de medios (MediaMTX) no corre en Render**: necesita UDP, y un servicio web de Render se publica por HTTPS.
   Ejecútalo en otra máquina y pon su URL **https** en `YELI_MEDIA_URL`. Sin él, Yeli usa el modo P2P (sirve para pocos espectadores).
@@ -316,7 +327,7 @@ app.py              lanzador (Waitress si está instalado)
 yeli/
   __init__.py       create_app()
   config.py         ajustes y límites
-  db.py             esquema SQLite y migraciones
+  db.py             esquema, conexión a Supabase (Postgres) y SQLite local, migraciones
   core.py           utilidades compartidas
   queries.py        canales, espectadores únicos, señalización
   accounts.py       registro, login, perfil, avatar

@@ -188,7 +188,11 @@
 .ed-tile small { font-size: 11px; color: var(--ed-muted); }
 
 /* ---------- export dialog ---------- */
-.ed-export { width: min(440px, calc(100vw - 24px)); }
+/* desktop: a centred card. Phones: the same full-width bottom sheet as every other dialog (this rule used to win over it and leave a gap on the right). */
+.dialog.ed-export { width: min(440px, calc(100vw - 24px)); }
+@media (max-width: 700px) {
+    .dialog.ed-export { width: 100%; max-width: none; margin: auto 0 0; }
+}
 .ed-prog { height: 10px; border-radius: 999px; background: var(--field-bg); border: 1px solid var(--border-color); overflow: hidden; margin: 10px 0; }
 .ed-prog > span { display: block; height: 100%; width: 0; background: var(--primary-color); transition: width 0.25s linear; }
 .ed-done-row { flex-wrap: wrap; }
@@ -266,3 +270,26 @@ a.ed-chip { text-decoration: none; }
     .ed-live span { display: none; }
     .ed-export-btn { padding: 8px 14px; }
 }
+
+
+/* ---------- publish dialog: cover buttons and who-can-watch options ---------- */
+.vod-cover-edit { align-items: stretch; }
+.vod-cover-btns { flex: 1 1 180px; align-content: center; }
+.vod-cover-btns .btn { width: 100%; justify-content: center; text-align: center; }
+.vod-vis { display: grid; gap: 10px; }
+.vod-vis-opt {
+    position: relative; display: grid; grid-template-columns: 22px 1fr; align-items: start; gap: 4px 12px;
+    padding: 14px 16px; border: 1.5px solid var(--border-color); border-radius: 12px; cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+}
+/* the radio keeps its own size: ".field input" gives every input width:100%, which pushed it to the middle of the card */
+.vod-vis-opt input[type="radio"] {
+    appearance: none; -webkit-appearance: none; width: 20px; height: 20px; min-width: 20px; padding: 0; margin: 1px 0 0;
+    border: 2px solid var(--text-muted); border-radius: 50%; background: transparent; box-shadow: none; cursor: pointer;
+}
+.vod-vis-opt input[type="radio"]:checked { border-color: var(--primary-color); background: radial-gradient(circle, var(--primary-color) 0 45%, transparent 50%); }
+.vod-vis-opt input[type="radio"]:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
+.vod-vis-opt > span { display: grid; gap: 3px; min-width: 0; }
+.vod-vis-opt > span strong { font-size: 15px; font-weight: 600; line-height: 1.25; }
+.vod-vis-opt > span small { font-size: 13px; line-height: 1.4; color: var(--text-muted); }
+.vod-vis-opt:has(input:checked) { border-color: var(--primary-color); background: rgba(var(--accent-rgb, 255, 166, 0), 0.08); }

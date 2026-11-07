@@ -8,7 +8,11 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).resolve().parent.parent
 INSTANCE_DIR = ROOT_DIR / "instance"
 INSTANCE_DIR.mkdir(exist_ok=True)
-DB_PATH = os.environ.get("YELI_DB", str(INSTANCE_DIR / "yeli.db"))
+DB_PATH = os.environ.get("YELI_DB", str(INSTANCE_DIR / "yeli.db"))  # SQLite file: only used when DATABASE_URL is empty (local development, tests)
+# Supabase (Postgres) connection string. When it is set the app uses Supabase and ignores DB_PATH.
+# Supabase dashboard -> Connect -> "Transaction pooler" (port 6543) is the right one for Render.
+DATABASE_URL = (os.environ.get("DATABASE_URL") or os.environ.get("YELI_DATABASE_URL") or "").strip()
+DB_POOL_SIZE = int(os.environ.get("YELI_DB_POOL", "10"))
 
 # A stream counts as live while its broadcaster keeps sending heartbeats.
 LIVE_TIMEOUT = 25

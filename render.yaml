@@ -1,9 +1,8 @@
 # Render Blueprint for https://yeli.onrender.com   (Dashboard -> New -> Blueprint, pick this repository)
 #
-# IMPORTANT: on Render's FREE plan the filesystem is ephemeral. The SQLite database is erased every time the
-# service restarts, is redeployed, or spins down after ~15 minutes without traffic. That's fine for a demo, but
-# accounts, Yelis and chats will disappear. To keep your data: switch to a paid plan and uncomment the `disk`
-# block and the YELI_DB variable below (persistent disks are only available on paid plans).
+# DATABASE: accounts, Yelis, chats, comments, covers and project drafts live in Supabase (DATABASE_URL below), so they
+# survive restarts. The video FILES of saved streams and edits are still written to the server's disk, and on Render's
+# FREE plan the disk is erased on every restart: for those, use a paid plan with the `disk` block below.
 # VOICE IN THE STREAM: the bot's voice needs the speech program espeak-ng on the server. Render's Python runtime can't
 # install it, so to use that feature change `runtime: python` below to `runtime: docker` (the Dockerfile installs it) and
 # delete the buildCommand and startCommand lines. Without it everything works; the voice is read on each viewer's device.
@@ -28,8 +27,10 @@ services:
         generateValue: true         # a stable random key, so sessions survive restarts
       - key: YELI_ADMINS
         sync: false                 # you'll be asked for it: your own username
+      - key: DATABASE_URL
+        sync: false                 # you'll be asked for it: Supabase -> Connect -> Transaction pooler (port 6543)
       - key: YELI_DEMO
-        value: "1"                  # shows the "data may be reset" banner. Remove it when you use a persistent disk
+        value: "1"                  # shows the "data may be reset" banner (saved video files). Remove it when you use a persistent disk
       # Notification emails (the bell works without these). Render's free plan blocks SMTP, so use Resend's HTTPS API:
       # - key: YELI_PUBLIC_URL
       #   value: https://yeli.onrender.com
@@ -37,8 +38,8 @@ services:
       #   value: Yeli <no-reply@your-domain.com>
       # - key: YELI_RESEND_API_KEY
       #   sync: false
-      # - key: YELI_DB
-      #   value: /var/data/yeli.db  # with the disk below
+      # - key: YELI_VOD_DIR
+      #   value: /var/data/vods     # with the disk below
       # - key: YELI_MEDIA_URL
       #   value: https://your-media-server.example.com   # optional, see README: MediaMTX can't run on Render
     # disk:

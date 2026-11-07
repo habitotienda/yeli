@@ -13,11 +13,11 @@ from .db import get_db
 __all__ = ['LIVE_COND', 'CHANNEL_SELECT', 'query_channels', 'channel_json', 'count_viewers', 'viewer_identity', 'live_streamer_id', 'push_signal', 'read_signals', 'signal_payload', 'stream_mode', 'user_level']
 
 # Channel queries
-LIVE_COND = "COALESCE(s.is_live = 1 AND s.last_seen >= :cut, 0) = 1"
+LIVE_COND = "(CASE WHEN s.is_live = 1 AND s.last_seen >= :cut THEN 1 ELSE 0 END) = 1"
 
 CHANNEL_SELECT = """
 SELECT u.id, u.username, u.bio, u.created_at, u.avatar, u.avatar_updated,
-       COALESCE(s.is_live = 1 AND s.last_seen >= :cut, 0) AS live,
+       CASE WHEN s.is_live = 1 AND s.last_seen >= :cut THEN 1 ELSE 0 END AS live,
        s.title AS title, s.category AS category, s.started_at AS started_at, s.mode AS mode,
        COALESCE((SELECT level FROM upgrades up WHERE up.user_id = u.id AND up.track = 'boost'), 0) AS boost,
        (SELECT COUNT(*) FROM follows f WHERE f.followed_id = u.id) AS followers,

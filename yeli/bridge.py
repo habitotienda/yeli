@@ -17,7 +17,6 @@ import random
 import re
 import secrets
 import socket
-import sqlite3
 import ssl
 import threading
 import time
@@ -29,7 +28,7 @@ from flask import Blueprint, jsonify, request
 from . import config
 from .config import CHAT_KEEP, CHAT_MAX_LEN
 from .core import *
-from .db import get_db
+from .db import connect as db_connect, get_db
 from .bot import chat_settings, post_bot, run_command, text_rules
 
 bp = Blueprint("bridge", __name__)
@@ -138,9 +137,7 @@ class TwitchReader(threading.Thread):
             pass
 
     def run(self):
-        con = sqlite3.connect(config.DB_PATH, timeout=15)
-        con.row_factory = sqlite3.Row
-        con.execute("PRAGMA foreign_keys = ON")
+        con = db_connect()
         backoff = 2
         try:
             while not self.stop_event.is_set():

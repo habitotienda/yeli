@@ -13,7 +13,6 @@ browser, and removed from any error text.
 """
 import re
 import shutil
-import sqlite3
 import subprocess
 import threading
 import time
@@ -23,7 +22,7 @@ from flask import Blueprint, jsonify, request
 
 from . import config
 from .core import *
-from .db import get_db
+from .db import DB_ERRORS, connect as db_connect, get_db
 
 bp = Blueprint("restream", __name__)
 
@@ -214,14 +213,13 @@ def _watch():
         if not users:
             return
         try:
-            con = sqlite3.connect(config.DB_PATH, timeout=15)
-            con.row_factory = sqlite3.Row
+            con = db_connect()
             for uid in users:
                 row = con.execute("SELECT is_live, last_seen FROM streams WHERE user_id = ?", (uid,)).fetchone()
                 if row is None or not row["is_live"] or (row["last_seen"] or 0) < now() - STALE_AFTER:
                     stop_all(uid)
             con.close()
-        except sqlite3.Error:
+        except DB_ERRORS:
             pass
 
 

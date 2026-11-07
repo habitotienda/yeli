@@ -1,5 +1,4 @@
 """Accounts and profile: register, log in, avatar, bio, password."""
-import sqlite3
 
 import os
 import re
@@ -11,7 +10,7 @@ from . import config, economy
 from .config import *
 from .core import *
 from .chest import owned_colors as chest_colors
-from .db import get_db
+from .db import INTEGRITY_ERRORS, get_db
 from .queries import *
 
 bp = Blueprint("accounts", __name__)
@@ -61,7 +60,8 @@ def register():
         db.execute("INSERT INTO streams (user_id) VALUES (?)", (cur.lastrowid,))
         db.execute("INSERT OR IGNORE INTO wallets (user_id, bought) VALUES (?, 0)", (cur.lastrowid,))
         db.commit()
-    except sqlite3.IntegrityError:
+    except INTEGRITY_ERRORS:
+        db.rollback()  # Postgres refuses further statements in a transaction that failed
         return err("That username or email is already in use.", 409)
 
     session.clear()

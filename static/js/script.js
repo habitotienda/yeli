@@ -559,10 +559,7 @@ function channelMarkup(ch) {
                 <p id="chBio"></p>
                 <p class="muted" id="chJoined"></p>
             </section>
-            <section class="channel-videos" id="chVideos" aria-label="Videos" hidden>
-                <h2 class="section-title">Videos</h2>
-                <div class="vods-body"></div>
-            </section>
+            <section class="channel-videos channel-content" id="chVideos" aria-label="Content" hidden></section>
         </div>
         <aside class="channel-chat" id="chatPanel"></aside>
     </div>`;
@@ -581,7 +578,7 @@ async function pageChannel(root, name, alive) {
     if (!alive()) return;
     document.title = `${ch.username} | Yeli`;
     root.innerHTML = channelMarkup(ch);
-    const vids = mountChannelVideos($('#chVideos'), ch.username, ch.is_me, alive);
+    const vids = mountChannelContent($('#chVideos'), ch, alive);
     const onVodSaved = () => vids.reload(500);
     window.addEventListener('yeli:vod-saved', onVodSaved);
     onLeave(() => window.removeEventListener('yeli:vod-saved', onVodSaved));
@@ -815,7 +812,7 @@ function renderAuth() {
     if (!state.me) {
         // On phones Settings is no longer in the bottom bar; people who aren't logged in (no account menu) get a gear here.
         box.innerHTML = `
-            <button type="button" class="btn btn-secondary btn-icon header-gear" data-prefs-open aria-haspopup="dialog" aria-label="Settings" title="Settings"><img src="static/svg/settings.svg" alt="" width="18" height="18"></button>
+            <button type="button" class="btn btn-secondary btn-icon header-gear" data-prefs-open aria-haspopup="dialog" aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h5M17 6h4M3 12h1M13 12h8M3 18h7M19 18h2"/><circle cx="12.5" cy="6" r="2.5"/><circle cx="8.5" cy="12" r="2.5"/><circle cx="14.5" cy="18" r="2.5"/></svg></button>
             <button type="button" class="btn btn-secondary" data-auth="login">Log In</button>
             <button type="button" class="btn btn-primary" data-auth="signup">Sign Up</button>`;
         return;

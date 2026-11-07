@@ -30,7 +30,7 @@ function shortSlide(v) {
                 <button type="button" class="short-act${v.liked ? ' is-on' : ''}" data-short="like" aria-pressed="${v.liked}" aria-label="Like">
                     ${IC(HEART_PATH, v.liked ? 'currentColor' : 'none', 26)}<span class="short-count">${countText(v.likes)}</span>
                 </button>
-                <a class="short-act" href="${videoHref(v.id)}" aria-label="Comments">${IC(COMMENT_PATH, 'none', 26)}<span class="short-count">${countText(v.comment_count)}</span></a>
+                <button type="button" class="short-act" data-short="comments" aria-label="Comments">${IC(COMMENT_PATH, 'none', 26)}<span class="short-count" data-comment-count>${countText(v.comment_count)}</span></button>
                 <button type="button" class="short-act" data-short="share" aria-label="Share">${IC(SHARE_PATH, 'none', 26)}<span class="short-count">Share</span></button>
                 <button type="button" class="short-act" data-short="sound" aria-label="Sound">${IC(shortsMuted ? SOUND_OFF : SOUND_ON, 'none', 26)}<span class="short-count">${shortsMuted ? 'Muted' : 'Sound'}</span></button>
             </div>
@@ -45,6 +45,21 @@ async function pageShorts(root, params, alive) {
     root.innerHTML = `<section class="shorts-page" aria-label="Shorts">
         ${channel ? `<div class="shorts-chan"><a class="btn btn-secondary" href="#/shorts">All Shorts</a><span translate="no">${esc(channel)}</span></div>` : ''}
         <div class="shorts-feed" id="shortsFeed" tabindex="0">${'<div class="short skeleton-short" aria-hidden="true"><div class="skeleton"></div></div>'}</div>
+        <div class="shorts-sheet" id="shortsSheet" hidden>
+            <div class="shorts-sheet-back" data-sheet-close></div>
+            <div class="shorts-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="vcTitle">
+                <div class="shorts-sheet-head">
+                    <h2 class="section-title" id="vcTitle"><span>Comments</span> <span class="vc-count" id="vcCount"></span></h2>
+                    <button type="button" class="shorts-sheet-x" data-sheet-close aria-label="Close">&times;</button>
+                </div>
+                <div class="shorts-sheet-body">
+                    <div id="vcCompose"></div>
+                    <ul class="vc-list" id="vcList"></ul>
+                    <p class="muted vc-empty" id="vcEmpty" hidden>No comments yet. Be the first.</p>
+                    <button type="button" class="btn btn-secondary vc-more" id="vcMore" hidden>Show more comments</button>
+                </div>
+            </div>
+        </div>
     </section>`;
     document.body.classList.add('shorts-open');
     onLeave(() => document.body.classList.remove('shorts-open'));
@@ -131,6 +146,38 @@ async function pageShorts(root, params, alive) {
         btn.innerHTML = `${IC(shortsMuted ? SOUND_OFF : SOUND_ON, 'none', 26)}<span class="short-count">${shortsMuted ? 'Muted' : 'Sound'}</span>`;
     };
 
+    /* Comments open in a sheet over the feed: a Short never leaves the scroll. */
+    const sheet = $('#shortsSheet');
+    let sheetShort = null;
+    const sheetBody = sheet.querySelector('.shorts-sheet-body');
+    const sheetTemplate = sheetBody.innerHTML;
+    const closeSheet = () => {
+        if (sheet.hidden) return;
+        sheet.hidden = true;
+        feed.classList.remove('is-locked');
+        if (sheetShort) {
+            const n = parseInt(($('#vcCount').textContent || '').replace(/\D/g, ''), 10);
+            if (!Number.isNaN(n)) {
+                sheetShort.comment_count = n;
+                const el = feed.querySelector(`.short[data-id="${sheetShort.id}"] [data-comment-count]`);
+                if (el) el.textContent = countText(n);
+            }
+        }
+        sheetShort = null;
+    };
+    const openSheet = (v) => {
+        sheetShort = v;
+        sheetBody.innerHTML = sheetTemplate;
+        $('#vcCount').textContent = '';
+        sheet.hidden = false;
+        feed.classList.add('is-locked');
+        sheet.querySelector('.shorts-sheet-body').scrollTop = 0;
+        mountVideoComments(v, () => alive() && sheetShort === v);
+    };
+    sheet.addEventListener('click', (e) => { if (e.target.closest('[data-sheet-close]')) closeSheet(); });
+    const onSheetKey = (e) => { if (e.key === 'Escape') closeSheet(); };
+    document.addEventListener('keydown', onSheetKey);
+
     const onClick = async (e) => {
         const b = e.target.closest('[data-short]');
         if (!b) return;
@@ -141,6 +188,8 @@ async function pageShorts(root, params, alive) {
         if (act === 'toggle') {
             if (video.paused) { video.play().catch(() => {}); slide.classList.remove('is-paused'); }
             else { video.pause(); slide.classList.add('is-paused'); }
+        } else if (act === 'comments' && v) {
+            openSheet(v);
         } else if (act === 'sound') {
             shortsMuted = !shortsMuted;
             feed.querySelectorAll('video').forEach((el) => { el.muted = shortsMuted; });
@@ -167,7 +216,7 @@ async function pageShorts(root, params, alive) {
     const onKey = (e) => {
         if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement && document.activeElement.tagName)) return;
         const dir = e.key === 'ArrowDown' || e.key === 'PageDown' ? 1 : e.key === 'ArrowUp' || e.key === 'PageUp' ? -1 : 0;
-        if (!dir || !current) return;
+        if (!dir || !current || !sheet.hidden) return;
         const to = dir > 0 ? current.nextElementSibling : current.previousElementSibling;
         if (to) { e.preventDefault(); to.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
     };
@@ -176,6 +225,7 @@ async function pageShorts(root, params, alive) {
     onLeave(() => {
         root.removeEventListener('click', onClick);
         document.removeEventListener('keydown', onKey);
+        document.removeEventListener('keydown', onSheetKey);
         io.disconnect();
         feed.querySelectorAll('video').forEach((el) => { el.pause(); el.removeAttribute('src'); el.load(); });
     });

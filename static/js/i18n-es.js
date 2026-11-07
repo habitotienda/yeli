@@ -5,6 +5,10 @@
    that was around the original text. Patterns at the bottom handle text with numbers or names in it. */
 window.YELI_ES = {
     /* ---- Shorts, Gallery and GIFs ---- */
+    "No videos yet.": "Aún no hay videos.",
+    "Publish a vertical video and it shows up here as a Short.": "Publica un video vertical y aparecerá aquí como Short.",
+    "Publish a square or 4:5 picture of your stream and it shows up here.": "Publica una imagen cuadrada o 4:5 de tu directo y aparecerá aquí.",
+    "Add a comment\u2026": "Añade un comentario…",
     "Content": "Contenido",
     "Watch videos from streamers.": "Mira videos de streamers.",
     "Vertical videos, one swipe at a time.": "Videos verticales, uno a uno deslizando.",

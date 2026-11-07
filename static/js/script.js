@@ -853,6 +853,8 @@ const MI = {
     studio: mi('<circle cx="12" cy="12" r="2"/><path d="M7.800 7.800a5.900 5.900 0 0 0 0 8.400M16.200 7.800a5.900 5.900 0 0 1 0 8.400M4.600 4.600a10.400 10.400 0 0 0 0 14.800M19.400 4.600a10.400 10.400 0 0 1 0 14.800"/>'),
     bot: mi('<rect x="4" y="8" width="16" height="11" rx="2"/><path d="M12 4v4M9 13h.01M15 13h.01M9 16.500h6"/>'),
     shield: mi('<path d="M12 3l8 3v6c0 5-3.500 8-8 9-4.500-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>'),
+    legal: mi('<path d="M7 3h8l4 4v14H7z"/><path d="M15 3v4h4M10 12h6M10 16h6"/>'),
+    news: mi('<path d="M4 5h13v14H6a2 2 0 0 1-2-2z"/><path d="M17 9h3v8a2 2 0 0 1-2 2M8 9h5M8 13h5"/>'),
     chest: mi('<path d="M4 11a8 5 0 0 1 16 0v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M4 11h16M12 11v4"/>'),
     wallet: mi('<path d="M4 7a2 2 0 0 1 2-2h12v4"/><path d="M4 7v10a2 2 0 0 0 2 2h14V9H6a2 2 0 0 1-2-2z"/><path d="M16 14h.01"/>'),
     up: mi('<path d="M12 19V6M6 11l6-6 6 6"/>'),
@@ -907,6 +909,11 @@ function renderAuth() {
                     <a role="menuitem" href="#/wallet?tab=upgrades">${MI.up}<span>Upgrades</span></a>
                     <a role="menuitem" href="#/chest">${MI.chest}<span>Daily chest</span></a>
                     ${state.me.is_admin ? `<a role="menuitem" href="#/admin">${MI.lock}<span>Admin</span></a>` : ''}
+                </div>
+                <div class="um-sep" role="separator"></div>
+                <div class="um-group" role="group" aria-label="Information">
+                    <a role="menuitem" href="#/terms">${MI.legal}<span>Legal</span></a>
+                    <a role="menuitem" href="#/updates">${MI.news}<span>What\u2019s new</span></a>
                 </div>
                 <div class="um-sep" role="separator"></div>
                 <button type="button" role="menuitem" class="um-danger" data-action="logout">${MI.logout}<span>Log out</span></button>
@@ -1212,7 +1219,7 @@ window.addEventListener('pagehide', () => {
     }
     renderAuth();
     startNotifications();
-    initSiteFooter();
+    loadSiteSocials();
     try {
         await refreshSidebar();
         await route();

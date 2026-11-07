@@ -14,6 +14,7 @@
         "Terms and Conditions": "Términos y Condiciones",
         "Cookies Policy": "Política de Cookies",
         "Follow us": "Síguenos",
+        "Information": "Información",
         "All rights reserved.": "Todos los derechos reservados.",
 
         /* login and sign-up */
@@ -92,16 +93,16 @@
         "Update published.": "Novedad publicada.",
         "Delete this update?": "¿Eliminar esta novedad?",
         "Add a social network": "Añadir una red social",
-        "These links appear in the footer of every page. Only https:// addresses are accepted.": "Estos enlaces aparecen en el pie de página de todas las páginas. Solo se aceptan direcciones https://.",
+        "These links appear at the end of the Legal pages and What\u2019s new. Only https:// addresses are accepted.": "Estos enlaces aparecen al final de las páginas Legal y de Novedades. Solo se aceptan direcciones https://.",
         "Network": "Red",
         "Name shown (optional)": "Nombre visible (opcional)",
         "Address": "Dirección",
         "Add": "Añadir",
-        "In the footer now": "En el pie de página ahora",
+        "Shown now": "Visibles ahora",
         "Remove": "Quitar",
-        "No social networks yet, so the footer shows none.": "Aún no hay redes sociales, así que el pie de página no muestra ninguna.",
-        "Added to the footer.": "Añadida al pie de página.",
-        "Removed from the footer.": "Quitada del pie de página.",
+        "No social networks yet.": "Aún no hay redes sociales.",
+        "Added.": "Añadida.",
+        "Removed.": "Quitada.",
 
         /* notifications */
         "wrote to Support:": "escribió a Soporte:",

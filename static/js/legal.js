@@ -153,7 +153,7 @@ window.YELI_LEGAL = {
                 },
                 {
                     h: 'Soporte',
-                    p: ['El canal oficial para ayuda, denuncias, derechos de autor, privacidad y consultas es la sección Soporte del pie de página: necesitas iniciar sesión para escribir, y recibirás la respuesta como una notificación (y por correo, si lo tienes activado) y podrás verla en la misma sección. Intentamos responder lo antes posible, pero no garantizamos un plazo.'],
+                    p: ['El canal oficial para ayuda, denuncias, derechos de autor, privacidad y consultas es la sección Soporte (menú de tu foto de perfil → Legal → Soporte): necesitas iniciar sesión para escribir, y recibirás la respuesta como una notificación (y por correo, si lo tienes activado) y podrás verla en la misma sección. Intentamos responder lo antes posible, pero no garantizamos un plazo.'],
                 },
                 {
                     h: 'Suspensión y cierre de cuentas',
@@ -206,7 +206,7 @@ window.YELI_LEGAL = {
                 },
                 {
                     h: 'Contacto',
-                    p: ['Para cualquier duda sobre estos Términos, escríbenos desde la sección Soporte, en el pie de página.'],
+                    p: ['Para cualquier duda sobre estos Términos, escríbenos desde la sección Soporte (menú de tu foto de perfil → Legal → Soporte).'],
                 },
             ],
         },
@@ -352,7 +352,7 @@ window.YELI_LEGAL = {
                 },
                 {
                     h: 'Support',
-                    p: ['The official channel for help, reports, copyright, privacy and questions is the Support section in the footer: you need to be logged in to write, and you will receive the answer as a notification (and by email, if you have it on) and can read it in the same section. We try to answer as soon as possible but do not guarantee a deadline.'],
+                    p: ['The official channel for help, reports, copyright, privacy and questions is the Support section (profile picture menu → Legal → Support): you need to be logged in to write, and you will receive the answer as a notification (and by email, if you have it on) and can read it in the same section. We try to answer as soon as possible but do not guarantee a deadline.'],
                 },
                 {
                     h: 'Suspension and closing of accounts',
@@ -405,7 +405,7 @@ window.YELI_LEGAL = {
                 },
                 {
                     h: 'Contact',
-                    p: ['For any question about these Terms, write to us from the Support section in the footer.'],
+                    p: ['For any question about these Terms, write to us from the Support section (profile picture menu → Legal → Support).'],
                 },
             ],
         },
@@ -442,7 +442,7 @@ window.YELI_LEGAL = {
                     ul: [
                         'Tipografías: Yeli carga sus fuentes desde Google Fonts. Al hacerlo, Google recibe tu dirección IP y datos técnicos de tu navegador, según su propia política de privacidad.',
                         'Conexión de video: para conectar tu cámara y las transmisiones entre dispositivos usamos tecnología WebRTC, que puede contactar con servidores de ayuda a la conexión (STUN/TURN). Estos servidores ven tu dirección IP para poder establecer la conexión.',
-                        'Enlaces externos: las redes sociales y otros sitios enlazados en el pie de página tienen sus propias cookies y políticas. Yeli no las controla.',
+                        'Enlaces externos: las redes sociales y otros sitios enlazados en Yeli tienen sus propias cookies y políticas. Yeli no las controla.',
                     ],
                 },
                 {
@@ -463,7 +463,7 @@ window.YELI_LEGAL = {
                 },
                 {
                     h: 'Contacto',
-                    p: ['Si tienes preguntas sobre esta política, escríbenos desde la sección Soporte, en el pie de página.'],
+                    p: ['Si tienes preguntas sobre esta política, escríbenos desde la sección Soporte (menú de tu foto de perfil → Legal → Soporte).'],
                 },
             ],
         },
@@ -497,7 +497,7 @@ window.YELI_LEGAL = {
                     ul: [
                         'Fonts: Yeli loads its fonts from Google Fonts. When it does, Google receives your IP address and technical data about your browser, under its own privacy policy.',
                         'Video connection: to connect your camera and streams between devices we use WebRTC technology, which may contact connection-assist servers (STUN/TURN). These servers see your IP address in order to set up the connection.',
-                        'External links: the social networks and other sites linked in the footer have their own cookies and policies. Yeli does not control them.',
+                        'External links: the social networks and other sites linked in Yeli have their own cookies and policies. Yeli does not control them.',
                     ],
                 },
                 {
@@ -518,7 +518,7 @@ window.YELI_LEGAL = {
                 },
                 {
                     h: 'Contact',
-                    p: ['If you have questions about this policy, write to us from the Support section in the footer.'],
+                    p: ['If you have questions about this policy, write to us from the Support section (profile picture menu → Legal → Support).'],
                 },
             ],
         },
@@ -547,7 +547,7 @@ window.YELI_LEGAL = {
                     h: 'Cómo pensamos Yeli',
                     ul: [
                         'Directos primero: el editor pide que un video editado se base en tus propios directos (70 % por defecto), para que el contenido siga siendo auténtico.',
-                        'Reglas claras: los Términos y Condiciones y la Política de Cookies están completos y a un clic, en el pie de página.',
+                        'Reglas claras: los Términos y Condiciones y la Política de Cookies están completos y a un clic, en el menú de tu perfil → Legal.',
                         'Privacidad razonable: solo cookies necesarias, sin publicidad ni rastreo entre sitios, y tu correo nunca es público.',
                         'Cuentas protegidas: contraseñas cifradas, protección contra intentos de acceso repetidos y videos que no se pueden descargar desde la web.',
                     ],
@@ -555,7 +555,7 @@ window.YELI_LEGAL = {
                 {
                     h: 'Habla con nosotros',
                     p: [
-                        'Si tienes una pregunta, un problema, una idea o quieres denunciar algo, escríbenos desde Soporte: respondemos por notificación y puedes seguir la conversación allí mismo. Para saber qué estamos mejorando, mira las Novedades; y para seguirnos, usa las redes sociales del pie de página.',
+                        'Si tienes una pregunta, un problema, una idea o quieres denunciar algo, escríbenos desde Soporte: respondemos por notificación y puedes seguir la conversación allí mismo. Para saber qué estamos mejorando, mira las Novedades; y para seguirnos, usa nuestras redes sociales.',
                     ],
                 },
             ],
@@ -582,7 +582,7 @@ window.YELI_LEGAL = {
                     h: 'How we think about Yeli',
                     ul: [
                         'Live first: the editor asks that an edited video be based on your own streams (70% by default), so content stays authentic.',
-                        'Clear rules: the Terms and Conditions and the Cookies Policy are complete and one click away, in the footer.',
+                        'Clear rules: the Terms and Conditions and the Cookies Policy are complete and one click away, in your profile menu → Legal.',
                         'Reasonable privacy: only necessary cookies, no advertising or cross-site tracking, and your email is never public.',
                         'Protected accounts: hashed passwords, protection against repeated login attempts, and videos that cannot be downloaded from the website.',
                     ],
@@ -590,7 +590,7 @@ window.YELI_LEGAL = {
                 {
                     h: 'Talk to us',
                     p: [
-                        'If you have a question, a problem, an idea or want to report something, write to us from Support: we answer by notification and you can follow the conversation right there. To see what we are improving, check What’s new; and to follow us, use the social networks in the footer.',
+                        'If you have a question, a problem, an idea or want to report something, write to us from Support: we answer by notification and you can follow the conversation right there. To see what we are improving, check What’s new; and to follow us, use our social networks.',
                     ],
                 },
             ],

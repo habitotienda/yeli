@@ -36,43 +36,40 @@ function plainTextHtml(text) {
 }
 
 /* =========================================================================
-   Footer
+   Social networks (added and removed by the admin). They are shown at the end of the legal pages and of What's new.
    ========================================================================= */
 let siteSocials = [];
 let sitePlatforms = [];
 
-function paintSocials() {
-    const box = $('#sfSocials');
-    const list = $('#sfSocialList');
-    if (!box || !list) return;
-    box.hidden = !siteSocials.length;
-    list.innerHTML = siteSocials.map((s) => `
-        <li><a class="sf-soc" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer me">
-            ${siteIcon(s.platform, 18)}<span translate="no" data-no-i18n>${esc(s.label || s.name)}</span>
-        </a></li>`).join('');
+function socialsHtml() {
+    if (!siteSocials.length) return '';
+    return `<section class="soc-block" aria-labelledby="socT"><h2 id="socT">Follow us</h2>
+        <ul class="soc-list">${siteSocials.map((s) => `
+            <li><a class="soc-link" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer me">
+                ${siteIcon(s.platform, 18)}<span translate="no" data-no-i18n>${esc(s.label || s.name)}</span></a></li>`).join('')}
+        </ul></section>`;
 }
 
 function setSocials(r) {
     siteSocials = r.socials || [];
     sitePlatforms = r.platforms || sitePlatforms;
-    paintSocials();
 }
 
-async function initSiteFooter() {
-    const y = $('#sfYear');
-    if (y) y.textContent = String(new Date().getFullYear());
-    try { setSocials(await api('/site/socials')); } catch { /* the footer works without the social links */ }
+async function loadSiteSocials() {
+    try { setSocials(await api('/site/socials')); } catch { /* the pages work without the links */ }
 }
 
 /* =========================================================================
    Legal pages: About us, Terms and Conditions, Cookies Policy
    ========================================================================= */
-const LEGAL_TABS = [['about', 'About us'], ['terms', 'Terms and Conditions'], ['cookies', 'Cookies Policy']];
+const LEGAL_TABS = [['about', 'About us'], ['terms', 'Terms and Conditions'], ['cookies', 'Cookies Policy'], ['support', 'Support']];
 
 function legalTable(t) {
     return `<div class="table-wrap"><table class="table legal-table"><thead><tr>${t.head.map((h) => `<th>${esc(h)}</th>`).join('')}</tr></thead>
         <tbody>${t.rows.map((r) => `<tr>${r.map((c, i) => `<td class="wrap"${i === 0 ? ' translate="no"' : ''}>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 }
+
+const legalTabs = (kind) => `<nav class="tabs" role="tablist" aria-label="Legal">${LEGAL_TABS.map(([k, l]) => `<a role="tab" class="tab" href="#/${k}" aria-selected="${k === kind}">${l}</a>`).join('')}</nav>`;
 
 function legalHtml(kind) {
     const lang = siteLang();
@@ -90,7 +87,7 @@ function legalHtml(kind) {
             <ol>${doc.sections.map((s, i) => `<li><button type="button" class="link-btn" data-goto="sec-${i + 1}">${esc(s.h)}</button></li>`).join('')}</ol>
         </nav>` : '';
     return `
-    <nav class="tabs" role="tablist" aria-label="Legal">${LEGAL_TABS.map(([k, l]) => `<a role="tab" class="tab" href="#/${k}" aria-selected="${k === kind}">${l}</a>`).join('')}</nav>
+    ${legalTabs(kind)}
     <article class="legal" lang="${lang}" data-no-i18n>
         <header class="legal-head">
             <h1 class="page-title">${esc(doc.title)}</h1>
@@ -100,13 +97,15 @@ function legalHtml(kind) {
         ${toc}
         ${secs}
         <p class="legal-end"><a class="btn btn-secondary" href="#/support">${lang === 'es' ? 'Contactar con Soporte' : 'Contact Support'}</a></p>
-    </article>`;
+    </article>
+    ${socialsHtml()}`;
 }
 
-function pageLegal(root, kind) {
+async function pageLegal(root, kind) {
     const doc = window.YELI_LEGAL[kind][siteLang()];
     document.title = `${doc.title} | Yeli`;
     root.innerHTML = legalHtml(kind);
+    if (!siteSocials.length) { await loadSiteSocials(); if (siteSocials.length && root.isConnected) root.innerHTML = legalHtml(kind); }
 }
 
 // The text changes with the interface language, so draw the page again when it changes.
@@ -158,6 +157,8 @@ async function pageUpdates(root, alive) {
         if (r.more) body.insertAdjacentHTML('beforeend', '<div class="upd-more" data-more><button type="button" class="btn btn-secondary">Load more</button></div>');
     };
     await load();
+    if (!siteSocials.length) await loadSiteSocials();
+    if (alive() && siteSocials.length) root.insertAdjacentHTML('beforeend', socialsHtml());
     root.onclick = (e) => {
         if (e.target.closest('[data-more] button')) load().catch((err) => toast(err.message));
     };
@@ -197,6 +198,7 @@ async function pageSupport(root, alive, params) {
     if (tid) { await supportThread(root, alive, tid, { staff: false, backHref: '#/support', backLabel: 'All my requests' }); return; }
 
     root.innerHTML = `
+        ${legalTabs('support')}
         <div class="page-head"><h1 class="page-title">Support</h1><p class="page-sub">Tell us what happened. We answer here and send you a notification.</p></div>
         <div class="sup-layout">
             <section class="panel sup-new" aria-labelledby="supNewT">
@@ -409,7 +411,7 @@ async function adminSocials(body, alive) {
     body.innerHTML = `
         <section class="panel">
             <h2 class="section-title">Add a social network</h2>
-            <p class="muted">These links appear in the footer of every page. Only https:// addresses are accepted.</p>
+            <p class="muted">These links appear at the end of the Legal pages and What\u2019s new. Only https:// addresses are accepted.</p>
             <form id="socForm" novalidate>
                 <div class="field-row">
                     <div class="field"><label for="socPlatform">Network</label>
@@ -421,12 +423,12 @@ async function adminSocials(body, alive) {
                 <div><button type="submit" class="btn btn-primary">Add</button></div>
             </form>
         </section>
-        <section class="section"><h2 class="section-title">In the footer now</h2>
+        <section class="section"><h2 class="section-title">Shown now</h2>
             ${r.socials.length ? `<ul class="soc-admin">${r.socials.map((s) => `
                 <li data-id="${s.id}"><span class="soc-admin-ic">${siteIcon(s.platform, 20)}</span>
                     <span class="soc-admin-txt"><strong translate="no" data-no-i18n>${esc(s.label || s.name)}</strong><a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer" translate="no" data-no-i18n>${esc(s.url)}</a></span>
                     <button type="button" class="obs-btn" data-del>Remove</button></li>`).join('')}</ul>`
-            : '<p class="muted">No social networks yet, so the footer shows none.</p>'}
+            : '<p class="muted">No social networks yet.</p>'}
         </section>`;
     const form = $('#socForm', body);
     form.addEventListener('submit', async (e) => {
@@ -435,7 +437,7 @@ async function adminSocials(body, alive) {
         err.hidden = true;
         try {
             setSocials(await api('/admin/socials', { method: 'POST', body: Object.fromEntries(new FormData(form)) }));
-            toast('Added to the footer.');
+            toast('Added.');
             route();
         } catch (e2) { err.textContent = e2.message; err.hidden = false; if (e2.field) form.querySelector(`[name="${e2.field}"]`)?.focus(); }
     });
@@ -443,6 +445,6 @@ async function adminSocials(body, alive) {
         const b = e.target.closest('[data-del]');
         if (!b) return;
         b.disabled = true;
-        try { setSocials(await api(`/admin/socials/${b.closest('li').dataset.id}`, { method: 'DELETE' })); toast('Removed from the footer.'); route(); } catch (e2) { toast(e2.message); b.disabled = false; }
+        try { setSocials(await api(`/admin/socials/${b.closest('li').dataset.id}`, { method: 'DELETE' })); toast('Removed.'); route(); } catch (e2) { toast(e2.message); b.disabled = false; }
     });
 }

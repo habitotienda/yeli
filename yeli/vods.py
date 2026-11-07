@@ -124,6 +124,15 @@ FROM vods v JOIN users u ON u.id = v.user_id
 """
 
 
+def _search_like(q):
+    """`%q%` with the LIKE wildcards of the person's text escaped (used with ESCAPE '\\')."""
+    q = (q or "").strip()[:50]
+    return "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%" if q else ""
+
+
+_SEARCH_SQL = " AND (v.title LIKE ? ESCAPE '\\' OR u.username LIKE ? ESCAPE '\\')"
+
+
 def _get(db, vid):
     if not VOD_ID.match(vid or ""):
         return None
@@ -339,6 +348,10 @@ def shorts_feed():
     if channel:
         sql += " AND u.username = ?"
         args.append(channel)
+    like = _search_like(request.args.get("q"))
+    if like:  # Content search: the title or the person
+        sql += _SEARCH_SQL
+        args += [like, like]
     rows = db.execute(sql + " ORDER BY v.started_at DESC LIMIT 60 OFFSET ?", (*args, offset)).fetchall()
     out, used = [], 0
     for r in rows:
@@ -356,9 +369,11 @@ def videos_feed():
     db = get_db()
     me_row = current_user()
     offset = max(0, int_arg("offset", 0))
+    like = _search_like(request.args.get("q"))  # Content search: the title or the person
     rows = db.execute(
-        f"{VOD_SELECT} WHERE v.status = 'ready' AND v.kind != 'short' AND v.visibility IN ('public', 'followers') "
-        "ORDER BY v.started_at DESC LIMIT 60 OFFSET ?", (offset,)
+        f"{VOD_SELECT} WHERE v.status = 'ready' AND v.kind != 'short' AND v.visibility IN ('public', 'followers')"
+        + (_SEARCH_SQL if like else "")
+        + " ORDER BY v.started_at DESC LIMIT 60 OFFSET ?", ((like, like, offset) if like else (offset,))
     ).fetchall()
     out, used = [], 0
     for r in rows:

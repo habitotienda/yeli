@@ -32,13 +32,28 @@ function pageContent(root) {
     </section>`;
 }
 
-/** Content > Video: the published regular videos of everyone, newest first. */
-async function pageVideos(root, alive) {
-    document.title = 'Video | Yeli';
+/** People that match a Content search (the search inside Content never lists streams). Fills `box` and hides it when nobody matches. */
+async function paintPeopleMatches(box, q, alive) {
+    try {
+        const { results } = await api(`/search?q=${encodeURIComponent(q)}&limit=12`);
+        if (!alive()) return;
+        box.hidden = !results.length;
+        box.innerHTML = results.length ? `<h2 class="section-title">People</h2>${channelGrid(results)}` : '';
+    } catch { box.hidden = true; }
+}
+
+/** Content > Video: the published regular videos of everyone, newest first. With `?q=` it searches people and videos. */
+async function pageVideos(root, alive, params) {
+    const q = ((params && params.get('q')) || '').trim();
+    document.title = q ? `${q} | Video | Yeli` : 'Video | Yeli';
+    const input = $('#searchInput');
+    if (input) input.value = q;
     root.innerHTML = `
     <section class="content-page" aria-label="Video">
-        <div class="content-back"><a class="btn btn-secondary" href="#/content">Content</a></div>
-        <h1 class="page-title">Video</h1>
+        <div class="content-back"><a class="btn btn-secondary" href="#/content">Content</a>${q ? '<a class="btn btn-secondary" href="#/videos">All videos</a>' : ''}</div>
+        <h1 class="page-title">${q ? `Results for \u201c${esc(q)}\u201d` : 'Video'}</h1>
+        ${q ? '<section class="section" id="videosPeople" hidden></section>' : ''}
+        ${q ? '<h2 class="section-title">Videos</h2>' : ''}
         <div id="videosGrid" class="stream-grid"></div>
         <div class="row" id="videosMore" hidden><button type="button" class="btn btn-secondary" id="videosMoreBtn">Load more</button></div>
     </section>`;
@@ -49,9 +64,10 @@ async function pageVideos(root, alive) {
         if (loading) return;
         loading = true;
         try {
-            const r = await api(`/videos?offset=${offset}`);
+            const r = await api(`/videos?offset=${offset}${q ? `&q=${encodeURIComponent(q)}` : ''}`);
             if (!alive()) return;
             if (offset === 0 && !r.videos.length) {
+                if (q) { grid.outerHTML = '<p class="muted content-empty">No videos matched your search.</p>'; moreRow.hidden = true; return; }
                 $('.content-page').innerHTML = emptyState('No videos yet', 'Published videos will show up here.', '<a class="btn btn-primary" href="#/content">Back to Content</a>', 'broadcast');
                 return;
             }
@@ -63,6 +79,7 @@ async function pageVideos(root, alive) {
         } finally { loading = false; }
     };
     $('#videosMoreBtn').addEventListener('click', load);
+    if (q) paintPeopleMatches($('#videosPeople'), q, alive);
     await load();
 }
 

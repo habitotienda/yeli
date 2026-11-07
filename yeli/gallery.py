@@ -151,6 +151,10 @@ def gallery_list():
         if channel:
             where += " AND u.username = :channel"
             args["channel"] = channel
+        q = (request.args.get("q") or "").strip()[:50]
+        if q:  # Content search: the title or the person
+            where += " AND (g.title LIKE :q ESCAPE '\\' OR u.username LIKE :q ESCAPE '\\')"
+            args["q"] = "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
     rows = db.execute(f"{SELECT} {where} ORDER BY g.created_at DESC, g.id DESC LIMIT :limit OFFSET :offset", args).fetchall()
     return jsonify(items=[item_json(r, me_row) for r in rows[:PAGE]], more=len(rows) > PAGE, next_offset=offset + PAGE)
 

@@ -90,6 +90,9 @@ function openGalleryItem(it, { onChange }) {
 async function pageGallery(root, params, alive) {
     document.title = 'Gallery | Yeli';
     const channel = params.get('channel') || '';
+    const q = (params.get('q') || '').trim();
+    const input = $('#searchInput');
+    if (input) input.value = q;
     let tab = ['owned', 'mine'].includes(params.get('tab')) && state.me ? params.get('tab') : 'all';
     const tabs = [['all', 'All'], ['owned', 'My GIFs'], ['mine', 'Mine']];
     root.innerHTML = `
@@ -98,6 +101,7 @@ async function pageGallery(root, params, alive) {
         <p class="page-sub">Pictures from streams. Buy one and keep it as a GIF to send in chat.${channel ? ` Showing ${esc(channel)}.` : ''}</p></div>
         ${state.me ? '<a class="btn btn-secondary btn-ico" href="#/clips">' + IC(FILM_PATH, 'none', 15) + '<span>Make one from a clip</span></a>' : ''}
     </div>
+    ${q ? '<section class="section" id="galPeople" hidden></section>' : ''}
     <div class="chip-row" role="group" aria-label="Show" id="galTabs"></div>
     <div id="galBody">${skeletonGrid(6)}</div>`;
 
@@ -128,7 +132,7 @@ async function pageGallery(root, params, alive) {
         const my = ++seq;
         if (reset) { items = []; offset = 0; body.innerHTML = skeletonGrid(6); }
         try {
-            const r = await api(`/gallery?scope=${tab}&offset=${offset}${channel && tab === 'all' ? `&channel=${encodeURIComponent(channel)}` : ''}`);
+            const r = await api(`/gallery?scope=${tab}&offset=${offset}${channel && tab === 'all' ? `&channel=${encodeURIComponent(channel)}` : ''}${q && tab === 'all' ? `&q=${encodeURIComponent(q)}` : ''}`);
             if (!alive() || my !== seq) return;
             items = items.concat(r.items);
             offset = r.next_offset;
@@ -152,5 +156,6 @@ async function pageGallery(root, params, alive) {
     onLeave(() => root.removeEventListener('click', onClick));
 
     paintTabs();
+    if (q) paintPeopleMatches($('#galPeople'), q, alive);
     load(true);
 }

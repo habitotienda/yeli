@@ -129,9 +129,16 @@ let lastRank = 0;
 let enterTimer = null;
 let enterGuard = null;
 let enterObserver = null;
+let enterStart = null;
+
+/** Plays the armed entrance now if the new page has not touched #view's children (it painted inside existing elements). */
+function flushPageEnter() {
+    if (enterStart && $('#view').childNodes.length) enterStart();
+}
 
 /** Stops a page entrance that was armed but has not started (or is still running). */
 function cancelPageEnter() {
+    enterStart = null;
     if (enterObserver) { enterObserver.disconnect(); enterObserver = null; }
     clearTimeout(enterGuard);
     clearTimeout(enterTimer);
@@ -151,6 +158,7 @@ function playPageEnter(path) {
     cancelPageEnter();
 
     const start = () => {
+        enterStart = null;
         if (enterObserver) { enterObserver.disconnect(); enterObserver = null; }
         clearTimeout(enterGuard);
         root.classList.remove('page-enter');
@@ -162,10 +170,11 @@ function playPageEnter(path) {
     };
 
     if (typeof MutationObserver === 'undefined') { start(); return; }
+    enterStart = start;
     enterObserver = new MutationObserver(start);
     enterObserver.observe(root, { childList: true });
     // If the page never paints (slow network, error), don't animate old content or a late refresh.
-    enterGuard = setTimeout(() => { if (enterObserver) { enterObserver.disconnect(); enterObserver = null; } }, 8000);
+    enterGuard = setTimeout(() => { enterStart = null; if (enterObserver) { enterObserver.disconnect(); enterObserver = null; } }, 8000);
 }
 
 async function route(focus = false) {
@@ -184,6 +193,7 @@ async function route(focus = false) {
     window.scrollTo(0, 0);
     if (focus) { root.focus({ preventScroll: true }); if (!isPopout) playPageEnter(path); else cancelPageEnter(); }
     closeMobileSearch();
+    updateSearchContext();
 
     try {
         if (path === '/') await pageHome(root, alive);
@@ -191,7 +201,7 @@ async function route(focus = false) {
         else if (path === '/following') await pageFollowing(root, alive);
         else if (path === '/search') await pageSearch(root, params, alive);
         else if (path === '/content') pageContent(root);
-        else if (path === '/videos') await pageVideos(root, alive);
+        else if (path === '/videos') await pageVideos(root, alive, params);
         else if (path === '/shorts') await pageShorts(root, params, alive);
         else if (path === '/gallery') await pageGallery(root, params, alive);
         else if (path === '/studio') pageStudio(root);
@@ -211,6 +221,7 @@ async function route(focus = false) {
         if (!alive()) return;
         root.innerHTML = emptyState('Something went wrong', esc(e.message), '<button type="button" class="btn btn-primary" data-action="reload-route">Try again</button>');
     }
+    if (alive()) flushPageEnter();
 }
 
 window.addEventListener('hashchange', () => route(true));
@@ -963,6 +974,25 @@ const suggestBox = $('#searchSuggest');
 let suggestTimer = null;
 let suggestSeq = 0;
 
+/* Inside Content (Video, Short, Gallery) the search looks for people and that kind of content, not for streams. */
+const CONTENT_SEARCH = {
+    videos: { path: '/videos', label: 'videos', hint: 'Search people and videos...' },
+    shorts: { path: '/shorts', label: 'Shorts', hint: 'Search people and Shorts...' },
+    gallery: { path: '/gallery', label: 'pictures', hint: 'Search people and pictures...' }
+};
+function contentSearchKind() {
+    const { path } = parseHash();
+    if (path === '/content') return 'videos';
+    const kind = path.slice(1);
+    return CONTENT_SEARCH[kind] ? kind : '';
+}
+function updateSearchContext() {
+    const kind = contentSearchKind();
+    const text = kind ? CONTENT_SEARCH[kind].hint : 'Search channels and streams...';
+    searchInput.placeholder = text;
+    searchInput.setAttribute('aria-label', text.replace(/\.\.\.$/, ''));
+}
+
 function hideSuggest() {
     suggestBox.hidden = true;
     suggestBox.innerHTML = '';
@@ -970,13 +1000,17 @@ function hideSuggest() {
 }
 
 function showSuggest(results, q) {
+    const kind = contentSearchKind();
     const rows = results.map((c) => `
         <a role="option" class="suggest-row" href="${channelHref(c.username)}">
             ${avatar(c, 'avatar-sm')}
             <span class="suggest-name">${esc(c.username)}</span>${accountBadgesHtml(c, 15)}
-            ${c.live ? `<span class="badge-live badge-small">LIVE</span><span class="suggest-sub">${esc(c.title)}</span>` : `<span class="suggest-sub">${plural(c.followers, 'follower', 'followers')}</span>`}
+            ${!kind && c.live ? `<span class="badge-live badge-small">LIVE</span><span class="suggest-sub">${esc(c.title)}</span>` : `<span class="suggest-sub">${plural(c.followers, 'follower', 'followers')}</span>`}
         </a>`).join('');
-    suggestBox.innerHTML = rows + `<a role="option" class="suggest-row suggest-all" href="#/search?q=${encodeURIComponent(q)}">Search for \u201c${esc(q)}\u201d</a>`;
+    const all = kind
+        ? `<a role="option" class="suggest-row suggest-all" href="#${CONTENT_SEARCH[kind].path}?q=${encodeURIComponent(q)}">Search ${CONTENT_SEARCH[kind].label} for \u201c${esc(q)}\u201d</a>`
+        : `<a role="option" class="suggest-row suggest-all" href="#/search?q=${encodeURIComponent(q)}">Search for \u201c${esc(q)}\u201d</a>`;
+    suggestBox.innerHTML = rows + all;
     suggestBox.hidden = false;
     searchInput.setAttribute('aria-expanded', 'true');
 }
@@ -1012,7 +1046,8 @@ searchForm.addEventListener('submit', (e) => {
     if (!q) return;
     suggestSeq++;
     hideSuggest();
-    const target = `#/search?q=${encodeURIComponent(q)}`;
+    const kind = contentSearchKind();
+    const target = kind ? `#${CONTENT_SEARCH[kind].path}?q=${encodeURIComponent(q)}` : `#/search?q=${encodeURIComponent(q)}`;
     if (location.hash === target) route(true); else location.hash = target;
 });
 

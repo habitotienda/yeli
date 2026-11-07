@@ -42,8 +42,12 @@ async function pageShorts(root, params, alive) {
     document.title = 'Shorts | Yeli';
     const channel = params.get('channel') || '';
     const start = params.get('v') || '';
+    const q = (params.get('q') || '').trim();
+    const input = $('#searchInput');
+    if (input) input.value = q;
     root.innerHTML = `<section class="shorts-page" aria-label="Shorts">
         ${channel ? `<div class="shorts-chan"><a class="btn btn-secondary" href="#/shorts">All Shorts</a><span translate="no">${esc(channel)}</span></div>` : ''}
+        ${q && !channel ? `<div class="shorts-chan"><a class="btn btn-secondary" href="#/shorts">All Shorts</a><span translate="no">\u201c${esc(q)}\u201d</span></div>` : ''}
         <div class="shorts-feed" id="shortsFeed" tabindex="0">${'<div class="short skeleton-short" aria-hidden="true"><div class="skeleton"></div></div>'}</div>
         <div class="shorts-sheet" id="shortsSheet" hidden>
             <div class="shorts-sheet-back" data-sheet-close></div>
@@ -117,7 +121,7 @@ async function pageShorts(root, params, alive) {
         if (loading || !more) return;
         loading = true;
         try {
-            const r = await api(`/shorts?offset=${offset}${channel ? `&channel=${encodeURIComponent(channel)}` : ''}`);
+            const r = await api(`/shorts?offset=${offset}${channel ? `&channel=${encodeURIComponent(channel)}` : ''}${q ? `&q=${encodeURIComponent(q)}` : ''}`);
             if (!alive()) return;
             offset = r.next_offset;
             more = r.more;

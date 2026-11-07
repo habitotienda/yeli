@@ -1,0 +1,27 @@
+/* Ajustes finales (se carga al último) */
+
+/* Selector de stickers: el texto de cada pestaña ("Premium" incluida) queda centrado en su botón,
+   aunque la pestaña sea angosta (en computadora el chat es estrecho y el texto se corría a la derecha). */
+.sticker-tabs button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 7px 2px;
+    text-align: center;
+    white-space: nowrap;
+    line-height: 1.2;
+}
+
+/* Menú de la foto de perfil: en computadora queda pegado al borde derecho de la pantalla
+   (antes seguía a la foto y quedaba corrido hacia adentro). En el celular sigue siendo la hoja de abajo. */
+@media (min-width: 701px) {
+    .user-menu { position: static; }
+    .user-dropdown {
+        position: absolute;
+        right: 8px;
+        left: auto;
+        top: calc(100% + 6px);
+    }
+}

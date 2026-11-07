@@ -35,7 +35,7 @@ class YeliTests(unittest.TestCase):
         _bot._cooldowns.clear()
         core._failed_logins.clear()
         con = sqlite3.connect(config.DB_PATH)
-        for t in ("notifications", "notify_prefs", "notify_meta", "vod_comment_likes", "vod_comments", "vod_likes", "vods", "edit_projects", "free_points", "watch_sessions", "chat_bans", "chat_mods", "events", "alert_rules", "assets", "chat_settings", "commands", "spendings", "upgrades", "upgrade_points", "ledger", "payouts", "donations", "purchases", "wallets", "chat_messages", "avatars", "thumbnails", "signals", "viewers", "live_likes", "follows", "streams", "users"):
+        for t in ("notifications", "notify_prefs", "notify_meta", "vod_comment_likes", "vod_comments", "vod_likes", "vods", "edit_projects", "free_points", "watch_sessions", "chat_bans", "chat_mods", "events", "alert_rules", "assets", "chat_settings", "commands", "spendings", "upgrades", "upgrade_points", "ledger", "payouts", "donations", "purchases", "wallets", "chat_messages", "gallery_owned", "gallery_items", "avatars", "thumbnails", "signals", "viewers", "live_likes", "follows", "streams", "users"):
             con.execute(f"DELETE FROM {t}")
         con.commit()
         con.close()
@@ -2094,6 +2094,152 @@ class YeliTests(unittest.TestCase):
                 self.assertEqual(notifications.base_url(), "https://yeli.test")
         finally:
             config.MAIL_CONSOLE, config.PUBLIC_URL = old
+
+    # --- Shorts and Gallery
+    GIF = b"GIF89a" + b"\x08\x00\x08\x00" + b"\x00\x00\x00" + b";"
+
+    def edit_clip(self, client, aspect="16:9", duration=60):
+        """An exported edit with a cover, in the given format."""
+        live = self.live_vod(client, seconds=400)
+        pid = self.project(client, [{"a": f"vod:{live}", "in": 0, "out": duration}], aspect=aspect)  # the export can't be longer than its project
+        vid = post(client, "/api/vod/new", {"mime": "video/webm", "title": "Edit", "project_id": pid}).get_json()["id"]
+        client.post(f"/api/vod/{vid}/chunk?seq=0", data=b"EDIT", **OCTET)
+        post(client, f"/api/vod/{vid}/finish", {"duration": duration, "cover": JPEG})
+        return vid
+
+    def test_vertical_videos_become_shorts(self):
+        self.signup(self.alice, "alice")
+        self.signup(self.bob, "bob")
+        self.assertEqual(self.anon.get("/api/shorts").get_json()["shorts"], [])
+
+        # a vertical edit of 90 s is published as a Short and shows up in the feed
+        short = self.edit_clip(self.alice, "9:16", 90)
+        v = post(self.alice, f"/api/vod/{short}/publish", {"title": "Vertical"}).get_json()["video"]
+        self.assertEqual((v["aspect"], v["kind"], v["is_short"]), ("9:16", "short", True))
+        feed = self.anon.get("/api/shorts").get_json()["shorts"]
+        self.assertEqual([x["id"] for x in feed], [short])
+        self.assertEqual(self.anon.get("/api/shorts?channel=bob").get_json()["shorts"], [])
+
+        # more than 3 minutes can't be a Short, and nothing is published
+        long = self.edit_clip(self.alice, "9:16", 181)
+        r = post(self.alice, f"/api/vod/{long}/publish", {"title": "Too long"})
+        self.assertEqual((r.status_code, r.get_json()["field"]), (400, "short"))
+        self.assertEqual(self.alice.get(f"/api/vod/{long}").get_json()["video"]["visibility"], "private")
+        edge = self.edit_clip(self.alice, "9:16", 180)
+        self.assertEqual(post(self.alice, f"/api/vod/{edge}/publish", {}).status_code, 200)
+        # the same rule when privacy is changed later
+        self.assertEqual(post(self.alice, f"/api/vod/{long}/visibility", {"visibility": "public"}).status_code, 400)
+
+        # square and 4:5 are never videos: they are for the gallery
+        for aspect in ("1:1", "4:5"):
+            sq = self.edit_clip(self.alice, aspect, 30)
+            r = post(self.alice, f"/api/vod/{sq}/publish", {})
+            self.assertEqual((r.status_code, r.get_json()["field"]), (400, "format"))
+
+        # a recorded stream is as wide as the browser saw it: wide is a normal video, tall a Short; nonsense is ignored
+        wide = self.live_vod(self.alice, 100)
+        con = sqlite3.connect(config.DB_PATH)
+        con.execute("UPDATE vods SET cover = ? WHERE id = ?", (b"\xff\xd8\xff", wide))
+        con.commit()
+        con.close()
+        v = post(self.alice, f"/api/vod/{wide}/publish", {"aspect": "banana"}).get_json()["video"]
+        self.assertEqual((v["aspect"], v["kind"]), ("16:9", "video"))
+        self.assertEqual(len(self.anon.get("/api/shorts").get_json()["shorts"]), 2)  # `short` and `edge`
+
+        # followers-only shorts only reach followers
+        post(self.alice, f"/api/vod/{short}/visibility", {"visibility": "followers"})
+        self.assertEqual(len(self.anon.get("/api/shorts").get_json()["shorts"]), 1)
+        self.assertEqual(len(self.bob.get("/api/shorts").get_json()["shorts"]), 1)
+        post(self.bob, "/api/follow/alice")
+        self.assertEqual(len(self.bob.get("/api/shorts").get_json()["shorts"]), 2)
+
+    def gallery_item(self, client, price=120, aspect="1:1", gif=True):
+        vid = self.live_vod(client)
+        r = post(client, "/api/gallery", {"vod_id": vid, "aspect": aspect, "price": price, "title": "Moment", "image": JPEG})
+        self.assertEqual(r.status_code, 201, r.get_json())
+        gid = r.get_json()["id"]
+        if gif:
+            r = client.post(f"/api/gallery/{gid}/gif", data=self.GIF, **OCTET)
+            self.assertEqual(r.status_code, 200, r.get_json())
+        return gid
+
+    def test_gallery_buy_and_chat_gif(self):
+        self.signup(self.alice, "alice")
+        self.signup(self.bob, "bob")
+        self.signup(self.anon, "carol")
+        vid = self.live_vod(self.alice)
+
+        # creating: account, own video, a known format, a sensible price and a real picture
+        self.assertEqual(post(self.bob, "/api/gallery", {"vod_id": vid, "aspect": "1:1", "image": JPEG}).status_code, 404)
+        base = {"vod_id": vid, "aspect": "4:5", "image": JPEG}
+        self.assertEqual(post(self.alice, "/api/gallery", {**base, "aspect": "16:9"}).status_code, 400)
+        for price in (5, -1, 10**6, "120", True):
+            self.assertEqual(post(self.alice, "/api/gallery", {**base, "price": price}).status_code, 400, price)
+        self.assertEqual(post(self.alice, "/api/gallery", {**base, "image": "data:image/png;base64,AAAA"}).status_code, 400)
+
+        # a picture is only in the gallery once its GIF arrived, and the GIF has to be a real, small GIF
+        gid = post(self.alice, "/api/gallery", {**base, "price": 120, "title": "  The goal  "}).get_json()["id"]
+        self.assertEqual(self.bob.get("/api/gallery").get_json()["items"], [])
+        self.assertEqual(self.alice.post(f"/api/gallery/{gid}/gif", data=b"nope", **OCTET).status_code, 400)
+        self.assertEqual(self.bob.post(f"/api/gallery/{gid}/gif", data=self.GIF, **OCTET).status_code, 404)
+        self.assertEqual(self.alice.post(f"/api/gallery/{gid}/gif", data=self.GIF, content_type="application/json").status_code, 415)
+        self.assertEqual(self.alice.post(f"/api/gallery/{gid}/gif", data=self.GIF, **OCTET).status_code, 200)
+        self.assertEqual(self.alice.post(f"/api/gallery/{gid}/gif", data=self.GIF, **OCTET).status_code, 409)
+        items = self.anon.get("/api/gallery").get_json()["items"]
+        self.assertEqual([(i["id"], i["title"], i["price"], i["username"], i["owned"]) for i in items], [(gid, "The goal", 120, "alice", False)])
+        self.assertEqual(self.anon.get(f"/api/gallery/{gid}/image").mimetype, "image/jpeg")
+        self.assertEqual(self.anon.get(f"/api/gallery/{gid}/gif").data, self.GIF)
+
+        # the author owns it and can't buy it; nobody else can send its GIF before buying
+        self.assertEqual([i["id"] for i in self.alice.get("/api/gallery?scope=owned").get_json()["items"]], [gid])
+        self.assertEqual(post(self.alice, f"/api/gallery/{gid}/buy").status_code, 400)
+        self.assertEqual(post(self.bob, "/api/chat/alice", {"sticker": f"g:{gid}"}).status_code, 403)
+        self.assertEqual(post(self.alice, "/api/chat/alice", {"sticker": f"g:{gid}"}).status_code, 201)
+        self.assertEqual(post(self.bob, "/api/chat/alice", {"sticker": "g:" + "0" * 16}).status_code, 403)
+
+        # buying: login, enough Yelis, and only once
+        self.assertEqual(post(self.anon, f"/api/gallery/{gid}/buy").status_code, 200 if False else 402)
+        pid, done = self.buy(self.bob)
+        self.assertEqual(done["balance"], 1000)
+        r = post(self.bob, f"/api/gallery/{gid}/buy")
+        self.assertEqual(r.status_code, 200, r.get_json())
+        self.assertEqual((r.get_json()["balance"], r.get_json()["item"]["owned"]), (880, True))
+        self.assertEqual(post(self.bob, f"/api/gallery/{gid}/buy").status_code, 409)
+        self.assertEqual(self.bob.get("/api/me").get_json()["user"]["balance"], 880)
+        # the author is paid like a donation
+        w = self.alice.get("/api/wallet").get_json()["wallet"]
+        self.assertEqual(w["earned"], 120)
+        self.assertEqual(self.alice.get("/api/gallery?scope=mine").get_json()["items"][0]["sales"], 1)
+
+        # the buyer sends it in chat: it shows as a sticker whose picture is the GIF
+        r = post(self.bob, "/api/chat/alice", {"sticker": f"g:{gid}"})
+        self.assertEqual(r.status_code, 201)
+        msg = self.anon.get("/api/chat/alice").get_json()["messages"][-1]
+        self.assertEqual((msg["kind"], msg["sticker"], msg["user"]), ("sticker", f"g:{gid}", "bob"))
+
+        # a free picture is claimed without Yelis; a price below the minimum was refused above
+        free = self.gallery_item(self.alice, price=0)
+        self.assertEqual(post(self.anon, f"/api/gallery/{free}/buy").status_code, 200)
+
+        # removing hides it but whoever owns it keeps the GIF
+        self.assertEqual(post(self.bob, f"/api/gallery/{gid}/delete").status_code, 404)
+        self.assertEqual(post(self.alice, f"/api/gallery/{gid}/delete").status_code, 200)
+        self.assertNotIn(gid, [i["id"] for i in self.anon.get("/api/gallery").get_json()["items"]])
+        self.assertEqual(post(self.anon, f"/api/gallery/{gid}/buy").status_code, 404)
+        self.assertIn(gid, [i["id"] for i in self.bob.get("/api/gallery?scope=owned").get_json()["items"]])
+        self.assertEqual(post(self.bob, "/api/chat/alice", {"sticker": f"g:{gid}"}).status_code, 201)
+        self.assertEqual(self.anon.get(f"/api/gallery/{gid}/gif").status_code, 200)
+
+        # the gallery has a limit per channel
+        old = config.GALLERY_MAX_PER_USER
+        config.GALLERY_MAX_PER_USER = 1
+        try:
+            r = post(self.alice, "/api/gallery", {**base, "price": 0})
+            self.assertEqual((r.status_code, r.get_json()["limit"]), (409, True))
+        finally:
+            config.GALLERY_MAX_PER_USER = old
+        self.assertEqual(self.anon.get("/api/gallery?scope=mine").status_code, 200)
+        self.assertEqual(self.anon.get("/api/gallery?scope=owned").status_code, 200)
 
     def alice_id(self):
         con = sqlite3.connect(config.DB_PATH)

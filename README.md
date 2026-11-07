@@ -437,3 +437,19 @@ comandos (`!dado`, tus comandos personalizados, `!say`, etc.; los comandos solo 
 
 Lo que **no** hace: escribir de vuelta en esas plataformas por sí solo (haría falta iniciar sesión en cada una; con el enlace puedes hacerlo
 desde tu herramienta usando `reply`), ni reenviar *desde el navegador* sin servidor de medios.
+
+---
+
+## Shorts y Galería
+
+- **Shorts**: al publicar un video en formato **vertical (9:16)** se publica como Short (máximo **3 minutos**, `SHORT_MAX_SECONDS`).
+  Aparece en `#/shorts` (feed vertical con me gusta, comentarios y compartir). Los videos editados usan el formato del proyecto;
+  una grabación de directo se mide en el navegador al abrir el diálogo de publicar.
+- **Galería**: en el diálogo de publicar, el formato **Cuadrado (1:1)** o **4:5** no publica un video: crea una **imagen del directo**
+  (eliges el momento) en `#/gallery`, con un precio opcional (0 = gratis, o de 10 a 10.000 Yelis). El clip sigue privado.
+  Al comprarla, el comprador la guarda como **GIF** (bucle de 1,5 s, hecho en el navegador del autor) y la envía desde la pestaña
+  **GIFs** del selector de stickers del chat (sticker `g:<id>`). El autor cobra como una donación (misma retención y reglas de retiro).
+  Quitar una imagen la oculta de la galería; quien ya la compró conserva su GIF. Límite por canal: `YELI_GALLERY_MAX_PER_USER` (100).
+- Código: `yeli/gallery.py`, `yeli/vods.py` (`/api/shorts`), `static/js/shorts.js`, `gallery.js`, `gif.js` (codificador GIF), `css/shorts-gallery.css`.
+- Si ya tenías la base de datos, las columnas y tablas nuevas se crean solas al arrancar (o corre `supabase/schema.sql`).
+- La barra inferior del móvil ahora es: Inicio, Explorar, Siguiendo, Transmitir, Shorts, Galería. Mi canal y Ajustes están en el menú del avatar.

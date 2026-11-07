@@ -89,9 +89,13 @@ def chat_send(username):
     data = request.get_json(silent=True) or {}
     sticker = data.get("sticker")
     if sticker is not None:
-        if not isinstance(sticker, str) or (sticker not in economy.STICKERS and sticker not in economy.CHEST_STICKERS):
+        if isinstance(sticker, str) and sticker.startswith("g:"):  # a GIF from the gallery: only people who own it
+            from .gallery import owns as gallery_owns  # here, because the gallery needs the wallet and the wallet needs this module
+            if not gallery_owns(get_db(), me_row["id"], sticker[2:]):
+                return err("You don't own that GIF. Buy it in the gallery first.", 403)
+        elif not isinstance(sticker, str) or (sticker not in economy.STICKERS and sticker not in economy.CHEST_STICKERS):
             return err("Unknown sticker.")
-        if sticker in economy.CHEST_STICKERS:  # exclusive: only accounts that found it in a daily chest
+        elif sticker in economy.CHEST_STICKERS:  # exclusive: only accounts that found it in a daily chest
             if not owns_sticker(get_db(), me_row["id"], sticker):
                 return err("You haven't unlocked that sticker. Open your daily chest to find more.", 403)
         elif economy.STICKERS[sticker] > 0:

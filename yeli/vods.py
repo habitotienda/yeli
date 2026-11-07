@@ -16,6 +16,9 @@ How it works
   * a published video needs a cover; the raw recording can be watched but not downloaded
   * a clip can be changed freely; once published, the streamer may change the cover, title and description ONE time
 
+  * a vertical video (9:16) is published as a SHORT (3 minutes at most) and shows up in the Shorts feed; a square (1:1) or
+    4:5 format is not a video at all: it becomes a picture of the stream in the GALLERY (yeli/gallery.py)
+
 Streams started from OBS over WHIP don't pass through the streamer's browser, so they are not recorded.
 """
 import json
@@ -97,6 +100,9 @@ def vod_json(row, me_row=None):
         "visibility": row["visibility"],
         "is_clip": row["visibility"] == "private",
         "source": row["source"],
+        "aspect": row["aspect"],
+        "kind": row["kind"],
+        "is_short": row["kind"] == "short",
         "live_pct": row["live_pct"],
         # a clip can be changed freely; a published video only once
         "can_edit": bool(mine and row["status"] == "ready" and (row["visibility"] == "private" or not row["edited"])),
@@ -110,7 +116,7 @@ def vod_json(row, me_row=None):
 
 VOD_SELECT = """
 SELECT v.id, v.user_id, v.title, v.description, v.category, v.mime, v.status, v.size, v.duration, v.started_at,
-       v.cover_ver, v.edited, v.visibility, v.source, v.live_pct, (v.cover IS NOT NULL AND LENGTH(v.cover) > 0) AS has_cover,
+       v.cover_ver, v.edited, v.visibility, v.source, v.aspect, v.kind, v.live_pct, (v.cover IS NOT NULL AND LENGTH(v.cover) > 0) AS has_cover,
        (SELECT COUNT(*) FROM vod_likes l WHERE l.vod_id = v.id) AS likes,
        (SELECT COUNT(*) FROM vod_comments c WHERE c.vod_id = v.id) AS comment_count,
        u.username, u.avatar, u.avatar_updated
@@ -214,9 +220,9 @@ def vod_new():
     vid = secrets.token_hex(8)
     t = now()
     db.execute(
-        """INSERT INTO vods (id, user_id, title, category, mime, status, started_at, updated_at, visibility, source, live_pct, project_id)
-           VALUES (?,?,?,'Other',?,'recording',?,?,'private','edit',?,?)""",
-        (vid, me_row["id"], title, mime, t, t, pct, project["id"]),
+        """INSERT INTO vods (id, user_id, title, category, mime, status, started_at, updated_at, visibility, source, live_pct, project_id, aspect)
+           VALUES (?,?,?,'Other',?,'recording',?,?,'private','edit',?,?,?)""",
+        (vid, me_row["id"], title, mime, t, t, pct, project["id"], cleaned["aspect"]),
     )
     db.commit()
     vod_path(db.execute("SELECT id, mime FROM vods WHERE id = ?", (vid,)).fetchone()).touch()
@@ -319,6 +325,29 @@ def channel_videos(username):
         (owner["id"], 1 if see_followers else 0)
     ).fetchall()
     return jsonify(videos=[vod_json(r, me_row) for r in rows if vod_path(r).exists()])
+
+
+@bp.get("/api/shorts")
+def shorts_feed():
+    """The Shorts feed: published vertical videos, newest first. `offset` pages through it; `channel` limits it to one channel."""
+    db = get_db()
+    me_row = current_user()
+    offset = max(0, int_arg("offset", 0))
+    channel = request.args.get("channel", "")[:40]
+    sql = f"{VOD_SELECT} WHERE v.status = 'ready' AND v.kind = 'short' AND v.visibility IN ('public', 'followers')"
+    args = []
+    if channel:
+        sql += " AND u.username = ?"
+        args.append(channel)
+    rows = db.execute(sql + " ORDER BY v.started_at DESC LIMIT 60 OFFSET ?", (*args, offset)).fetchall()
+    out, used = [], 0
+    for r in rows:
+        used += 1
+        if _visible(r, me_row):  # followers-only shorts only reach followers; files that are gone are skipped
+            out.append(vod_json(r, me_row))
+        if len(out) >= 12:
+            break
+    return jsonify(shorts=out, next_offset=offset + used, more=used < len(rows) or len(rows) >= 60)
 
 
 @bp.get("/api/me/videos")
@@ -430,6 +459,28 @@ def vod_edit(vid):
     return jsonify(ok=True, video=vod_json(_get(db, vid), me_row))
 
 
+ASPECTS = ("16:9", "9:16", "1:1", "4:5")
+
+
+def format_problem(row, aspect):
+    """The shape of a video decides where it can be published. Returns (message, field) or None.
+    9:16 is a Short (3 minutes at most). 1:1 and 4:5 are not videos: they are pictures for the gallery."""
+    if aspect in ("1:1", "4:5"):
+        return "Square and 4:5 are published as pictures in your gallery, not as videos.", "format"
+    if aspect == "9:16" and row["duration"] > config.SHORT_MAX_SECONDS:
+        return (f"Vertical videos are published as Shorts, and a Short lasts at most {config.SHORT_MAX_SECONDS // 60} minutes. "
+                f"This one is {row['duration'] // 60}:{row['duration'] % 60:02d}. Trim it in the editor first."), "short"
+    return None
+
+
+def publish_aspect(row, data):
+    """What shape this video has. An edited video: the one the editor exported. A recorded stream: what the browser saw."""
+    if row["source"] == "edit":
+        return row["aspect"]
+    sent = data.get("aspect")
+    return sent if sent in ASPECTS else row["aspect"]
+
+
 def publish_problem(row, new_cover=False):
     """Why this video can't go on the channel yet, or None. Applies to publishing and to any change from private."""
     if row["source"] == "edit" and 0 <= row["live_pct"] < config.EDIT_MIN_LIVE_PCT:
@@ -473,9 +524,14 @@ def vod_publish(vid):
         problem = publish_problem(row, cover is not None)
         if problem:
             return err(problem[0], 400, field=problem[1])
+        aspect = publish_aspect(row, data)
+        problem = format_problem(row, aspect)
+        if problem:
+            return err(problem[0], 400, field=problem[1])
         if cover is not None:
             db.execute("UPDATE vods SET cover = ?, cover_ver = ? WHERE id = ?", (cover, now(), vid))
-        db.execute("UPDATE vods SET visibility = ?, title = ?, description = ?, category = ? WHERE id = ?", (target, title, description, category, vid))
+        db.execute("UPDATE vods SET visibility = ?, title = ?, description = ?, category = ?, aspect = ?, kind = ? WHERE id = ?",
+                   (target, title, description, category, aspect, "short" if aspect == "9:16" else "video", vid))
         db.commit()
     return jsonify(ok=True, video=vod_json(_get(db, vid), me_row))
 
@@ -509,9 +565,10 @@ def vod_visibility(vid):
     if target not in ("private", "followers", "public"):
         return err("Unknown privacy option.")
     if target != "private" and row["visibility"] == "private":  # leaving private follows the same rules as publishing
-        problem = publish_problem(row)
+        problem = publish_problem(row) or format_problem(row, row["aspect"])
         if problem:
             return err(problem[0], 400, field=problem[1])
+        db.execute("UPDATE vods SET kind = ? WHERE id = ?", ("short" if row["aspect"] == "9:16" else "video", vid))
     db.execute("UPDATE vods SET visibility = ? WHERE id = ?", (target, vid))
     db.commit()
     return jsonify(ok=True, video=vod_json(_get(db, vid), me_row))

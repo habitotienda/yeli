@@ -1157,7 +1157,9 @@ async function pageEditor(root, route, alive) {
                 <button type="button" class="ed-chip${c.fit === 'fit' ? ' is-on' : ''}" data-fit="fit">Fit: show everything</button>
                 <button type="button" class="ed-chip${c.fit === 'fill' ? ' is-on' : ''}" data-fit="fill">Fill: crop the edges</button></div></div>`;
         } else if (tool === 'format') {
-            insp.innerHTML = `<div class="ed-panel">${head('Format')}${chips(Object.keys(ED_ASPECTS), P.aspect, 'data-aspect', (k) => ED_ASPECTS[k][2])}<p class="muted ed-note" id="pjLen"></p></div>`;
+            insp.innerHTML = `<div class="ed-panel">${head('Format')}${chips(Object.keys(ED_ASPECTS), P.aspect, 'data-aspect', (k) => ED_ASPECTS[k][2])}<p class="muted ed-note" id="pjLen"></p>
+                <p class="muted ed-note" id="pjFmt">${P.aspect === '9:16' ? 'Vertical videos are published as Shorts: up to 3 minutes.'
+        : P.aspect === '1:1' || P.aspect === '4:5' ? 'Square and 4:5 are published as pictures of your stream in the Gallery, with an optional price.' : 'Wide videos are published as normal videos.'}</p></div>`;
         } else if (tool === 'bg') {
             insp.innerHTML = `<div class="ed-panel">${head('Background')}<p class="ed-lab">What shows around the video when it doesn’t fill the frame</p>
                 <div class="ed-chips">${ED_BGS.map(([k, label]) => `<button type="button" class="ed-chip${P.bg === k ? ' is-on' : ''}" data-bg="${k}">${label}</button>`).join('')}${P.bg === 'color' ? '<input id="bgColor" type="color" aria-label="Background colour" class="ed-colorpick">' : ''}</div></div>`;

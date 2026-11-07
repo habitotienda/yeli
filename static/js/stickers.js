@@ -48,8 +48,11 @@ const CHEST_STICKER_DEFS = [
 ];
 
 const stickerCache = {};
+/* A GIF bought in the gallery is a sticker whose id is "g:<picture id>"; its image is the GIF the server keeps. */
+const isGallerySticker = (id) => typeof id === 'string' && id.startsWith('g:');
 const findSticker = (id) => STICKER_DEFS.find((s) => s.id === id) || CHEST_STICKER_DEFS.find((s) => s.id === id);
 function stickerSrc(id) {
+    if (isGallerySticker(id)) return `/api/gallery/${encodeURIComponent(id.slice(2))}/gif`;
     if (!stickerCache[id]) {
         const def = findSticker(id);
         if (!def) return '';
@@ -58,5 +61,5 @@ function stickerSrc(id) {
     return stickerCache[id];
 }
 
-const stickerName = (id) => (findSticker(id) || { name: id }).name;
+const stickerName = (id) => (isGallerySticker(id) ? 'GIF' : (findSticker(id) || { name: id }).name);
 const stickerCost = (id) => ((state.config.economy && state.config.economy.stickers) || {})[id] || 0;

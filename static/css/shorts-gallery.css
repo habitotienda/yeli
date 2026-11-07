@@ -1,0 +1,305 @@
+/* ==========================================================================
+   Shorts, Gallery and the phone bottom bar
+   ========================================================================== */
+
+/* ---------- Phone bottom bar: Home, Explore, Following, (Go live), Shorts, Gallery ----------
+   "My channel" and "Settings" are not tabs any more. They stay in the account menu (the avatar at the top);
+   people who are not logged in get a gear in the header instead. */
+.header-gear { display: none; }
+
+@media (max-width: 720px) {
+    .sidebar-mychannel,
+    .sidebar-foot { display: none !important; }
+    .auth-actions .header-gear { display: inline-flex; padding: 0 9px; min-width: 38px; }
+}
+
+/* ---------- Small shared pieces ---------- */
+.chip-short {
+    background: rgba(255, 166, 0, 0.16);
+    color: var(--primary-color);
+    font-weight: 700;
+}
+.r-1-1 { aspect-ratio: 1 / 1; }
+.r-4-5 { aspect-ratio: 4 / 5; }
+
+/* ---------- Shorts ---------- */
+body.shorts-open .main-content { padding: 0 !important; }
+
+.shorts-page {
+    display: flex;
+    flex-direction: column;
+    height: calc(100dvh - var(--header-height));
+    min-height: 420px;
+}
+.shorts-chan {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    color: var(--text-muted);
+}
+.shorts-feed {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    scroll-snap-type: y mandatory;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+    outline: none;
+}
+.shorts-feed::-webkit-scrollbar { display: none; }
+
+.short {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 0;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+}
+.short-stage {
+    position: relative;
+    height: 100%;
+    aspect-ratio: 9 / 16;
+    max-width: 100%;
+    overflow: hidden;
+    border-radius: 18px;
+    background: #000;
+    color: #fff;
+    box-shadow: 0 10px 36px rgba(0, 0, 0, 0.45);
+}
+.short-video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #000;
+}
+.short-tap {
+    position: absolute;
+    inset: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+.short-pause {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    translate: -50% -50%;
+    display: grid;
+    place-items: center;
+    width: 76px;
+    height: 76px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.45);
+    color: #fff;
+    opacity: 0;
+    transform: scale(0.8);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    pointer-events: none;
+}
+.short.is-paused .short-pause { opacity: 1; transform: none; }
+
+.short-progress {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.25);
+    pointer-events: none;
+}
+.short-progress i { display: block; width: 0; height: 100%; background: var(--primary-color); }
+
+.short-info {
+    position: absolute;
+    left: 0;
+    right: 64px;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 56px 14px 16px;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.72), transparent);
+    pointer-events: none;
+}
+.short-info a { pointer-events: auto; }
+.short-author {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: fit-content;
+    max-width: 100%;
+    color: #fff;
+    text-decoration: none;
+}
+.short-author strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.short-title { font-size: 16px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+.short-desc {
+    font-size: 13px;
+    line-height: 1.35;
+    color: rgba(255, 255, 255, 0.85);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.short-rail {
+    position: absolute;
+    right: 8px;
+    bottom: 22px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+}
+.short-act {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    min-width: 48px;
+    padding: 8px 4px;
+    border: 0;
+    border-radius: 14px;
+    background: rgba(0, 0, 0, 0.38);
+    color: #fff;
+    font: inherit;
+    text-decoration: none;
+    cursor: pointer;
+    backdrop-filter: blur(6px);
+    -webkit-tap-highlight-color: transparent;
+}
+.short-act:hover { background: rgba(0, 0, 0, 0.55); }
+.short-act.is-on { color: #ff4d6d; }
+.short-count { font-size: 11px; font-weight: 600; }
+
+.skeleton-short .skeleton { width: min(100%, 360px); height: 100%; aspect-ratio: 9 / 16; border-radius: 18px; }
+.shorts-empty { height: 100%; display: grid; place-items: center; padding: 16px; overflow-y: auto; }
+.short-error {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 45%;
+    padding: 0 24px;
+    text-align: center;
+    color: #fff;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
+}
+
+@media (max-width: 720px) {
+    /* the Short fills the space between the header and the bottom bar */
+    .shorts-page { height: calc(100dvh - var(--header-height) - 62px - env(safe-area-inset-bottom, 0px)); min-height: 0; }
+    .short { padding: 0; }
+    .short-stage { width: 100%; aspect-ratio: auto; border-radius: 0; box-shadow: none; }
+}
+
+/* ---------- Gallery ---------- */
+.gal-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+    gap: 18px 14px;
+    align-items: start;
+}
+.gal-tile {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    min-width: 0;
+    transition: transform 0.2s ease;
+}
+.gal-tile:hover,
+.gal-tile:focus-visible { transform: translateY(-3px); }
+.gal-pic {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    border-radius: 14px;
+    border: 1px solid var(--border-color);
+    background: var(--field-bg);
+}
+.gal-pic img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.gal-price {
+    position: absolute;
+    left: 8px;
+    bottom: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.72);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    backdrop-filter: blur(4px);
+}
+.gal-price.is-free { background: rgba(47, 160, 68, 0.92); }
+.gal-owned {
+    position: absolute;
+    right: 8px;
+    top: 8px;
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    color: #121212;
+}
+.gal-meta { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.gal-meta strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
+.gal-meta small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
+.gal-more { display: flex; justify-content: center; margin-top: 22px; }
+
+.gal-view { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+.gal-view-pic {
+    width: min(100%, 340px);
+    overflow: hidden;
+    border-radius: 14px;
+    border: 1px solid var(--border-color);
+    background: var(--field-bg);
+}
+.gal-view-pic img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.gal-view-by a { display: inline-flex; align-items: center; gap: 8px; color: var(--text-color); text-decoration: none; font-weight: 600; }
+.gal-view-price { display: inline-flex; align-items: center; gap: 6px; font-size: 18px; }
+.gal-view .row { width: 100%; justify-content: center; }
+
+/* the moment picker of the publish dialog */
+.gal-pick { display: flex; flex-direction: column; gap: 10px; }
+.gal-pick-pic {
+    width: min(240px, 70%);
+    margin: 0 auto;
+    overflow: hidden;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    background: #111;
+}
+.gal-pick-pic canvas { display: block; width: 100%; height: 100%; }
+.gal-pick input[type="range"] { width: 100%; }
+
+/* ---------- GIFs from the gallery in the chat ---------- */
+.chat-sticker[src^="/api/gallery/"] { object-fit: contain; border-radius: 10px; }
+.sticker-btn img { object-fit: contain; }
+.sticker-tabs button { min-width: 0; padding-left: 4px; padding-right: 4px; }
+
+/* the rail buttons keep their own look (other button rules on the site also match on hover/active states) */
+.short-rail .short-act,
+.short-rail .short-act:hover,
+.short-rail .short-act:active,
+.short-rail .short-act:focus-visible { background: rgba(0, 0, 0, 0.6); color: #fff; box-shadow: none; transform: none; }
+.short-rail .short-act.is-on { color: #ff4d6d; }
+
+.gal-price .coin { width: 14px; height: 14px; }
+.gal-view-price .coin { width: 18px; height: 18px; }

@@ -346,6 +346,34 @@ CREATE TABLE IF NOT EXISTS vods (
 
 CREATE INDEX IF NOT EXISTS idx_vods_user ON vods(user_id, started_at);
 
+CREATE TABLE IF NOT EXISTS gallery_items (
+    id          TEXT PRIMARY KEY,
+    user_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    vod_id      TEXT NOT NULL DEFAULT '',
+    title       TEXT NOT NULL DEFAULT '',
+    aspect      TEXT NOT NULL DEFAULT '1:1',
+    price       BIGINT NOT NULL DEFAULT 0,
+    image       BYTEA NOT NULL,
+    gif         BYTEA,
+    sales       BIGINT NOT NULL DEFAULT 0,
+    removed     BIGINT NOT NULL DEFAULT 0,
+    created_at  BIGINT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_gallery_user ON gallery_items(user_id, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_gallery_new ON gallery_items(removed, created_at);
+
+CREATE TABLE IF NOT EXISTS gallery_owned (
+    item_id    TEXT NOT NULL REFERENCES gallery_items(id) ON DELETE CASCADE,
+    user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    paid       BIGINT NOT NULL DEFAULT 0,
+    created_at BIGINT NOT NULL,
+    PRIMARY KEY (item_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_gallery_owned_user ON gallery_owned(user_id, created_at);
+
 CREATE TABLE IF NOT EXISTS edit_projects (
     id         TEXT PRIMARY KEY,
     user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -480,6 +508,10 @@ ALTER TABLE vods ADD COLUMN IF NOT EXISTS live_pct BIGINT NOT NULL DEFAULT -1;
 
 ALTER TABLE vods ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT '';
 
+ALTER TABLE vods ADD COLUMN IF NOT EXISTS aspect TEXT NOT NULL DEFAULT '16:9';
+
+ALTER TABLE vods ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'video';
+
 ALTER TABLE vod_comments ADD COLUMN IF NOT EXISTS parent_id BIGINT REFERENCES vod_comments(id) ON DELETE CASCADE;
 
 ALTER TABLE vod_comments ADD COLUMN IF NOT EXISTS reply_to BIGINT REFERENCES users(id) ON DELETE SET NULL;
@@ -553,6 +585,10 @@ ALTER TABLE events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE alert_rules ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE vods ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE gallery_items ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE gallery_owned ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE edit_projects ENABLE ROW LEVEL SECURITY;
 

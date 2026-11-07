@@ -29,6 +29,7 @@ def csp():
 
 
 VOD_CHUNK_PATH = re.compile(r"^/api/vod/[a-f0-9]{16}/chunk$")
+GALLERY_GIF_PATH = re.compile(r"^/api/gallery/[a-f0-9]{16}/gif$")
 
 
 def install(app):
@@ -41,6 +42,11 @@ def install(app):
                 if request.mimetype != "application/octet-stream":
                     return err("Expected a binary upload.", 415)
                 request.max_content_length = config.VOD_CHUNK_MAX
+            elif GALLERY_GIF_PATH.match(request.path):
+                # The GIF of a gallery picture: small, but bigger than a normal JSON request.
+                if request.mimetype != "application/octet-stream":
+                    return err("Expected a binary upload.", 415)
+                request.max_content_length = config.GALLERY_GIF_MAX + 1024
             elif request.mimetype != "application/json":
                 return err("Expected a JSON request.", 415)
 

@@ -22,6 +22,9 @@ const USERS_PATH = '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 
 const CHECK_PATH = '<path d="M5 12.5l4.5 4.5L19 7.5"/>';
 const TRASH_PATH = '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-12M9 7V4h6v3"/>';
 
+const SHORT_MAX = 180; // seconds: a Short lasts at most 3 minutes (the server enforces it: config.SHORT_MAX_SECONDS)
+const shortMinutes = () => SHORT_MAX / 60;
+
 const countText = (n) => Number(n || 0).toLocaleString(window.YELI_LANG);
 
 /** "3 minutes ago", in the language of the page */
@@ -47,7 +50,7 @@ function videoCard(v) {
                 <h3 class="stream-title">${esc(v.title)}</h3>
                 <p class="stream-channel">${esc(vodDate(v.started_at))}</p>
                 ${v.is_clip ? '' : `<p class="vod-stats" aria-hidden="true"><span>${IC(HEART_PATH)}${countText(v.likes)}</span><span>${IC(COMMENT_PATH)}${countText(v.comment_count)}</span></p>`}
-                <p class="stream-cat">${v.is_clip ? `<span class="chip-static chip-clip">${IC(LOCK_PATH, 'none', 12)} Private clip</span>` : `<span class="chip-static">${esc(v.category)}</span>${v.visibility === 'followers' ? ` <span class="chip-static chip-clip">${IC(USERS_PATH, 'none', 12)} Followers only</span>` : ''}`}${v.source === 'edit' ? ' <span class="chip-static chip-edit">Edited</span>' : ''}</p>
+                <p class="stream-cat">${v.is_clip ? `<span class="chip-static chip-clip">${IC(LOCK_PATH, 'none', 12)} Private clip</span>` : `${v.is_short ? '<span class="chip-static chip-short">Short</span> ' : ''}<span class="chip-static">${esc(v.category)}</span>${v.visibility === 'followers' ? ` <span class="chip-static chip-clip">${IC(USERS_PATH, 'none', 12)} Followers only</span>` : ''}`}${v.source === 'edit' ? ' <span class="chip-static chip-edit">Edited</span>' : ''}</p>
             </div>
         </div>
     </a>`;
@@ -598,43 +601,76 @@ function openVideoEdit(v, done) {
     });
 }
 
-/** Publishing a clip: the cover (a picture you upload, or a frame of the video), the title and the description people will see,
- *  the category, and who can watch it. A cover is required; an edited video also needs enough live footage (the server checks). */
+/** Publishing a clip. The FORMAT decides what it becomes:
+ *    - wide video          -> a normal video on the channel
+ *    - vertical (9:16)     -> a Short (3 minutes at most), shown in the Shorts feed
+ *    - square 1:1 or 4:5   -> not a video: a picture of the stream for the Gallery, with an optional price in Yelis. The buyer gets
+ *                             it as a GIF for the chat. The clip itself stays private.
+ *  A video needs a cover; an edited video also needs enough live footage (the server checks). */
 function openPublishDialog(v, done, visibility = 'public') {
     let coverUrl = null; // a new cover waiting to be saved
+    let detected = v.source === 'edit' ? v.aspect : '16:9'; // what the video is; recorded streams are measured once the video loads
+    let fmt = 'video';                                      // 'video' (a Short when vertical), '1:1' or '4:5'
+    let momentT = 0;                                        // the moment of the stream a gallery picture is made from
     const cats = ((state.config && state.config.categories) || []).filter((c) => typeof c === 'string');
     const live = v.source === 'edit' && v.live_pct >= 0 ? `<div class="notice" role="note">${v.live_pct}% of this edit is footage from your live streams.</div>` : '';
     const dlg = dialogShell('Publish this clip', `
         <form id="pubForm" class="props-form" novalidate>
             ${live}
-            <div class="field"><label>Cover <small class="muted">(required)</small></label>
-                <div class="vod-cover-edit">
-                    <div class="vod-cover-box" id="pbCoverBox">${v.cover ? `<img src="${vodCoverSrc(v)}" alt="">` : '<span class="muted">No cover yet</span>'}</div>
-                    <div class="vod-cover-btns">
-                        <label class="btn btn-secondary file-btn">Upload a picture<input type="file" id="pbCover" accept="image/*" hidden></label>
-                        <button type="button" class="btn btn-secondary" id="pbFrame">Pick a frame of the video</button>
-                    </div>
+            <div class="field"><label>Format</label>
+                <div class="vod-vis" id="pbFormats">
+                    <label class="vod-vis-opt"><input type="radio" name="pbFmt" value="video"><span><strong id="pbFmtVideo">Video</strong><small id="pbFmtVideoSub">Wide video on your channel.</small></span></label>
+                    <label class="vod-vis-opt"><input type="radio" name="pbFmt" value="1:1"><span><strong>Square (1:1)</strong><small>A picture of the stream for your Gallery.</small></span></label>
+                    <label class="vod-vis-opt"><input type="radio" name="pbFmt" value="4:5"><span><strong>Portrait (4:5)</strong><small>A picture of the stream for your Gallery.</small></span></label>
                 </div>
-                <div class="vod-frame" id="pbFramePanel" hidden>
-                    <video id="pbFrameVideo" muted playsinline preload="auto" controlslist="nodownload" disablepictureinpicture></video>
-                    <input type="range" id="pbFrameRange" min="0" max="1000" value="0" aria-label="Frame of the video">
-                    <div class="row"><button type="button" class="btn btn-secondary" id="pbFrameNo">Cancel</button><button type="button" class="btn btn-primary" id="pbFrameYes">Use this frame</button></div>
+                <div class="notice" role="note" id="pbFmtNote" hidden></div>
+            </div>
+            <div data-mode="video">
+                <div class="field"><label>Cover <small class="muted">(required)</small></label>
+                    <div class="vod-cover-edit">
+                        <div class="vod-cover-box" id="pbCoverBox">${v.cover ? `<img src="${vodCoverSrc(v)}" alt="">` : '<span class="muted">No cover yet</span>'}</div>
+                        <div class="vod-cover-btns">
+                            <label class="btn btn-secondary file-btn">Upload a picture<input type="file" id="pbCover" accept="image/*" hidden></label>
+                            <button type="button" class="btn btn-secondary" id="pbFrame">Pick a frame of the video</button>
+                        </div>
+                    </div>
+                    <div class="vod-frame" id="pbFramePanel" hidden>
+                        <video id="pbFrameVideo" muted playsinline preload="metadata" controlslist="nodownload" disablepictureinpicture></video>
+                        <input type="range" id="pbFrameRange" min="0" max="1000" value="0" aria-label="Frame of the video">
+                        <div class="row"><button type="button" class="btn btn-secondary" id="pbFrameNo">Cancel</button><button type="button" class="btn btn-primary" id="pbFrameYes">Use this frame</button></div>
+                    </div>
                 </div>
             </div>
             <div class="field"><label for="pbTitle">Title</label><input id="pbTitle" maxlength="80" autocomplete="off" required></div>
-            <div class="field"><label for="pbDesc">Description</label><textarea id="pbDesc" rows="3" maxlength="500" placeholder="Tell people what this video is about"></textarea></div>
-            ${cats.length ? '<div class="field"><label for="pbCat">Category</label><select id="pbCat"></select></div>' : ''}
-            <div class="field"><label>Who can watch</label>
-                <div class="vod-vis">
-                    <label class="vod-vis-opt"><input type="radio" name="pbVis" value="public"><span><strong>Public</strong><small>Anyone can watch it on your channel, like it and comment.</small></span></label>
-                    <label class="vod-vis-opt"><input type="radio" name="pbVis" value="followers"><span><strong>Followers only</strong><small>Only people who follow you.</small></span></label>
+            <div data-mode="video">
+                <div class="field"><label for="pbDesc">Description</label><textarea id="pbDesc" rows="3" maxlength="500" placeholder="Tell people what this video is about"></textarea></div>
+                ${cats.length ? '<div class="field"><label for="pbCat">Category</label><select id="pbCat"></select></div>' : ''}
+                <div class="field"><label>Who can watch</label>
+                    <div class="vod-vis">
+                        <label class="vod-vis-opt"><input type="radio" name="pbVis" value="public"><span><strong>Public</strong><small>Anyone can watch it on your channel, like it and comment.</small></span></label>
+                        <label class="vod-vis-opt"><input type="radio" name="pbVis" value="followers"><span><strong>Followers only</strong><small>Only people who follow you.</small></span></label>
+                    </div>
+                    <small class="muted">You can change who sees it, or make it private again, later.</small>
                 </div>
-                <small class="muted">You can change who sees it, or make it private again, later.</small>
+            </div>
+            <div data-mode="gallery" hidden>
+                <div class="field"><label>Pick the moment</label>
+                    <div class="gal-pick">
+                        <div class="gal-pick-pic r-1-1" id="gmFrame"><canvas id="gmPreview" width="240" height="240"></canvas></div>
+                        <input type="range" id="gmRange" min="0" max="1000" value="0" aria-label="Moment of the stream">
+                        <small class="muted">The picture is cut from the middle of the video. The GIF that buyers get is the second and a half that starts here.</small>
+                    </div>
+                    <video id="gmVideo" muted playsinline preload="metadata" hidden controlslist="nodownload" disablepictureinpicture></video>
+                </div>
+                <div class="field"><label for="gmPrice">Price in Yelis <small class="muted">(optional)</small></label>
+                    <input id="gmPrice" type="number" inputmode="numeric" min="0" max="10000" step="1" placeholder="120" autocomplete="off">
+                    <small class="muted">Leave it empty or 0 for free. Otherwise from 10 to 10,000 Yelis. You are paid like a donation.</small></div>
             </div>
             <p class="form-error" id="pbErr" role="alert" hidden></p>
             <button type="submit" class="btn btn-primary btn-block" id="pbGo">Publish</button>
         </form>`);
     const title = $('#pbTitle', dlg), desc = $('#pbDesc', dlg), err = $('#pbErr', dlg), box = $('#pbCoverBox', dlg);
+    const go = $('#pbGo', dlg), note = $('#pbFmtNote', dlg);
     title.value = v.title;
     desc.value = v.description || '';
     const cat = $('#pbCat', dlg);
@@ -645,6 +681,62 @@ function openPublishDialog(v, done, visibility = 'public') {
     $(`input[name="pbVis"][value="${visibility === 'followers' ? 'followers' : 'public'}"]`, dlg).checked = true;
     const showError = (m) => { err.textContent = m; err.hidden = false; };
     const setCover = (url) => { coverUrl = url; box.innerHTML = `<img src="${url}" alt="">`; err.hidden = true; };
+    const mmss = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+
+    // ---- the format
+    const isShort = () => fmt === 'video' && detected === '9:16';
+    function paintFormat() {
+        const gallery = fmt !== 'video';
+        dlg.querySelectorAll('[data-mode="video"]').forEach((el) => { el.hidden = gallery; });
+        dlg.querySelectorAll('[data-mode="gallery"]').forEach((el) => { el.hidden = !gallery; });
+        $('#pbFmtVideo', dlg).textContent = detected === '9:16' ? 'Short (vertical)' : 'Video';
+        $('#pbFmtVideoSub', dlg).textContent = detected === '9:16' ? `Shown in the Shorts feed. Up to ${shortMinutes()} minutes.` : 'Wide video on your channel.';
+        go.textContent = gallery ? 'Add to gallery' : isShort() ? 'Publish Short' : 'Publish';
+        note.hidden = false;
+        if (gallery) {
+            note.textContent = 'This puts a picture of your stream in the Gallery, not the video. Your clip stays private.';
+            const frame = $('#gmFrame', dlg);
+            frame.className = `gal-pick-pic r-${fmt.replace(':', '-')}`;
+            const gm = $('#gmVideo', dlg);
+            if (!gm.src) gm.src = `/api/vod/${encodeURIComponent(v.id)}/video`;
+            drawMoment();
+        } else if (isShort()) {
+            note.textContent = v.duration > SHORT_MAX
+                ? `Shorts last at most ${shortMinutes()} minutes and this video is ${mmss(v.duration)}. Trim it in the video editor before publishing.`
+                : 'A vertical video is published as a Short. It plays in the Shorts feed and on your channel.';
+        } else {
+            note.hidden = true;
+        }
+        err.hidden = true;
+    }
+    function drawMoment() {
+        const gm = $('#gmVideo', dlg), cv = $('#gmPreview', dlg);
+        if (!gm.videoWidth || fmt === 'video') return;
+        const [W, H] = fmt === '1:1' ? [240, 240] : [216, 270];
+        cv.width = W; cv.height = H;
+        try { drawCropped(cv.getContext('2d'), gm, fmt, W, H); } catch { /* not ready yet */ }
+    }
+    const setFormat = (f) => { fmt = f; $(`input[name="pbFmt"][value="${f}"]`, dlg).checked = true; paintFormat(); };
+    $('#pbFormats', dlg).addEventListener('change', (e) => { if (e.target.name === 'pbFmt') setFormat(e.target.value); });
+    setFormat(detected === '1:1' || detected === '4:5' ? detected : 'video'); // an edit made square or 4:5 is a picture from the start
+
+    // a recorded stream is measured once: a tall video is vertical
+    const fv = $('#pbFrameVideo', dlg);
+    if (v.source !== 'edit') {
+        fv.addEventListener('loadedmetadata', () => {
+            if (fv.videoHeight > fv.videoWidth * 1.05 && detected !== '9:16') { detected = '9:16'; paintFormat(); }
+        }, { once: true });
+        fv.src = `/api/vod/${encodeURIComponent(v.id)}/video`;
+    }
+
+    // ---- the moment of a gallery picture
+    const gm = $('#gmVideo', dlg), gmRange = $('#gmRange', dlg);
+    gm.addEventListener('loadeddata', drawMoment);
+    gm.addEventListener('seeked', drawMoment);
+    gmRange.addEventListener('input', () => {
+        momentT = (gmRange.value / 1000) * Math.max(0, v.duration - 1.7);
+        try { gm.currentTime = momentT; } catch { /* not ready yet */ }
+    });
 
     $('#pbCover', dlg).addEventListener('change', async (e) => {
         const file = e.target.files[0];
@@ -654,9 +746,10 @@ function openPublishDialog(v, done, visibility = 'public') {
     });
 
     // a frame of the video: the same player the site uses, moved with a slider, copied to a picture
-    const panel = $('#pbFramePanel', dlg), fv = $('#pbFrameVideo', dlg), range = $('#pbFrameRange', dlg);
+    const panel = $('#pbFramePanel', dlg), range = $('#pbFrameRange', dlg);
     $('#pbFrame', dlg).addEventListener('click', () => {
         panel.hidden = false;
+        fv.preload = 'auto';
         if (!fv.src) fv.src = `/api/vod/${encodeURIComponent(v.id)}/video`;
     });
     $('#pbFrameNo', dlg).addEventListener('click', () => { panel.hidden = true; fv.pause(); });
@@ -677,27 +770,67 @@ function openPublishDialog(v, done, visibility = 'public') {
             showError('Couldn’t use that frame. Try another one.');
         } catch { showError('This browser couldn’t take a picture from the video. Upload a picture instead.'); }
     });
-    dlg.addEventListener('close', () => { fv.pause(); fv.removeAttribute('src'); fv.load(); });
+    dlg.addEventListener('close', () => {
+        for (const el of [fv, gm]) { el.pause(); el.removeAttribute('src'); el.load(); }
+    });
+
+    /** Gallery: make the picture and its GIF in the browser, create the item, then send the GIF. */
+    async function publishPicture() {
+        const raw = $('#gmPrice', dlg).value.trim();
+        const price = raw === '' ? 0 : Number(raw);
+        if (!Number.isInteger(price) || (price !== 0 && (price < 10 || price > 10000))) { showError('The price is 0 (free) or between 10 and 10,000 Yelis.'); return false; }
+        if (!gm.videoWidth) { showError('The video is still loading. Try again in a moment.'); return false; }
+        go.textContent = 'Making the picture\u2026';
+        await seekVideo(gm, momentT);
+        const image = momentImage(gm, fmt);
+        const gif = await momentGif(gm, fmt, momentT, (p) => { go.textContent = `Making the GIF\u2026 ${Math.round(p * 100)}%`; });
+        go.textContent = 'Saving\u2026';
+        const made = await api('/gallery', { method: 'POST', body: { vod_id: v.id, aspect: fmt, title: title.value, price, image } });
+        let res, data = {};
+        try {
+            res = await fetch(`/api/gallery/${made.id}/gif`, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: gif, credentials: 'same-origin' });
+            try { data = await res.json(); } catch { /* empty body */ }
+        } catch { res = { ok: false }; }
+        if (!res.ok) {
+            api(`/gallery/${made.id}/delete`, { method: 'POST' }).catch(() => {}); // don't leave a half-made picture behind
+            throw new Error(data.error || 'Couldn\u2019t save the GIF. Check your connection and try again.');
+        }
+        return true;
+    }
 
     $('#pubForm', dlg).addEventListener('submit', async (ev) => {
         ev.preventDefault();
         err.hidden = true;
+        if (fmt !== 'video') {
+            go.disabled = true;
+            try {
+                if (await publishPicture()) {
+                    dlg.close();
+                    toast('Added to your gallery.');
+                    done(v);
+                    location.hash = '#/gallery?tab=mine';
+                }
+            } catch (e2) { showError(e2.message); }
+            go.disabled = false;
+            paintFormat();
+            return;
+        }
+        if (isShort() && v.duration > SHORT_MAX) { showError(`Shorts last at most ${shortMinutes()} minutes. Trim this video in the editor first.`); return; }
         if (!v.cover && !coverUrl) { showError('Add a cover first: upload a picture or pick a frame of the video.'); return; }
-        const btn = $('#pbGo', dlg);
-        btn.disabled = true;
+        go.disabled = true;
         const target = $('input[name="pbVis"]:checked', dlg).value;
         try {
-            const body = { title: title.value, description: desc.value, visibility: target };
+            const body = { title: title.value, description: desc.value, visibility: target, aspect: detected };
             if (cat) body.category = cat.value;
             if (coverUrl) body.cover = coverUrl;
             const r = await api(`/vod/${encodeURIComponent(v.id)}/publish`, { method: 'POST', body });
             dlg.close();
-            toast(target === 'followers' ? 'Published for your followers.' : 'Published on your channel.');
+            toast(r.video.is_short ? 'Published as a Short.' : target === 'followers' ? 'Published for your followers.' : 'Published on your channel.');
             done(r.video);
         } catch (e2) {
             showError(e2.message);
-            btn.disabled = false;
         }
+        go.disabled = false;
     });
 }
 

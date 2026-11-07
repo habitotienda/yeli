@@ -266,8 +266,8 @@ const SH_BRAND = (key, size) => {
  * Open the share dialog for the current page.
  * opts: { title: what the page is called (a channel or video name), text: the message sent with the link }
  */
-function openShareDialog({ title, text }) {
-    const url = location.href;
+function openShareDialog({ title, text, url: link }) {
+    const url = link || location.href; // a page can share a link to one thing inside it (a Short)
     const msg = text || title;
     const enc = encodeURIComponent;
     const apps = [

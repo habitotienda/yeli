@@ -371,17 +371,20 @@ function createChat(container, channel, { isOwner = false, canMod = isOwner, onV
 
         function paintPop() {
             const found = (state.chestStickers || []);
-            const list = tab === 'chest' ? CHEST_STICKER_DEFS.filter((s) => found.includes(s.id))
+            const gifs = (state.myGifs || []).map((g) => ({ id: `g:${g.id}`, name: g.title }));   // GIFs bought in the gallery
+            const list = tab === 'gifs' ? gifs : tab === 'chest' ? CHEST_STICKER_DEFS.filter((s) => found.includes(s.id))
                 : STICKER_DEFS.filter((s) => (tab === 'free') === (stickerCost(s.id) === 0));
             pop.innerHTML = `
                 <div class="sticker-tabs" role="tablist">
                     <button type="button" role="tab" aria-selected="${tab === 'free'}" data-tab="free">Free</button>
                     <button type="button" role="tab" aria-selected="${tab === 'premium'}" data-tab="premium">Premium</button>
                     <button type="button" role="tab" aria-selected="${tab === 'chest'}" data-tab="chest">Chest</button>
+                    <button type="button" role="tab" aria-selected="${tab === 'gifs'}" data-tab="gifs">GIFs</button>
                 </div>
                 ${pending ? `<div class="sticker-confirm"><img src="${stickerSrc(pending)}" alt="" width="56" height="56">
                     <p>Send <strong>${esc(stickerName(pending))}</strong> for ${coinImg(14)} <strong>${num(stickerCost(pending))}</strong> Yelis?<br><small>You have ${num(state.me.balance)}.</small></p>
                     <div class="row"><button type="button" class="btn btn-primary" data-send>Send</button><button type="button" class="btn btn-secondary" data-cancel>Cancel</button></div></div>`
+                : tab === 'gifs' && !list.length ? `<p class="sticker-empty">${state.me ? 'Buy a picture in the gallery and you get it here as a GIF to send in chat.' : 'Log in to use your GIFs.'} <a href="#/gallery">Gallery</a></p>`
                 : tab === 'chest' && !list.length ? '<p class="sticker-empty">Watch live streams for an hour to open your daily chest and find exclusive stickers. <a href="#/chest">Daily chest</a></p>'
                 : `<div class="sticker-grid">${list.map((s) => `<button type="button" class="sticker-btn" data-sticker="${s.id}" aria-label="${esc(s.name)}${stickerCost(s.id) ? `, ${stickerCost(s.id)} Yelis` : ''}">
                         <img src="${stickerSrc(s.id)}" alt="" width="48" height="48">${stickerCost(s.id) ? `<span class="sticker-cost">${coinImg(11)}${stickerCost(s.id)}</span>` : ''}</button>`).join('')}</div>`}`;
@@ -390,6 +393,7 @@ function createChat(container, channel, { isOwner = false, canMod = isOwner, onV
         toggle.addEventListener('click', () => {
             if (pop.hidden) {
                 paintPop(); pop.hidden = false; toggle.setAttribute('aria-expanded', 'true');
+                if (state.me) api('/gallery?scope=owned').then((g) => { state.myGifs = g.items; if (!pop.hidden && tab === 'gifs' && !pending) paintPop(); }).catch(() => {});
                 if (state.me) api('/chest').then((c) => { state.chestStickers = c.collection.stickers; if (!pop.hidden && tab === 'chest' && !pending) paintPop(); }).catch(() => {});
             } else closePop();
         });

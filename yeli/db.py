@@ -346,6 +346,34 @@ CREATE TABLE IF NOT EXISTS vods (
 );
 CREATE INDEX IF NOT EXISTS idx_vods_user ON vods(user_id, started_at);
 
+-- Gallery: pictures taken from a stream when it is published as square (1:1) or portrait (4:5). A picture can have a price
+-- in Yelis; whoever buys it keeps it as a GIF (the `gif` column) that they can send in any chat.
+CREATE TABLE IF NOT EXISTS gallery_items (
+    id          TEXT PRIMARY KEY,
+    user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    vod_id      TEXT NOT NULL DEFAULT '',
+    title       TEXT NOT NULL DEFAULT '',
+    aspect      TEXT NOT NULL DEFAULT '1:1',
+    price       INTEGER NOT NULL DEFAULT 0,
+    image       BLOB NOT NULL,
+    gif         BLOB,
+    sales       INTEGER NOT NULL DEFAULT 0,
+    removed     INTEGER NOT NULL DEFAULT 0,
+    created_at  INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_gallery_user ON gallery_items(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_gallery_new ON gallery_items(removed, created_at);
+
+-- Who owns which gallery picture (the author owns their own). Owners can send its GIF in chat.
+CREATE TABLE IF NOT EXISTS gallery_owned (
+    item_id    TEXT NOT NULL REFERENCES gallery_items(id) ON DELETE CASCADE,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    paid       INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY (item_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_gallery_owned_user ON gallery_owned(user_id, created_at);
+
 -- Video editor projects (drafts): the list of cuts, not the video. They live here so you can continue on another device.
 CREATE TABLE IF NOT EXISTS edit_projects (
     id         TEXT PRIMARY KEY,
@@ -446,7 +474,9 @@ MIGRATIONS = {
                           ("platform", "TEXT NOT NULL DEFAULT ''"), ("ext_name", "TEXT NOT NULL DEFAULT ''")],
         "vods": [("visibility", "TEXT NOT NULL DEFAULT 'public'"), ("source", "TEXT NOT NULL DEFAULT 'live'"),
                  # share of live footage in an edit (-1: an older export that was never measured); the project it came from
-                 ("live_pct", "INTEGER NOT NULL DEFAULT -1"), ("project_id", "TEXT NOT NULL DEFAULT ''")],
+                 ("live_pct", "INTEGER NOT NULL DEFAULT -1"), ("project_id", "TEXT NOT NULL DEFAULT ''"),
+                 # shape of the picture ('16:9', '9:16', '1:1', '4:5') and what it was published as ('video' or 'short')
+                 ("aspect", "TEXT NOT NULL DEFAULT '16:9'"), ("kind", "TEXT NOT NULL DEFAULT 'video'")],
         "vod_comments": [("parent_id", "INTEGER REFERENCES vod_comments(id) ON DELETE CASCADE"),
                          ("reply_to", "INTEGER REFERENCES users(id) ON DELETE SET NULL")],
         "viewers": [("viewer_key", "TEXT NOT NULL DEFAULT ''"), ("user_id", "INTEGER"), ("superseded", "INTEGER NOT NULL DEFAULT 0"), ("ip", "TEXT NOT NULL DEFAULT ''")],

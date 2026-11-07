@@ -90,6 +90,10 @@ VOD_STALE_SECONDS = 120  # a recording that stops sending data this long is clos
 VOD_TITLE_MAX = 80
 VOD_DESC_MAX = 500
 VOD_COMMENT_MAX = 300
+SHORT_MAX_SECONDS = 180  # a vertical (9:16) video is published as a Short, and a Short lasts at most 3 minutes
+GALLERY_MAX_PER_USER = int(os.environ.get("YELI_GALLERY_MAX_PER_USER", "100"))  # images in one channel's gallery
+GALLERY_GIF_MAX = 600 * 1024  # the animated GIF that goes to the chat when someone buys an image
+GALLERY_PRICE_MAX = 10000
 # Edited videos must be mostly made of footage from the streamer's own live streams.
 EDIT_MIN_LIVE_PCT = int(os.environ.get("YELI_EDIT_MIN_LIVE_PCT", "70"))
 EDIT_MAX_PROJECTS = int(os.environ.get("YELI_EDIT_MAX_PROJECTS", "20"))  # saved editor projects (drafts) per channel

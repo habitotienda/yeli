@@ -122,7 +122,7 @@ function setActiveNav(path) {
 }
 
 /* The order of the main sections decides which way a page bounces in: forward comes from the right, back from the left. */
-const SECTION_RANK = [['/', 0], ['/explore', 1], ['/following', 2], ['/search', 3], ['/c/', 4], ['/video/', 4], ['/studio', 5], ['/clips', 5], ['/editor', 5], ['/wallet', 6], ['/chest', 6], ['/bot', 7], ['/moderation', 7], ['/settings', 8], ['/admin', 9]];
+const SECTION_RANK = [['/', 0], ['/explore', 1], ['/following', 2], ['/shorts', 2.4], ['/gallery', 2.7], ['/search', 3], ['/c/', 4], ['/video/', 4], ['/studio', 5], ['/clips', 5], ['/editor', 5], ['/wallet', 6], ['/chest', 6], ['/bot', 7], ['/moderation', 7], ['/settings', 8], ['/admin', 9]];
 const rankOf = (path) => (SECTION_RANK.find(([p]) => (p.endsWith('/') && p.length > 1 ? path.startsWith(p) : path === p)) || [0, 3.5])[1];
 let lastRank = 0;
 let enterTimer = null;
@@ -162,6 +162,8 @@ async function route(focus = false) {
         else if (path === '/explore') await pageExplore(root, params, alive);
         else if (path === '/following') await pageFollowing(root, alive);
         else if (path === '/search') await pageSearch(root, params, alive);
+        else if (path === '/shorts') await pageShorts(root, params, alive);
+        else if (path === '/gallery') await pageGallery(root, params, alive);
         else if (path === '/studio') pageStudio(root);
         else if (path === '/settings') await pageSettings(root, alive, params);
         else if (path === '/wallet') await pageWallet(root, alive, params);
@@ -808,7 +810,9 @@ const MI = {
 function renderAuth() {
     const box = $('#authActions');
     if (!state.me) {
+        // On phones Settings is no longer in the bottom bar; people who aren't logged in (no account menu) get a gear here.
         box.innerHTML = `
+            <button type="button" class="btn btn-secondary btn-icon header-gear" data-prefs-open aria-haspopup="dialog" aria-label="Settings" title="Settings"><img src="static/svg/settings.svg" alt="" width="18" height="18"></button>
             <button type="button" class="btn btn-secondary" data-auth="login">Log In</button>
             <button type="button" class="btn btn-primary" data-auth="signup">Sign Up</button>`;
         return;
@@ -890,7 +894,7 @@ function renderSidebar() {
                 <img src="static/svg/broadcast.svg" alt="" aria-hidden="true">
                 <span class="item-text">Go live</span>
             </a>
-            <a href="${channelHref(state.me.username)}" class="sidebar-circle-wrapper" aria-label="My channel">
+            <a href="${channelHref(state.me.username)}" class="sidebar-circle-wrapper sidebar-mychannel" aria-label="My channel">
                 <span class="sidebar-circle">${avatar(state.me)}</span>
                 <span class="item-text">My channel</span>
             </a>`;
